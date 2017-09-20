@@ -25,7 +25,7 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String)
+    name = Column(String, unique=True)
     email = Column(String)
     password_hash = Column(String)
     joined_date = Column(DateTime)
