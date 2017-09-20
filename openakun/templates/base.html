@@ -9,13 +9,13 @@
         {% endblock %}
     </head>
     <body>
-        <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #eee">
+        <nav class="navbar navbar-expand-lg navbar-light justify-content-between" style="background-color: #eee">
             <a class="navbar-brand" href="{{ url_for('main') }}">openakun</a>
             <div class="navbar-nav">
                 {% if user.is_anonymous %}
                     <a class="nav-item nav-link" href="{{ url_for('login') }}">Log in</a>
                 {% else %}
-                    <span class="navbar-text">Welcome, {{ user.name }}</span>
+                    <span class="navbar-text mr-lg-3">Welcome, {{ user.name }}</span>
                     <a class="nav-item nav-link" href="{{ url_for('logout') }}">Log out</a>
                 {% endif %}
             </div>
