@@ -20,6 +20,7 @@ Base = declarative_base(metadata=MetaData(naming_convention=naming))
 engine = create_engine("postgresql://devel@localhost/openakun")  # temporary
 Session = sessionmaker(bind=engine)
 
+# This satisfies the requirements of flask_login for a User class.
 class User(Base):
     __tablename__ = 'users'
 
@@ -31,6 +32,21 @@ class User(Base):
 
     def __repr__(self):
         return "<User '{}' (id {})>".format(self.name, self.id)
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
 
 class Story(Base):
     __tablename__ = 'stories'
