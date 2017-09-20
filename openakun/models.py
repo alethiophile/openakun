@@ -33,6 +33,7 @@ class User(Base):
     def __repr__(self):
         return "<User '{}' (id {})>".format(self.name, self.id)
 
+    # Methods for flask_login
     @property
     def is_authenticated(self):
         return True

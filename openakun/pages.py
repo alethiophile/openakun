@@ -2,7 +2,7 @@
 
 from . import models
 
-from flask import Flask, render_template, request, redirect, url_for, g
+from flask import Flask, render_template, request, redirect, url_for, g, flash
 from flask_login import LoginManager, login_user, current_user, logout_user
 
 login_mgr = LoginManager()
@@ -35,9 +35,10 @@ def login():
             login_user(user)
             return redirect(url_for('main'))
         else:
+            flash("Login failed")
             return redirect(url_for('login'))
     else:
-        return render_template("login.html")
+        return render_template("login.html", user=current_user)
 
 @app.route('/logout')
 def logout():
