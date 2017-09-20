@@ -7,6 +7,8 @@ from flask_login import LoginManager, login_user, current_user, logout_user
 
 from passlib.context import CryptContext
 
+import datetime
+
 pwd_context = CryptContext(
     schemes=['pbkdf2_sha256'],
     deprecated='auto',
@@ -53,3 +55,28 @@ def logout():
     if not current_user.is_anonymous:
         logout_user()
     return redirect(url_for('main'))
+
+@app.route('/signup', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        s = db_connect()
+        if request.form['pass1'] != request.form['pass2']:
+            flash("Passwords did not match")
+            return redirect(url_for('register'))
+        tu = (s.query(models.User).
+              filter(models.User.name == request.form['user']).one_or_none())
+        if tu is not None:
+            flash("Username not available")
+            return redirect(url_for('register'))
+        u = models.User(
+            name=request.form['user'],
+            email=request.form['email'],
+            password_hash=pwd_context.hash(request.form['pass1']),
+            joined_date=datetime.datetime.now()
+        )
+        s.add(u)
+        s.commit()
+        flash("Registration successful. Now log in.")
+        return redirect(url_for('login'))
+    else:
+        return render_template("signup.html", user=current_user)
