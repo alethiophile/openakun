@@ -10,4 +10,5 @@ setup(
     packages=['openakun'],
     install_requires=['Flask', 'passlib', 'fastpbkdf2', 'alembic',
                       'SQLAlchemy', 'psycopg2', 'flask-login'],
+    python_requires='~=3.6',
 )
