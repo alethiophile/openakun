@@ -2,7 +2,8 @@
 # despite not a script...
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, MetaData
+from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
+                        MetaData, Boolean)
 from sqlalchemy import create_engine
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -55,7 +56,7 @@ class Story(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String)
     description = Column(String)
-    author_id = Column(Integer, ForeignKey('users.id'))
+    author_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
     author = relationship("User", backref="stories")
 
@@ -63,8 +64,30 @@ class Chapter(Base):
     __tablename__ = 'chapters'
 
     id = Column(Integer, primary_key=True)
-    text = Column(String)
-    posted_date = Column(DateTime)
-    story_id = Column(Integer, ForeignKey('stories.id'))
+    title = Column(String)
+    story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
+    is_appendix = Column(Boolean, nullable=False, default=False)
+    order_idx = Column(Integer, nullable=False)
 
     story = relationship("Story", backref="chapters")
+
+class Post(Base):
+    __tablename__ = 'posts'
+
+    id = Column(Integer, primary_key=True)
+    text = Column(String)
+    posted_date = Column(DateTime, nullable=False)
+    story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
+    chapter_id = Column(Integer, ForeignKey('chapters.id'), nullable=False)
+    order_idx = Column(Integer, nullable=False)
+
+    story = relationship("Story", backref="posts")
+    chapter = relationship("Chapter", backref="posts")
+
+def init_db():
+    Base.metadata.create_all(engine)
+
+    from alembic.config import Config
+    from alembic import command
+    alembic_cfg = Config("alembic.ini")
+    command.stamp(alembic_cfg, "head")

@@ -11,4 +11,9 @@ setup(
     install_requires=['Flask', 'passlib', 'fastpbkdf2', 'alembic',
                       'SQLAlchemy', 'psycopg2', 'flask-login'],
     python_requires='~=3.6',
+    entry_points={
+        'console_scripts': [
+            'openakun_initdb = openakun.models:init_db',
+        ]
+    },
 )
