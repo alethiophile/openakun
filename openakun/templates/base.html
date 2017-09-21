@@ -6,11 +6,31 @@
             <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
             <title>{% block title %}{% endblock %} - openakun</title>
             <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+            <style>
+             body {
+                 padding-top: 4.5rem;
+             }
+             .chat-wrapper {
+                 position: fixed;
+                 top: 4.5rem;
+                 right: 0;
+                 bottom: 0;
+                 border-left: 1px solid #ccc;
+                 overflow-y: scroll;
+             }
+             .chat {
+                 position: absolute;
+                 bottom: 0;
+             }
+            </style>
         {% endblock %}
     </head>
     <body>
-        <nav class="navbar navbar-expand-lg navbar-light justify-content-between" style="background-color: #eee">
+        <nav class="navbar fixed-top navbar-expand-lg navbar-light" style="background-color: #eee">
             <a class="navbar-brand" href="{{ url_for('main') }}">openakun</a>
+            <div class="navbar-nav mr-auto">
+                <span class="nav-item"><a class="nav-link">Placeholder</a></span>
+            </div>
             <div class="navbar-nav">
                 {% if user.is_anonymous %}
                     <a class="nav-item nav-link" href="{{ url_for('login') }}">Log in</a>
@@ -20,14 +40,25 @@
                 {% endif %}
             </div>
         </nav>
-        <div class="container pt-5">
-            {% for message in get_flashed_messages() %}
-                <div class="alert alert-primary" role="alert">
-                    {{ message }}
+        <div class="container-fluid pt-5">
+            <div class="row">
+                <div class="col-9">
+                    {% for message in get_flashed_messages() %}
+                        <div class="alert alert-primary" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                    <div class="pl-5 pr-5">
+                    {% block content %}
+                    {% endblock %}
+                    </div>
                 </div>
-            {% endfor %}
-            {% block content %}
-            {% endblock %}
+                <div class="col-3 chat-wrapper">
+                    <div class="chat">
+                        <p>Chat</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </body>
 </html>
