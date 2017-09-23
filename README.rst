@@ -18,6 +18,8 @@ actual site. Steps to run:
 4. Set up a database backend. I use a local PostgreSQL server, but anything
    supported by sqlalchemy will do. sqlite is currently not supported due to
    limitations in alembic.
-5. Once the database is configured, set the url in ``alembic.ini`` and
-   ``models.py``, then run ``alembic upgrade head`` to create the schema.
-6. Run the development server: ``FLASK_APP=openakun.pages flask run``
+5. Once the database is configured, create the openakun configuration by copying
+   the openakun.cfg.default file to openakun.cfg, then set all the required
+   values.
+6. Initialize the database: ``openakun_initdb``
+7. Run the development server: ``FLASK_APP=openakun.pages flask run``
