@@ -56,6 +56,14 @@ def logout():
         logout_user()
     return redirect(url_for('main'))
 
+def create_user(name, email, password):
+    return models.User(
+        name=name,
+        email=email,
+        password_hash=pwd_context.hash(password),
+        joined_date=datetime.datetime.now()
+    )
+
 @app.route('/signup', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -68,12 +76,8 @@ def register():
         if tu is not None:
             flash("Username not available")
             return redirect(url_for('register'))
-        u = models.User(
-            name=request.form['user'],
-            email=request.form['email'],
-            password_hash=pwd_context.hash(request.form['pass1']),
-            joined_date=datetime.datetime.now()
-        )
+        u = create_user(request.form['user'], request.form['email'],
+                        request.form['pass1'])
         s.add(u)
         s.commit()
         flash("Registration successful. Now log in.")
