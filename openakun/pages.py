@@ -7,17 +7,30 @@ from flask_login import LoginManager, login_user, current_user, logout_user
 
 from passlib.context import CryptContext
 
-import datetime
+import datetime, configparser
 
 pwd_context = CryptContext(
     schemes=['pbkdf2_sha256'],
     deprecated='auto',
 )
 
+config = configparser.ConfigParser()
+rv = config.read('openakun.cfg')
+if len(rv) == 0:
+    raise RuntimeError("Couldn't find config file")
+
 login_mgr = LoginManager()
 app = Flask('openakun')
-app.config['SECRET_KEY'] = "for_testing_only"  # very temporary
+
+if ('secret_key' not in config['openakun'] or
+    len(config['openakun']['secret_key']) == 0):  # noqa: E129
+    raise RuntimeError("Secret key not provided")
+
+app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
+
+db_engine = models.create_engine(config['openakun']['database_url'])
+Session = models.sessionmaker(bind=db_engine)
 
 @login_mgr.user_loader
 def load_user(user_id):
@@ -27,7 +40,7 @@ def load_user(user_id):
 
 def db_connect():
     if not hasattr(g, 'db_session'):
-        g.db_session = models.Session()
+        g.db_session = Session()
     return g.db_session
 
 @app.route('/')
@@ -84,3 +97,6 @@ def register():
         return redirect(url_for('login'))
     else:
         return render_template("signup.html", user=current_user)
+
+def init_db():
+    models.init_db(db_engine)

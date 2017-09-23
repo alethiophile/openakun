@@ -1,0 +1,15 @@
+# This is the example deployment configuration file. All configuration options
+# should be documented here.
+
+# When fully configured, this file will include secret values. Make sure
+# permissions are such that it can't be globally read.
+
+[openakun]
+
+# An SQLAlchemy-compatible database connection URL. This may include a password.
+#database_url = postgresql://user:pass@host/db_name
+
+# A secret key to use for cookie signing. This must be kept secret, or else an
+# attacker can bypass the login requirement. It should be set to a secure random
+# value generated at install time. 
+#secret_key =

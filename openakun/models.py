@@ -4,8 +4,8 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
                         MetaData, Boolean)
-from sqlalchemy import create_engine
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy import create_engine  # noqa: F401
+from sqlalchemy.orm import relationship, sessionmaker  # noqa: F401
 
 # for Alembic
 naming = {
@@ -17,9 +17,6 @@ naming = {
 }
 
 Base = declarative_base(metadata=MetaData(naming_convention=naming))
-
-engine = create_engine("postgresql://devel@localhost/openakun")  # temporary
-Session = sessionmaker(bind=engine)
 
 # This satisfies the requirements of flask_login for a User class.
 class User(Base):
@@ -84,7 +81,7 @@ class Post(Base):
     story = relationship("Story", backref="posts")
     chapter = relationship("Chapter", backref="posts")
 
-def init_db():
+def init_db(engine):
     Base.metadata.create_all(engine)
 
     from alembic.config import Config

@@ -13,7 +13,7 @@ setup(
     python_requires='~=3.6',
     entry_points={
         'console_scripts': [
-            'openakun_initdb = openakun.models:init_db',
+            'openakun_initdb = openakun.pages:init_db',
         ]
     },
 )
