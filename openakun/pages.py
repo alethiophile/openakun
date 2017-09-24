@@ -3,11 +3,12 @@
 from . import models
 
 from flask import Flask, render_template, request, redirect, url_for, g, flash
-from flask_login import LoginManager, login_user, current_user, logout_user
+from flask_login import (LoginManager, login_user, current_user, logout_user,
+                         login_required)
 
 from passlib.context import CryptContext
 
-import datetime, configparser
+import datetime, configparser, bleach, os
 
 pwd_context = CryptContext(
     schemes=['pbkdf2_sha256'],
@@ -28,6 +29,7 @@ if ('secret_key' not in config['openakun'] or
 
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
+login_mgr.login_view = 'login'
 
 db_engine = models.create_engine(config['openakun']['database_url'],
                                  echo=config.getboolean('openakun',
@@ -99,6 +101,43 @@ def register():
         return redirect(url_for('login'))
     else:
         return render_template("signup.html", user=current_user)
+
+class BadHTMLError(Exception):
+    def __init__(self, *args, good_html, bad_html, **kwargs):
+        self.good_html = good_html
+        self.bad_html = bad_html
+        super().__init__(*args, **kwargs)
+
+allowed_tags = ['a', 'b', 'em', 'i', 'li', 'ol', 's', 'strong', 'strike', 'ul']
+
+def allowed_attributes(tag, name, value):
+    if tag != 'a':
+        return False
+    if name not in ['class', 'data-achieve']:
+        return False
+    if name == 'class' and value != 'achieve-link':
+        return False
+    return True
+
+def clean_html(html_in):
+    html_out = bleach.clean(html_in,
+                            tags=allowed_tags,
+                            attributes=allowed_attributes)
+    if html_in != html_out:
+        raise BadHTMLError(good_html=html_out, bad_html=html_in)
+    return html_out
+
+@app.route('/new_story', methods=['GET', 'POST'])
+@login_required
+def post_story():
+    if request.method == 'POST':
+        s = db_connect()
+        desc_html = clean_html(request.form['description'])
+        ns = models.Story(title=request.form['title'], description=desc_html)
+        ns.author = current_user
+        
+    else:
+        return render_template("post_story.html", user=current_user)
 
 def init_db():
     models.init_db(db_engine)

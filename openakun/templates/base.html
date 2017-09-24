@@ -36,6 +36,7 @@
                     <a class="nav-item nav-link" href="{{ url_for('login') }}">Log in</a>
                 {% else %}
                     <span class="navbar-text mr-lg-3">Welcome, {{ user.name }}</span>
+                    <a class="nav-item nav-link mr-lg-3" href="{{ url_for('post_story') }}">Post a story</a>
                     <a class="nav-item nav-link" href="{{ url_for('logout') }}">Log out</a>
                 {% endif %}
             </div>

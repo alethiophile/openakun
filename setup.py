@@ -9,7 +9,7 @@ setup(
     license='MIT',
     packages=['openakun'],
     install_requires=['Flask', 'passlib', 'fastpbkdf2', 'alembic',
-                      'SQLAlchemy', 'psycopg2', 'flask-login'],
+                      'SQLAlchemy', 'psycopg2', 'flask-login', 'bleach' ],
     python_requires='~=3.6',
     entry_points={
         'console_scripts': [
