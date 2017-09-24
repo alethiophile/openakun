@@ -13,3 +13,6 @@
 # attacker can bypass the login requirement. It should be set to a secure random
 # value generated at install time. 
 #secret_key =
+
+# Whether to echo SQL statements to the console as they're issued. A debug option.
+echo_sql = false

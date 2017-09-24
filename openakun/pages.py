@@ -29,7 +29,9 @@ if ('secret_key' not in config['openakun'] or
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 
-db_engine = models.create_engine(config['openakun']['database_url'])
+db_engine = models.create_engine(config['openakun']['database_url'],
+                                 echo=config.getboolean('openakun',
+                                                        'echo_sql'))
 Session = models.sessionmaker(bind=db_engine)
 
 @login_mgr.user_loader
