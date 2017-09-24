@@ -7,6 +7,8 @@ from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
 from sqlalchemy import create_engine  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker  # noqa: F401
 
+import os
+
 # for Alembic
 naming = {
     "ix": 'ix_%(column_0_label)s',
@@ -16,7 +18,12 @@ naming = {
     "pk": "pk_%(table_name)s",
 }
 
-Base = declarative_base(metadata=MetaData(naming_convention=naming))
+# Disable naming convention if we're in the test suite; this allows doing it in
+# sqlite to work
+if os.environ.get('OPENAKUN_TESTING') == '1':
+    Base = declarative_base()
+else:
+    Base = declarative_base(metadata=MetaData(naming_convention=naming))
 
 # This satisfies the requirements of flask_login for a User class.
 class User(Base):

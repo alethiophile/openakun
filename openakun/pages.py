@@ -31,6 +31,8 @@ app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
 
+if os.environ.get('OPENAKUN_TESTING') == '1':
+    config['openakun']['database_url'] = 'sqlite://'
 db_engine = models.create_engine(config['openakun']['database_url'],
                                  echo=config.getboolean('openakun',
                                                         'echo_sql'))
@@ -140,4 +142,5 @@ def post_story():
         return render_template("post_story.html", user=current_user)
 
 def init_db():
+    print("Initializing DB in {}".format(db_engine.url))
     models.init_db(db_engine)
