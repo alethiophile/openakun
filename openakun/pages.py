@@ -63,7 +63,8 @@ def login():
         if user is not None and pwd_context.verify(request.form['pass'],
                                                    user.password_hash):
             login_user(user)
-            return redirect(url_for('main'))
+            next_url = request.form.get('next', url_for('main'))
+            return redirect(next_url)
         else:
             flash("Login failed")
             return redirect(url_for('login'))
