@@ -1,5 +1,15 @@
+import unittest, os
+
+test_config = {
+    'openakun': {
+        'database_url': 'sqlite://',
+        'secret_key': 'unittest_key',
+        'echo_sql': False
+    },
+}
+os.openakun_test_config = test_config
+
 from context import pages
-import unittest
 
 class LoginTest(unittest.TestCase):
     def setUp(self):

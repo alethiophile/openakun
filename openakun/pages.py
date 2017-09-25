@@ -16,9 +16,12 @@ pwd_context = CryptContext(
 )
 
 config = configparser.ConfigParser()
-rv = config.read('openakun.cfg')
-if len(rv) == 0:
-    raise RuntimeError("Couldn't find config file")
+if os.environ.get('OPENAKUN_TESTING') == '1':
+    config.read_dict(os.openakun_test_config)  # this is a terrible hack
+else:
+    rv = config.read('openakun.cfg')
+    if len(rv) == 0:
+        raise RuntimeError("Couldn't find config file")
 
 login_mgr = LoginManager()
 app = Flask('openakun')
@@ -31,8 +34,6 @@ app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
 
-if os.environ.get('OPENAKUN_TESTING') == '1':
-    config['openakun']['database_url'] = 'sqlite://'
 db_engine = models.create_engine(config['openakun']['database_url'],
                                  echo=config.getboolean('openakun',
                                                         'echo_sql'))
