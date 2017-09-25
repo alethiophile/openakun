@@ -2,7 +2,8 @@
 
 from . import models
 
-from flask import Flask, render_template, request, redirect, url_for, g, flash
+from flask import (Flask, render_template, request, redirect, url_for, g,
+                   flash, abort)
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 
@@ -85,6 +86,13 @@ def create_user(name, email, password):
         joined_date=datetime.datetime.now()
     )
 
+def add_user(name, email, password):
+    s = db_connect()
+    u = create_user(name, email, password)
+    s.add(u)
+    s.commit()
+    return u
+
 @app.route('/signup', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -97,10 +105,8 @@ def register():
         if tu is not None:
             flash("Username not available")
             return redirect(url_for('register'))
-        u = create_user(request.form['user'], request.form['email'],
-                        request.form['pass1'])
-        s.add(u)
-        s.commit()
+        add_user(request.form['user'], request.form['email'],
+                 request.form['pass1'])
         flash("Registration successful. Now log in.")
         return redirect(url_for('login'))
     else:
@@ -136,12 +142,23 @@ def clean_html(html_in):
 def post_story():
     if request.method == 'POST':
         s = db_connect()
-        desc_html = clean_html(request.form['description'])
+        try:
+            desc_html = clean_html(request.form['description'])
+        except BadHTMLError:
+            abort(400)
         ns = models.Story(title=request.form['title'], description=desc_html)
         ns.author = current_user
-        
+        s.add(ns)
+        s.commit()
+        return redirect(url_for('view_story', story_id=ns.id))
     else:
         return render_template("post_story.html", user=current_user)
+
+@app.route('/story/<int:story_id>')
+def view_story(story_id):
+    s = db_connect()
+    story = s.query(models.Story).filter(models.Story.id == story_id).one()
+    return render_template("view_story.html", user=current_user, story=story)
 
 def init_db():
     print("Initializing DB in {}".format(db_engine.url))
