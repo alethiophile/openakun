@@ -160,7 +160,8 @@ def view_story(story_id):
     story = s.query(models.Story).filter(models.Story.id == story_id).one()
     return render_template("view_story.html", user=current_user, story=story)
 
-def init_db():
-    print("Initializing DB in {}".format(db_engine.url))
+def init_db(silent=False):
+    if not silent:
+        print("Initializing DB in {}".format(db_engine.url))
     models.init_db(db_engine,
                    config.getboolean('openakun', 'use_alembic', fallback=True))

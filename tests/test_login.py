@@ -20,7 +20,7 @@ class OpenakunTestCase(unittest.TestCase):
         pages.Session = pages.models.sessionmaker(bind=pages.db_engine)
         pages.app.testing = True
         self.client = pages.app.test_client()
-        pages.init_db()
+        pages.init_db(silent=True)
         s = pages.Session()
         s.add(pages.create_user('admin', 'placeholder@example.com', 'test'))
         s.commit()
