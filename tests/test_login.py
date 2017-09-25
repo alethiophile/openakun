@@ -4,7 +4,8 @@ test_config = {
     'openakun': {
         'database_url': 'sqlite://',
         'secret_key': 'unittest_key',
-        'echo_sql': False
+        'echo_sql': False,
+        'use_alembic': False,
     },
 }
 os.openakun_test_config = test_config

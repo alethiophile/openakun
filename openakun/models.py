@@ -88,10 +88,11 @@ class Post(Base):
     story = relationship("Story", backref="posts")
     chapter = relationship("Chapter", backref="posts")
 
-def init_db(engine):
+def init_db(engine, use_alembic=True):
     Base.metadata.create_all(engine)
 
-    from alembic.config import Config
-    from alembic import command
-    alembic_cfg = Config("alembic.ini")
-    command.stamp(alembic_cfg, "head")
+    if use_alembic:
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.stamp(alembic_cfg, "head")

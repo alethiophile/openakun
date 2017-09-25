@@ -162,4 +162,5 @@ def view_story(story_id):
 
 def init_db():
     print("Initializing DB in {}".format(db_engine.url))
-    models.init_db(db_engine)
+    models.init_db(db_engine,
+                   config.getboolean('openakun', 'use_alembic', fallback=True))

@@ -16,3 +16,7 @@
 
 # Whether to echo SQL statements to the console as they're issued. A debug option.
 echo_sql = false
+
+# Whether to add Alembic metadata to the database on from-scratch
+# initialization. Recommended in all production environments.
+use_alembic = true
