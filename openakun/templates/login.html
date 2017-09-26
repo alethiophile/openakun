@@ -3,17 +3,11 @@
 {% block content %}
     <h2>Log in</h2>
     <form action="{{ url_for('login') }}" method="POST">
-        <div class="form-group row">
-            <label for="user" class="col-lg-2 col-form-label">Username</label>
-            <div class="col-lg-10">
-                <input type="text" name="user" class="form-control">
-            </div>
+        <div class="form-group">
+                <input type="text" name="user" class="form-control" placeholder="Username">
         </div>
-        <div class="form-group row">
-            <label for="pass" class="col-lg-2 col-form-label">Password</label>
-            <div class="col-lg-10">
-                <input type="password" name="pass" class="form-control">
-            </div>
+        <div class="form-group">
+                <input type="password" name="pass" class="form-control" placeholder="Password">
         </div>
         {% if request.args.get('next') != None %}
             <input type="hidden" name="next" value="{{ request.args.get('next') }}">
