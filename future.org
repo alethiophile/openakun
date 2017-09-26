@@ -1,5 +1,6 @@
 * Things to do
-** TODO Set up real per-instance configuration
+** DONE Set up real per-instance configuration
+   CLOSED: [2017-09-25 Mon 19:46]
  - Set database url, secret key?
    - This file may well end up with secret info in it, be careful
  - Not debug mode; that can only be set by the envar
@@ -16,4 +17,13 @@
  - Make it an optional item; if you want you can run an instance without using
    it at all
    - In that case, let users not provide it?
-** TODO Write test suite
+** DONE Write test suite
+   CLOSED: [2017-09-25 Mon 19:51]
+** TODO Write a real frontend
+ - CSS is awful
+** TODO Make per-instance configuration better
+ - How to find the configuration file?
+** TODO Write more tests
+ - Test the anti-XSS backend lots; look for lists of test cases
+** TODO Figure out Sentry, add a setup
+ - May wait until I've got a public instance
