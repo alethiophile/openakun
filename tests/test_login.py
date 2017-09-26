@@ -60,3 +60,11 @@ class PostStoryTest(OpenakunTestCase):
         self.assertIn(b'<h2>test title</h2>', rv.data)
         self.assertRegex(rv.data.decode(),
                          r'<div class="description">\s*test description\s*</div>')  # noqa: E501
+
+# Strings like story title don't support any formatting; all HTML is escaped
+# (this just happens automatically on the Jinja2 level)
+class TitleXSSTest(OpenakunTestCase):
+    xss_strings = { '': '' }
+    
+    def test_title_xss(self):
+        pass
