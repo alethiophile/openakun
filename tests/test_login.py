@@ -61,6 +61,28 @@ class PostStoryTest(OpenakunTestCase):
         self.assertRegex(rv.data.decode(),
                          r'<div class="description">\s*test description\s*</div>')  # noqa: E501
 
+test_no_html = [
+    ('This contains no HTML', 'This contains no HTML'),
+    ('This "contains" double quotes', 'This "contains" double quotes'),
+    ('This uses the symbol (x < y)', 'This uses the symbol (x &lt; y)'),
+    ('Tries <script>alert("injection")</script>',
+     'Tries &lt;script&gt;alert("injection")&lt;/script&gt;'),
+]
+
+test_clean_html = [
+    ('This contains no HTML', 'This contains no HTML'),
+    ('This "contains" double quotes', 'This "contains" double quotes'),
+    ('This uses the symbol (x < y)', 'This uses the symbol (x &lt; y)'),
+    ('This is <b>rich</b> text', 'This is <b>rich</b> text'),
+    ('This is <strong>rich</strong> text', 'This is <strong>rich</strong> text'),
+    ('<p>This is a paragraph</p>', '<p>This is a paragraph</p>'),
+    ('This has <i>italics</i>', 'This has <i>italics</i>'),
+    ('This has <em>italics</em>', 'This has <em>italics</em>'),
+]
+
+class CleanHTMLTest(unittest.TestCase):
+    pass
+
 # Strings like story title don't support any formatting; all HTML is escaped
 # (this just happens automatically on the Jinja2 level)
 class TitleXSSTest(OpenakunTestCase):
