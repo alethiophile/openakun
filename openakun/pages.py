@@ -118,24 +118,31 @@ class BadHTMLError(Exception):
         self.bad_html = bad_html
         super().__init__(*args, **kwargs)
 
-allowed_tags = ['a', 'b', 'em', 'i', 'li', 'ol', 's', 'strong', 'strike', 'ul']
+class HTMLText(object):
+    def __init__(self, html_data):
+        self.dirty_html = html_data
+        self.clean_html = bleach.clean(html_data,
+                                       tags=self.allowed_tags,
+                                       attributes=self.allowed_attributes)
 
-def allowed_attributes(tag, name, value):
-    if tag != 'a':
+    def __str__(self):
+        return self.clean_html
+
+class ChapterHTMLText(HTMLText):
+    allowed_tags = ['a', 'b', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
+                    'strike', 'ul']
+
+    def allowed_attributes(self, tag, name, value):
+        if tag == 'a':
+            if name == 'data-achieve': return True
+            if name == 'class' and value == 'achieve-link': return True
         return False
-    if name not in ['class', 'data-achieve']:
-        return False
-    if name == 'class' and value != 'achieve-link':
-        return False
-    return True
 
 def clean_html(html_in):
-    html_out = bleach.clean(html_in,
-                            tags=allowed_tags,
-                            attributes=allowed_attributes)
-    if html_in != html_out:
-        raise BadHTMLError(good_html=html_out, bad_html=html_in)
-    return html_out
+    html = ChapterHTMLText(html_in)
+    if html.clean_html != html.dirty_html:
+        raise BadHTMLError(good_html=html.clean_html, bad_html=html.dirty_html)
+    return html.clean_html
 
 @app.route('/new_story', methods=['GET', 'POST'])
 @login_required
