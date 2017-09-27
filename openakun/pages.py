@@ -145,7 +145,10 @@ def post_story():
         try:
             desc_html = clean_html(request.form['description'])
         except BadHTMLError:
-            abort(400)
+            if app.config['DEBUG']:
+                raise
+            else:
+                abort(400)
         ns = models.Story(title=request.form['title'], description=desc_html)
         ns.author = current_user
         s.add(ns)
