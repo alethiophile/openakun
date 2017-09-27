@@ -11,7 +11,11 @@
    - Don't allow the known bad ones
  - Have a section Flask that gets dumped into flask config
 ** TODO Write view/post story functions
+ - Need to add functionality for votes
 ** TODO Write realtime engine
+ - Difficult to unit-test
+ - Make sure to track time-on-page for proxy detection
+ - When write-ins, add a show/hide for all the suggestions
 ** TODO Figure out E-mail
  - How to test this?
  - Make it an optional item; if you want you can run an instance without using
@@ -25,5 +29,6 @@
  - How to find the configuration file?
 ** TODO Write more tests
  - Test the anti-XSS backend lots; look for lists of test cases
+ - How to test realtime engine?
 ** TODO Figure out Sentry, add a setup
  - May wait until I've got a public instance
