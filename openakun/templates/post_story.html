@@ -1,15 +1,36 @@
 {% extends "base.html" %}
 {% block title %}New story{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link href="https://cdn.quilljs.com/1.3.2/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.2/quill.js"></script>
+    <script>
+     $(function () {
+         var quill = new Quill('#quill-editor', {
+             theme: 'snow',
+         });
+         $('#storypost-form').submit(function () {
+             var desc_html = quill.root.innerHTML;
+             var inp_elem = $("<input>").attr("type", "hidden").
+                                         attr("name", "description").
+                                         val(desc_html);
+             $(this).append(inp_elem);
+             return true;
+         });
+     });
+    </script>
+{% endblock %}
 {% block content %}
     <h2>Post story</h2>
-    <form action="{{ url_for("post_story") }}" method="POST">
+    <form action="{{ url_for("post_story") }}" method="POST" id="storypost-form">
         <div class="form-group row">
             <label for="title" class="col-lg-2 col-form-label">Title:</label>
             <input type="text" name="title" class="form-control col">
         </div>
         <div class="form-group">
             <label for="description">Description</label>
-            <textarea name="description" class="form-control" rows="5"></textarea>
+            <div id="quill-editor">
+            </div>
         </div>
         <input type="submit" value="Post" class="btn">
     </form>
