@@ -105,10 +105,10 @@ def register():
         if tu is not None:
             flash("Username not available")
             return redirect(url_for('register'))
-        add_user(request.form['user'], request.form['email'],
-                 request.form['pass1'])
-        flash("Registration successful. Now log in.")
-        return redirect(url_for('login'))
+        u = add_user(request.form['user'], request.form['email'],
+                     request.form['pass1'])
+        login_user(u)
+        return redirect(url_for('main'))
     else:
         return render_template("signup.html", user=current_user)
 
