@@ -158,7 +158,9 @@ def post_story():
                 abort(400)
         ns = models.Story(title=request.form['title'], description=desc_html)
         ns.author = current_user
+        nc = models.Chapter(order_idx=0, story=ns)
         s.add(ns)
+        s.add(nc)
         s.commit()
         return redirect(url_for('view_story', story_id=ns.id))
     else:
@@ -169,6 +171,18 @@ def view_story(story_id):
     s = db_connect()
     story = s.query(models.Story).filter(models.Story.id == story_id).one()
     return render_template("view_story.html", user=current_user, story=story)
+
+@app.route('/story/<int:story_id>/<int:chapter_id>')
+def view_chapter(story_id, chapter_id):
+    s = db_connect()
+    chapter = (s.query(models.Chapter).
+               filter(models.Chapter.id == chapter_id,
+                      models.Chapter.story_id == story_id).
+               one_or_none())
+    if chapter is None:
+        abort(404)
+    return render_template("view_chapter.html", user=current_user,
+                           chapter=chapter)
 
 def init_db(silent=False):
     if not silent:

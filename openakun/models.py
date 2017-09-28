@@ -63,6 +63,8 @@ class Story(Base):
     author_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
     author = relationship("User", backref="stories")
+    chapters = relationship("Chapter", back_populates="story",
+                            order_by="desc(is_appendix),order_idx")
 
 class Chapter(Base):
     __tablename__ = 'chapters'
@@ -73,7 +75,7 @@ class Chapter(Base):
     is_appendix = Column(Boolean, nullable=False, default=False)
     order_idx = Column(Integer, nullable=False)
 
-    story = relationship("Story", backref="chapters")
+    story = relationship("Story", back_populates="chapters")
 
 class Post(Base):
     __tablename__ = 'posts'
