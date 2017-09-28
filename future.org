@@ -32,3 +32,36 @@
  - How to test realtime engine?
 ** TODO Figure out Sentry, add a setup
  - May wait until I've got a public instance
+
+* Realtime engine architecture
+ - Based on socketIO/eventlet (Flask-SocketIO)
+ - That provides rooms already, supports most chat functionality
+ - For "rooms", each story gets one, so does each user
+   - Story funnels story chat, live updates/edits, votes
+   - User funnels PM chat, followed story updates
+ - For user actions that will come back through a room, use own ping to confirm
+   receipt (UI like Discord, show it greyed out or something)
+   - How to ensure consistent states?
+   - Should probably implement ack'd messages in any case (dumb and slow across
+     TCP, but should handle disconnect/reconnect, refresh, &c.)
+     - How does this work with rooms?
+
+* Database schema
+ - Users, stories, chapters, posts, as current
+ - Chat messages, private chat messages
+   - Probably have a "conversations" table to facilitate private
+ - User settings (probably just on the current User table?)
+   - "is currently anon" as a setting?
+   - Possible: anons can do settings too, in session object
+ - Author/story follows
+   - Have these as separate notions?
+ - Log of actions
+   - Log: users logging in/out, all user info changes, user email verification
+     (registration is implicit in the user row), all stages of password reset
+     process, all edits to posts?
+ - Achievements, which users have seen which achievements
+ - Votes/writeins
+   - Each vote as a separate entry? store who votes for what, anons?
+ - Anon sessions? Implicit user data by IP?
+ - Bans (many-many, story to user-or-anon)
+ - Reviews, likes
