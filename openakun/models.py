@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
                         MetaData, Boolean)
 from sqlalchemy import create_engine  # noqa: F401
-from sqlalchemy.orm import relationship, sessionmaker  # noqa: F401
+from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 
 import os
 
@@ -63,8 +63,10 @@ class Story(Base):
     author_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
     author = relationship("User", backref="stories")
-    chapters = relationship("Chapter", back_populates="story",
-                            order_by="desc(is_appendix),order_idx")
+
+    def __repr__(self):
+        return "<Story '{}' (id {}) by {}>".format(self.title, self.id,
+                                                   self.author.name)
 
 class Chapter(Base):
     __tablename__ = 'chapters'
@@ -75,7 +77,15 @@ class Chapter(Base):
     is_appendix = Column(Boolean, nullable=False, default=False)
     order_idx = Column(Integer, nullable=False)
 
-    story = relationship("Story", back_populates="chapters")
+    story = relationship("Story", backref=backref(
+        "chapters",
+        order_by='Chapter.is_appendix,Chapter.order_idx'
+    ))
+
+    def __repr__(self):
+        return ("<Chapter '{}' (id {}, idx {}) of '{}', appendix={}>".
+                format(self.title, self.id, self.order_idx, self.story.title,
+                       self.is_appendix))
 
 class Post(Base):
     __tablename__ = 'posts'

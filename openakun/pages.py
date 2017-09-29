@@ -181,7 +181,8 @@ def post_story():
 def view_story(story_id):
     s = db_connect()
     story = s.query(models.Story).filter(models.Story.id == story_id).one()
-    return render_template("view_story.html", user=current_user, story=story)
+    return redirect(url_for('view_chapter', story_id=story.id,
+                            chapter_id=story.chapters[0].id))
 
 @app.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id, chapter_id):
