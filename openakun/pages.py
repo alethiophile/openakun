@@ -35,10 +35,16 @@ app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
 
-db_engine = models.create_engine(config['openakun']['database_url'],
-                                 echo=config.getboolean('openakun',
-                                                        'echo_sql'))
-Session = models.sessionmaker(bind=db_engine)
+db_engine = None
+Session = None
+
+@app.before_first_request
+def db_setup():
+    global db_engine, Session
+    db_engine = models.create_engine(config['openakun']['database_url'],
+                                     echo=config.getboolean('openakun',
+                                                            'echo_sql'))
+    Session = models.sessionmaker(bind=db_engine)
 
 @login_mgr.user_loader
 def load_user(user_id):
@@ -144,24 +150,29 @@ def clean_html(html_in):
         raise BadHTMLError(good_html=html.clean_html, bad_html=html.dirty_html)
     return html.clean_html
 
+def add_story(title, desc, author):
+    s = db_connect()
+    desc_clean = clean_html(desc)
+    ns = models.Story(title=title, description=desc_clean)
+    ns.author = author
+    nc = models.Chapter(order_idx=0, story=ns, is_first=True)
+    s.add(ns)
+    s.add(nc)
+    s.commit()
+    return ns
+
 @app.route('/new_story', methods=['GET', 'POST'])
 @login_required
 def post_story():
     if request.method == 'POST':
-        s = db_connect()
         try:
-            desc_html = clean_html(request.form['description'])
+            ns = add_story(request.form['title'], request.form['description'],
+                           current_user)
         except BadHTMLError:
             if app.config['DEBUG']:
                 raise
             else:
                 abort(400)
-        ns = models.Story(title=request.form['title'], description=desc_html)
-        ns.author = current_user
-        nc = models.Chapter(order_idx=0, story=ns)
-        s.add(ns)
-        s.add(nc)
-        s.commit()
         return redirect(url_for('view_story', story_id=ns.id))
     else:
         return render_template("post_story.html", user=current_user)
