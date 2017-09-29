@@ -155,7 +155,7 @@ def add_story(title, desc, author):
     desc_clean = clean_html(desc)
     ns = models.Story(title=title, description=desc_clean)
     ns.author = author
-    nc = models.Chapter(order_idx=0, story=ns, is_first=True)
+    nc = models.Chapter(order_idx=0, story=ns)
     s.add(ns)
     s.add(nc)
     s.commit()
