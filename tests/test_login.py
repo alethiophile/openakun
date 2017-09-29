@@ -75,7 +75,8 @@ test_clean_html = [
     ('This "contains" double quotes', 'This "contains" double quotes'),
     ('This uses the symbol (x < y)', 'This uses the symbol (x &lt; y)'),
     ('This is <b>rich</b> text', 'This is <b>rich</b> text'),
-    ('This is <strong>rich</strong> text', 'This is <strong>rich</strong> text'),
+    ('This is <strong>rich</strong> text',
+     'This is <strong>rich</strong> text'),
     ('<p>This is a paragraph</p>', '<p>This is a paragraph</p>'),
     ('This has <i>italics</i>', 'This has <i>italics</i>'),
     ('This has <em>italics</em>', 'This has <em>italics</em>'),
@@ -88,6 +89,6 @@ class CleanHTMLTest(unittest.TestCase):
 # (this just happens automatically on the Jinja2 level)
 class TitleXSSTest(OpenakunTestCase):
     xss_strings = { '': '' }
-    
+
     def test_title_xss(self):
         pass
