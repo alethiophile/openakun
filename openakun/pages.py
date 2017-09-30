@@ -197,6 +197,7 @@ def view_chapter(story_id, chapter_id):
                            chapter=chapter)
 
 def init_db(silent=False):
+    db_setup()
     if not silent:
         print("Initializing DB in {}".format(db_engine.url))
     models.init_db(db_engine,

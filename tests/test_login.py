@@ -16,7 +16,6 @@ class OpenakunTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         # force new empty database
-        pages.db_setup()
         pages.app.testing = True
         # or else it calls db_setup again and re-clears
         pages.app.before_first_request_funcs.clear()
