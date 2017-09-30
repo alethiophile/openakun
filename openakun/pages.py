@@ -3,7 +3,7 @@
 from . import models
 
 from flask import (Flask, render_template, request, redirect, url_for, g,
-                   flash, abort)
+                   flash, abort, jsonify)
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 
@@ -155,8 +155,7 @@ def clean_html(html_in):
 def add_story(title, desc, author):
     s = db_connect()
     desc_clean = clean_html(desc)
-    ns = models.Story(title=title, description=desc_clean)
-    ns.author = author
+    ns = models.Story(title=title, description=desc_clean, author=author)
     nc = models.Chapter(order_idx=0, story=ns)
     s.add(ns)
     s.add(nc)
@@ -197,6 +196,32 @@ def view_chapter(story_id, chapter_id):
         abort(404)
     return render_template("view_chapter.html", user=current_user,
                            chapter=chapter)
+
+def create_post(chapter_id, text, order_idx=None):
+    s = db_connect()
+    c = s.query(models.Chapter).filter(models.Chapter.id == chapter_id).one()
+    text_clean = ChapterHTMLText(text)
+    # if no explicit order given, it's the last in the current
+    # chapter, plus 10
+    if order_idx is None:
+        order_idx = (s.query(models.func.max(models.Post.order_idx).
+                             label('max')).one().max)
+        if order_idx is None:
+            order_idx = 0
+        else:
+            order_idx += 10
+    np = models.Post(
+        text=text_clean.clean_html, posted_date=datetime.datetime.now(),
+        chapter=c, story=c.story, order_idx=order_idx)
+    s.add(np)
+    s.commit()
+    return np
+
+@app.route('/new_post', methods=['POST'])
+def new_post():
+    p = create_post(request.form['chapter_id'], request.form['post_text'])
+    return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
+                                        chapter_id=p.chapter.id) })
 
 def init_db(silent=False):
     db_setup()

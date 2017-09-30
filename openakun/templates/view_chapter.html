@@ -12,29 +12,48 @@
          }
         </style>
         <script>
+         var chapter_id = {{ chapter.id }};
+         var post_url = '{{ url_for('new_post') }}';
          $(function () {
              var quill = new Quill('#quill-editor', {
                  theme: 'snow',
              });
-             /* $('#storypost-form').submit(function () {
-              *     var desc_html = quill.root.innerHTML;
-              *     var inp_elem = $("<input>").attr("type", "hidden").
-              *                                 attr("name", "description").
-              *                                 val(desc_html);
-              *     $(this).append(inp_elem);
-              *     return true;
-              * });*/
+             $('#post-button').click(function () {
+                 var post_html = quill.root.innerHTML;
+                 console.log('doing post');
+                 $.ajax(post_url, {
+                     method: 'POST',
+                     data: { chapter_id: chapter_id, post_text: post_html },
+                     success: function () {
+                         document.location.href = document.location.href;
+                     },
+                     error: function (jqxhr, status, errorThrown) {
+                         var errstr = "Error: " + status + " " + errorThrown;
+                         console.log(errstr);
+                         alert(errstr);
+                     },
+                 });
+             });
          });
         </script>
     {% endif %}
 {% endblock %}
 {% block content %}
     <h2>{{ chapter.story.title }}</h2>
+    {% if chapter == chapter.story.chapters[0] %}
     <div class="description">
         {{ chapter.story.description | safe }}
     </div>
+    {% endif %}
+    {% for p in chapter.posts %}
+        <div class="post">
+            {{ p.text | safe }}
+        </div>
+    {% endfor %}
     {% if chapter.story.author == user %}
+        <h5 class="mb-3">Post a new chapter</h5>
         <div id="quill-editor">
         </div>
+        <button class="btn mt-2" id="post-button">Post</button>
     {% endif %}
 {% endblock %}

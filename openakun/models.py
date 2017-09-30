@@ -4,7 +4,7 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
                         MetaData, Boolean)
-from sqlalchemy import create_engine  # noqa: F401
+from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 
 import os
@@ -97,7 +97,10 @@ class Post(Base):
     chapter_id = Column(Integer, ForeignKey('chapters.id'), nullable=False)
     order_idx = Column(Integer, nullable=False)
 
-    story = relationship("Story", backref="posts")
+    story = relationship("Story", backref=backref(
+        "posts",
+        order_by='Post.order_idx'
+    ))
     chapter = relationship("Chapter", backref="posts")
 
 def init_db(engine, use_alembic=True):
