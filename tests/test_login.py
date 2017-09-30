@@ -82,7 +82,12 @@ test_clean_html = [
 ]
 
 class CleanHTMLTest(unittest.TestCase):
-    pass
+    def test_chapter_cleaner(self):
+        for b, a in test_no_html + test_clean_html:
+            with self.subTest(case=b):
+                h = pages.ChapterHTMLText(b)
+                self.assertEqual(h.dirty_html, b)
+                self.assertEqual(h.clean_html, a)
 
 # Strings like story title don't support any formatting; all HTML is escaped
 # (this just happens automatically on the Jinja2 level)
