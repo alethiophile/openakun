@@ -9,15 +9,23 @@
  - Sentry DSN, once that's integrated
  - Password hash parameters (hash, security level)
    - Don't allow the known bad ones
+*** TODO add Flask config to openakun.cfg
  - Have a section Flask that gets dumped into flask config
    - ast.literal_eval to get around the issue with strings vs. Python
      objects
 ** TODO Write view/post story functions
  - Need to add functionality for votes
+*** TODO display posts better
+ - include date of posting
+*** TODO set up UI for chapters
+*** TODO tune Quill editors for real markup abilities
+ - incl. achievement links
 ** TODO Write realtime engine
  - Difficult to unit-test
  - Make sure to track time-on-page for proxy detection
  - When write-ins, add a show/hide for all the suggestions
+*** TODO figure out DB layout
+*** TODO implement votes frontend
 ** TODO Figure out E-mail
  - How to test this?
  - Make it an optional item; if you want you can run an instance without using
