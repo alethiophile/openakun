@@ -59,7 +59,9 @@ def db_connect():
 
 @app.route('/')
 def main():
-    return render_template("main.html", user=current_user)
+    s = db_connect()
+    stories = s.query(models.Story).limit(10).all()
+    return render_template("main.html", user=current_user, stories=stories)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

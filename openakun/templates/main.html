@@ -1,31 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Main{% endblock %}
 {% block content %}
-    <h2>Hello, world!</h2>
-    <p>This is a paragraph!</p>
-    <p>
-    {% if user.is_anonymous %}
-        You are not logged in.
-    {% else %}
-        You are logged in as {{ user.name }}.
-    {% endif %}
-    </p>
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce feugiat finibus ligula sit amet egestas. Pellentesque tempus lectus mattis nibh semper gravida. Nunc mollis dolor non ex molestie, quis dapibus elit interdum. Mauris commodo dignissim purus, id dignissim est faucibus et. Aliquam varius scelerisque dignissim. Vivamus pulvinar dui commodo velit viverra accumsan. Etiam ut eros eu nulla lobortis pretium. Proin egestas, orci sit amet faucibus consequat, nibh libero tempus sapien, a laoreet ipsum nunc nec ante.</p>
-
-    <p>Sed semper metus in est pharetra, non semper ex bibendum. Fusce et massa ac sapien mollis faucibus vel bibendum elit. Ut elementum facilisis massa, non gravida orci finibus at. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nunc in justo vitae lectus blandit rutrum in sit amet dui. Donec erat lacus, dictum quis orci id, auctor sodales orci. Nullam sed consequat dui, sed ultrices metus. Mauris tellus quam, interdum id urna ut, ultricies aliquet ex. Pellentesque consequat, dui eu fermentum iaculis, ligula elit ultricies elit, ut laoreet magna urna eu justo. Mauris condimentum est eu ligula porta porta. Donec ex diam, semper vitae neque et, placerat laoreet nibh. Cras ex odio, dapibus interdum eros eu, consequat iaculis enim. Maecenas pulvinar rutrum nisl, nec pretium ipsum. Pellentesque dignissim turpis a metus aliquam semper.</p>
-
-    <p>Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Suspendisse pretium laoreet urna, ac bibendum velit scelerisque sollicitudin. Donec non venenatis arcu. Aliquam dignissim diam dolor, quis volutpat est consectetur a. Suspendisse potenti. Donec in nibh eget massa venenatis dignissim. Vestibulum in tellus eget ligula scelerisque posuere. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus lacinia lorem consequat nisl vulputate ultricies.</p>
-
-    <p>Duis vel ligula a ex gravida mollis. Quisque non tristique ipsum. Etiam id magna arcu. Duis mollis pulvinar nibh ac porttitor. Sed varius justo nibh, sed porta ante sollicitudin a. Etiam a dolor ac ex ullamcorper tempus. Suspendisse dignissim congue elit, dictum cursus sem tempor nec. Pellentesque quis tincidunt nibh, quis molestie elit. In hac habitasse platea dictumst. Aliquam sapien lectus, posuere accumsan nibh in, aliquam elementum urna.</p>
-
-    <p>Ut lacinia tellus arcu, quis elementum turpis semper in. Duis porta eget massa id suscipit. Suspendisse bibendum quam id pretium scelerisque. Proin consectetur, urna quis vulputate mattis, odio lacus egestas risus, vel ornare mi velit ut purus. Praesent id dolor dapibus, commodo justo eleifend, pulvinar mauris. Fusce tellus velit, tristique in leo vel, suscipit lobortis enim. Aliquam commodo pharetra enim, sed rhoncus ex varius eu. Cras ullamcorper molestie ipsum, ut sollicitudin eros euismod vitae. Ut maximus tristique diam nec eleifend. Donec hendrerit egestas dui. Donec eget leo ac ex ullamcorper laoreet. Sed quis elit sit amet sem mattis sollicitudin vel nec massa. </p>
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce feugiat finibus ligula sit amet egestas. Pellentesque tempus lectus mattis nibh semper gravida. Nunc mollis dolor non ex molestie, quis dapibus elit interdum. Mauris commodo dignissim purus, id dignissim est faucibus et. Aliquam varius scelerisque dignissim. Vivamus pulvinar dui commodo velit viverra accumsan. Etiam ut eros eu nulla lobortis pretium. Proin egestas, orci sit amet faucibus consequat, nibh libero tempus sapien, a laoreet ipsum nunc nec ante.</p>
-
-    <p>Sed semper metus in est pharetra, non semper ex bibendum. Fusce et massa ac sapien mollis faucibus vel bibendum elit. Ut elementum facilisis massa, non gravida orci finibus at. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nunc in justo vitae lectus blandit rutrum in sit amet dui. Donec erat lacus, dictum quis orci id, auctor sodales orci. Nullam sed consequat dui, sed ultrices metus. Mauris tellus quam, interdum id urna ut, ultricies aliquet ex. Pellentesque consequat, dui eu fermentum iaculis, ligula elit ultricies elit, ut laoreet magna urna eu justo. Mauris condimentum est eu ligula porta porta. Donec ex diam, semper vitae neque et, placerat laoreet nibh. Cras ex odio, dapibus interdum eros eu, consequat iaculis enim. Maecenas pulvinar rutrum nisl, nec pretium ipsum. Pellentesque dignissim turpis a metus aliquam semper.</p>
-
-    <p>Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Suspendisse pretium laoreet urna, ac bibendum velit scelerisque sollicitudin. Donec non venenatis arcu. Aliquam dignissim diam dolor, quis volutpat est consectetur a. Suspendisse potenti. Donec in nibh eget massa venenatis dignissim. Vestibulum in tellus eget ligula scelerisque posuere. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus lacinia lorem consequat nisl vulputate ultricies.</p>
-
-    <p>Duis vel ligula a ex gravida mollis. Quisque non tristique ipsum. Etiam id magna arcu. Duis mollis pulvinar nibh ac porttitor. Sed varius justo nibh, sed porta ante sollicitudin a. Etiam a dolor ac ex ullamcorper tempus. Suspendisse dignissim congue elit, dictum cursus sem tempor nec. Pellentesque quis tincidunt nibh, quis molestie elit. In hac habitasse platea dictumst. Aliquam sapien lectus, posuere accumsan nibh in, aliquam elementum urna.</p>
-
-    <p>Ut lacinia tellus arcu, quis elementum turpis semper in. Duis porta eget massa id suscipit. Suspendisse bibendum quam id pretium scelerisque. Proin consectetur, urna quis vulputate mattis, odio lacus egestas risus, vel ornare mi velit ut purus. Praesent id dolor dapibus, commodo justo eleifend, pulvinar mauris. Fusce tellus velit, tristique in leo vel, suscipit lobortis enim. Aliquam commodo pharetra enim, sed rhoncus ex varius eu. Cras ullamcorper molestie ipsum, ut sollicitudin eros euismod vitae. Ut maximus tristique diam nec eleifend. Donec hendrerit egestas dui. Donec eget leo ac ex ullamcorper laoreet. Sed quis elit sit amet sem mattis sollicitudin vel nec massa. </p>
+    {% for s in stories %}
+        <div class="media mb-3">
+            <img class="mr-3" src="https://via.placeholder.com/200x200">
+            <div class="media-body">
+                <h4><a href="{{ url_for('view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
+                <div>
+                    {{ s.description | safe }}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
 {% endblock %}

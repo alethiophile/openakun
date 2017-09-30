@@ -32,7 +32,12 @@
         <nav class="navbar fixed-top navbar-expand-lg navbar-light" style="background-color: #eee">
             <a class="navbar-brand" href="{{ url_for('main') }}">openakun</a>
             <div class="navbar-nav mr-auto">
-                <span class="nav-item"><a class="nav-link">Placeholder</a></span>
+                <div class="dropdown">
+                    <a class="btn nav-link dropdown-toggle" id="mainmenu-link" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Menu</a>
+                    <div class="dropdown-menu" aria-labelledby="mainmenu-link">
+                        <span class="dropdown-item">Not actually a menu yet</span>
+                    </div>
+                </div>
             </div>
             <div class="navbar-nav">
                 {% if user.is_anonymous %}
