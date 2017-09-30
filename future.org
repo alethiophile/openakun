@@ -10,6 +10,8 @@
  - Password hash parameters (hash, security level)
    - Don't allow the known bad ones
  - Have a section Flask that gets dumped into flask config
+   - ast.literal_eval to get around the issue with strings vs. Python
+     objects
 ** TODO Write view/post story functions
  - Need to add functionality for votes
 ** TODO Write realtime engine
@@ -65,3 +67,10 @@
  - Anon sessions? Implicit user data by IP?
  - Bans (many-many, story to user-or-anon)
  - Reviews, likes
+
+* Feature requests
+ - Ability to delete writeins
+ - Ability to change multivote and writein permission on a vote
+   without closing and redoing it
+   - How to deal with existing multivotes if turning multivote off?
+     Just don't allow that?
