@@ -42,6 +42,17 @@
  - How to test realtime engine?
 ** TODO Figure out Sentry, add a setup
  - May wait until I've got a public instance
+** TODO Set up good static file serving
+ - Hash in URL path (probably just sha512)
+   - Break up by path, something like 01/23/456789ab(...)f.filename.js or
+     whatever
+   - Configure nginx so that it gives the last bit as content-disposition
+     filename
+ - From inside app, identify files by hash (write an auxiliary url_for)
+ - Use for both assets (js/css) and images; mostly latter
+ - Configure caching with very long TTL; the same URL will never change, because
+   hash
+ - Good synergy with a CDN, if we ever do that
 
 * Realtime engine architecture
  - Based on socketIO/eventlet (Flask-SocketIO)
