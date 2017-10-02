@@ -10,10 +10,24 @@
            min-height: 5rem;
            overflow-y: auto;
          }
+         .chat {
+           position: absolute;
+           width: 95%;
+           bottom: 0;
+         }
+         #chat-type {
+           width: 100%;
+           resize: none;
+           box-sizing: content-box;
+         }
+         /* .chat-controls {
+            width: 100%
+            } */
         </style>
         <script>
          var chapter_id = {{ chapter.id }};
          var post_url = '{{ url_for('new_post') }}';
+         var username = '{{ user.name }}';
          $(function () {
              var quill = new Quill('#quill-editor', {
                  theme: 'snow',
@@ -34,6 +48,19 @@
                      },
                  });
              });
+             var ta = $('#chat-type')[0];
+             var chatbox = new Autogrow(ta);
+             function chat_send (msg) {
+                 var el = $("<div>").attr('class', 'chatMessage').
+                 $('#chat-messages').
+             }
+             $('#chat-type').keydown(function (ev) {
+                 if (ev.which == 13 && !ev.shiftKey) {
+                     console.log("Enter key triggered");
+                     return false;
+                 }
+                 return true;
+             });
          });
         </script>
     {% endif %}
@@ -41,9 +68,9 @@
 {% block content %}
     <h2>{{ chapter.story.title }}</h2>
     {% if chapter == chapter.story.chapters[0] %}
-    <div class="description">
-        {{ chapter.story.description | safe }}
-    </div>
+        <div class="description">
+            {{ chapter.story.description | safe }}
+        </div>
     {% endif %}
     {% for p in chapter.posts %}
         <div class="post">
@@ -56,4 +83,13 @@
         </div>
         <button class="btn mt-2" id="post-button">Post</button>
     {% endif %}
+{% endblock %}
+{% block sidebar %}
+    <div class="chat">
+        <div id="chat-messages">
+        </div>
+        <div class="chat-controls form-inline mb-2">
+            <textarea rows="1" id="chat-type" class="form-control-sm mr-1"></textarea>
+        </div>
+    </div>
 {% endblock %}
