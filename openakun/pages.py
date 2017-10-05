@@ -6,6 +6,7 @@ from flask import (Flask, render_template, request, redirect, url_for, g,
                    flash, abort, jsonify)
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
+from jinja2 import Markup
 
 from passlib.context import CryptContext
 
@@ -34,6 +35,10 @@ if ('secret_key' not in config['openakun'] or
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
+
+def include_raw(filename):
+    return Markup(app.jinja_loader.get_source(app.jinja_env, filename)[0])
+app.jinja_env.globals['include_raw'] = include_raw
 
 db_engine = None
 Session = None

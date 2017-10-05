@@ -5,65 +5,120 @@
     {% if chapter.story.author == user %}
         <link href="https://cdn.quilljs.com/1.3.2/quill.snow.css" rel="stylesheet">
         <script src="https://cdn.quilljs.com/1.3.2/quill.js"></script>
-        <style>
-         #quill-editor {
-           min-height: 5rem;
-           overflow-y: auto;
-         }
-         .chat {
-           position: absolute;
-           width: 95%;
-           bottom: 0;
-         }
-         #chat-type {
-           width: 100%;
-           resize: none;
-           box-sizing: content-box;
-         }
-         /* .chat-controls {
-            width: 100%
-            } */
-        </style>
-        <script>
-         var chapter_id = {{ chapter.id }};
-         var post_url = '{{ url_for('new_post') }}';
-         var username = '{{ user.name }}';
-         $(function () {
-             var quill = new Quill('#quill-editor', {
-                 theme: 'snow',
-             });
-             $('#post-button').click(function () {
-                 var post_html = quill.root.innerHTML;
-                 console.log('doing post');
-                 $.ajax(post_url, {
-                     method: 'POST',
-                     data: { chapter_id: chapter_id, post_text: post_html },
-                     success: function () {
-                         document.location.href = document.location.href;
-                     },
-                     error: function (jqxhr, status, errorThrown) {
-                         var errstr = "Error: " + status + " " + errorThrown;
-                         console.log(errstr);
-                         alert(errstr);
-                     },
-                 });
-             });
-             var ta = $('#chat-type')[0];
-             var chatbox = new Autogrow(ta);
-             function chat_send (msg) {
-                 var el = $("<div>").attr('class', 'chatMessage').
-                 $('#chat-messages').
-             }
-             $('#chat-type').keydown(function (ev) {
-                 if (ev.which == 13 && !ev.shiftKey) {
-                     console.log("Enter key triggered");
-                     return false;
-                 }
-                 return true;
+    {% endif %}
+    <script src="{{ url_for('static', filename='jinja.js') }}" integrity="sha384-cm3HUQ6bTRjf6UEdiBbA4EVE+5HHakERCDN3cwzBZbJxfi8ZdCNH6OGNEiJKv36F" crossorigin="anonymous"></script>
+    <style>
+     #quill-editor {
+         min-height: 5rem;
+         overflow-y: auto;
+     }
+     .chat {
+         position: absolute;
+         width: 95%;
+         bottom: 0;
+         height: 100%;
+     }
+     #chat-messages {
+         overflow-y: auto;
+         position: absolute;
+         top: 0;
+         bottom: 60px;
+         width: 100%;
+     }
+     #chat-type {
+         width: 100%;
+         display: block;
+         /* resize: none; */
+         box-sizing: padding-box;
+         overflow: hidden;
+     }
+     .chat-controls {
+         position: absolute;
+         bottom: 0;
+         width: 100%;
+     }
+    </style>
+    <script id="render_post" type="text/x-tmpl-jinja">
+     {{- include_raw('render_post.html') -}}
+    </script>
+    <script id="render_chatmsg" type="text/x-tmpl-jinja">
+     {{- include_raw('render_chatmsg.html') -}}
+    </script>
+    <script>
+     var chapter_id = {{ chapter.id }};
+     var post_url = '{{ url_for('new_post') }}';
+     var username = '{{ user.name }}';
+     $(function () {
+         var quill = new Quill('#quill-editor', {
+             theme: 'snow',
+         });
+         $('#post-button').click(function () {
+             var post_html = quill.root.innerHTML;
+             console.log('doing post');
+             $.ajax(post_url, {
+                 method: 'POST',
+                 data: { chapter_id: chapter_id, post_text: post_html },
+                 success: function () {
+                     document.location.href = document.location.href;
+                 },
+                 error: function (jqxhr, status, errorThrown) {
+                     var errstr = "Error: " + status + " " + errorThrown;
+                     console.log(errstr);
+                     alert(errstr);
+                 },
              });
          });
-        </script>
-    {% endif %}
+         /* copied from https://codepen.io/vsync/pen/frudD */
+         $(document).one('focus.autoExpand', 'textarea.autoExpand', function(){
+             var savedValue = this.value;
+             this.value = '';
+             this.baseScrollHeight = this.scrollHeight;
+             this.value = savedValue;
+         }).on('input.autoExpand', 'textarea.autoExpand', function(){
+             var minRows = this.getAttribute('data-min-rows')|0, rows;
+             this.rows = minRows;
+             rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 17);
+             this.rows = minRows + rows;
+         });
+         /* var ta = $('#chat-type')[0];
+            /* var chatbox = new Autogrow(ta); */
+         /* $('#chat-type').change(function () {
+            }); */
+         var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
+         /* Adds a message to the chatbox, rendering it. Called
+            for every message that comes in over the wire. */
+         function add_chat_msg (msg) {
+             var $d = $(chat_tmpl.render({ c: msg}));
+             $('#chat-messages').append($d);
+         }
+         /* Send a chat message. Takes a string message, arranges
+            for it to be sent. Currently a testing implementation
+            that just feeds it back to the display function. */
+         function chat_send (msg) {
+             var msg_obj = { username: username, text: msg };
+             add_chat_msg(msg_obj);
+         }
+         /* function size_chatbox (el) {
+            setTimeout(function () {
+            el.style.cssText = 'height:auto; padding:0';
+            el.style.cssText = 'height:' + el.scrollHeight + 'px';
+            }, 0);
+            } */
+         $('#chat-type').keydown(function (ev) {
+             /* size_chatbox(this); */
+             var h = $(this).height();
+             $('#chat-messages').css('bottom', h);
+             if (ev.which == 13 && !ev.shiftKey) {
+                 console.log("Enter key triggered");
+                 chat_send($(this).val());
+                 $(this).val('');
+                 $(this).input();
+                 return false;
+             }
+             return true;
+         });
+     });
+    </script>
 {% endblock %}
 {% block content %}
     <h2>{{ chapter.story.title }}</h2>
@@ -73,9 +128,7 @@
         </div>
     {% endif %}
     {% for p in chapter.posts %}
-        <div class="post">
-            {{ p.text | safe }}
-        </div>
+        {% include 'render_post.html' %}
     {% endfor %}
     {% if chapter.story.author == user %}
         <h5 class="mb-3">Post a new chapter</h5>
@@ -89,7 +142,7 @@
         <div id="chat-messages">
         </div>
         <div class="chat-controls form-inline mb-2">
-            <textarea rows="1" id="chat-type" class="form-control-sm mr-1"></textarea>
+            <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1"></textarea>
         </div>
     </div>
 {% endblock %}
