@@ -93,14 +93,18 @@
              var msg_obj = { username: username, text: msg };
              add_chat_msg(msg_obj);
          }
-         $('#chat-type').keydown(function (ev) {
+         function size_chatmsgs () {
              var h = $('div.chat-controls').outerHeight(true);
              $('#chat-messages').css('bottom', h+15);
+         }
+         $('#chat-type').keydown(function (ev) {
+             size_chatmsgs();
              if (ev.which == 13 && !ev.shiftKey) {
                  console.log("Enter key triggered");
                  chat_send($(this).val());
                  $(this).val('');
                  $(this).attr('rows', $(this).data('min-rows'));
+                 size_chatmsgs();
                  return false;
              }
              return true;
