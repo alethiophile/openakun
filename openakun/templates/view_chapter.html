@@ -77,7 +77,7 @@
          }).on('input.autoExpand', 'textarea.autoExpand', function(){
              var minRows = this.getAttribute('data-min-rows')|0, rows;
              this.rows = minRows;
-             rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 17);
+             rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 21);
              this.rows = minRows + rows;
          });
          /* var ta = $('#chat-type')[0];
