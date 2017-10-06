@@ -28,7 +28,6 @@
      #chat-type {
          width: 100%;
          display: block;
-         /* resize: none; */
          box-sizing: padding-box;
          overflow: hidden;
      }
@@ -68,7 +67,7 @@
                  },
              });
          });
-         /* copied from https://codepen.io/vsync/pen/frudD */
+         /* copied from https://codepen.io/vsync/pen/frudD, with modifications */
          $(document).one('focus.autoExpand', 'textarea.autoExpand', function(){
              var savedValue = this.value;
              this.value = '';
@@ -80,10 +79,6 @@
              rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 21);
              this.rows = minRows + rows;
          });
-         /* var ta = $('#chat-type')[0];
-            /* var chatbox = new Autogrow(ta); */
-         /* $('#chat-type').change(function () {
-            }); */
          var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
          /* Adds a message to the chatbox, rendering it. Called
             for every message that comes in over the wire. */
@@ -98,14 +93,7 @@
              var msg_obj = { username: username, text: msg };
              add_chat_msg(msg_obj);
          }
-         /* function size_chatbox (el) {
-            setTimeout(function () {
-            el.style.cssText = 'height:auto; padding:0';
-            el.style.cssText = 'height:' + el.scrollHeight + 'px';
-            }, 0);
-            } */
          $('#chat-type').keydown(function (ev) {
-             /* size_chatbox(this); */
              var h = $(this).height();
              $('#chat-messages').css('bottom', h);
              if (ev.which == 13 && !ev.shiftKey) {
