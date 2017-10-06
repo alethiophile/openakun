@@ -112,7 +112,7 @@
                  console.log("Enter key triggered");
                  chat_send($(this).val());
                  $(this).val('');
-                 $(this).input();
+                 $(this).attr('rows', $(this).data('min-rows'));
                  return false;
              }
              return true;
