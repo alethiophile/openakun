@@ -94,8 +94,8 @@
              add_chat_msg(msg_obj);
          }
          $('#chat-type').keydown(function (ev) {
-             var h = $(this).height();
-             $('#chat-messages').css('bottom', h);
+             var h = $('div.chat-controls').outerHeight(true);
+             $('#chat-messages').css('bottom', h+15);
              if (ev.which == 13 && !ev.shiftKey) {
                  console.log("Enter key triggered");
                  chat_send($(this).val());
