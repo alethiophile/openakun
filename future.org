@@ -53,6 +53,15 @@
  - Configure caching with very long TTL; the same URL will never change, because
    hash
  - Good synergy with a CDN, if we ever do that
+** TODO Think about routes, dice
+ - Routes: list of chapters? chapter DAG? how to deal with contents listing?
+   - Normal case is still single throughout, make sure not to compromise that
+   - Would be nice for routes to be a bit less of an afterthought, though
+ - Dice: how? just another variant of posts, QM can post rolls?
+   - what options? make sure to include best- or worst-of-n, that's a popular
+     one
+   - players able to roll dice? in chat, e.g.?
+
 
 * Realtime engine architecture
  - Based on socketIO/eventlet (Flask-SocketIO)
