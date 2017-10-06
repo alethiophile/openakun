@@ -26,15 +26,20 @@
          width: 100%;
      }
      #chat-type {
-         width: 100%;
+         width: 15%;
          display: block;
          box-sizing: padding-box;
          overflow: hidden;
+         flex: auto;
+     }
+     #chat-send {
+         flex: none;
      }
      .chat-controls {
          position: absolute;
          bottom: 0;
          width: 100%;
+         display: flex;
      }
     </style>
     <script id="render_post" type="text/x-tmpl-jinja">
@@ -135,6 +140,7 @@
         </div>
         <div class="chat-controls form-inline mb-2">
             <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1"></textarea>
+            <button id="chat-send" class="btn btn-sm">Send</button>
         </div>
     </div>
 {% endblock %}
