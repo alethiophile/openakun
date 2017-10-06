@@ -102,17 +102,23 @@
              var h = $('div.chat-controls').outerHeight(true);
              $('#chat-messages').css('bottom', h+15);
          }
+         function chat_trigger_send () {
+             var $ct = $('#chat-type');
+             chat_send($ct.val());
+             $ct.val('');
+             $ct.attr('rows', $ct.data('min-rows'));
+             size_chatmsgs();
+         }
          $('#chat-type').keydown(function (ev) {
              size_chatmsgs();
              if (ev.which == 13 && !ev.shiftKey) {
-                 console.log("Enter key triggered");
-                 chat_send($(this).val());
-                 $(this).val('');
-                 $(this).attr('rows', $(this).data('min-rows'));
-                 size_chatmsgs();
+                 chat_trigger_send();
                  return false;
              }
              return true;
+         });
+         $('#chat-send').click(function () {
+             chat_trigger_send();
          });
      });
     </script>
