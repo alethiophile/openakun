@@ -41,6 +41,16 @@
          width: 100%;
          display: flex;
      }
+     .chatmsg {
+         padding: 5px;
+     }
+     .chatmsg:hover {
+         background-color: #ccc;
+     }
+     .chat_sender {
+         font-size: small;
+         font-weight: bold;
+     }
     </style>
     <script id="render_post" type="text/x-tmpl-jinja">
      {{- include_raw('render_post.html') -}}
@@ -95,7 +105,8 @@
             for it to be sent. Currently a testing implementation
             that just feeds it back to the display function. */
          function chat_send (msg) {
-             var msg_obj = { username: username, text: msg };
+             var msg_obj = { username: username, text: msg,
+                             date_sent: new Date(Date.now()) };
              add_chat_msg(msg_obj);
          }
          function size_chatmsgs () {
