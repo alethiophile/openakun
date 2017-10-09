@@ -104,3 +104,14 @@
      Just don't allow that?
  - Display votes in descending order after close, even if they had hidden vote
    totals while open
+
+* UI elements
+ - Site main page link, possibly logo/brand
+ - Site main menu
+   - Another home link, view categories, about page, post new story
+   - Maybe some user preferences like posting as anon or light/dark theme
+ - Story main menu
+   - Like/follow/review, display preferences?
+ - Contents page
+   - Some routes UI here, if doing that
+ - User prefs area, login link if not logged in, link to profile if so
