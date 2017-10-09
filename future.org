@@ -102,3 +102,5 @@
    without closing and redoing it
    - How to deal with existing multivotes if turning multivote off?
      Just don't allow that?
+ - Display votes in descending order after close, even if they had hidden vote
+   totals while open
