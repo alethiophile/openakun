@@ -224,6 +224,11 @@ def create_post(chapter_id, text, order_idx=None):
 
 @app.route('/new_post', methods=['POST'])
 def new_post():
+    s = db_connect()
+    c = (s.query(models.Chapter).
+         filter(models.Chapter.id == request.form['chapter_id']).one())
+    if current_user != c.story.author:
+        abort(403)
     p = create_post(request.form['chapter_id'], request.form['post_text'])
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
