@@ -59,27 +59,29 @@
     <script>
      var chapter_id = {{ chapter.id }};
      var post_url = '{{ url_for('new_post') }}';
-     var username = '{{ user.name }}';
+     var username = '{{ 'anon' if user.is_anonymous else user.name }}';
      $(function () {
-         var quill = new Quill('#quill-editor', {
-             theme: 'snow',
-         });
-         $('#post-button').click(function () {
-             var post_html = quill.root.innerHTML;
-             console.log('doing post');
-             $.ajax(post_url, {
-                 method: 'POST',
-                 data: { chapter_id: chapter_id, post_text: post_html },
-                 success: function () {
-                     document.location.href = document.location.href;
-                 },
-                 error: function (jqxhr, status, errorThrown) {
-                     var errstr = "Error: " + status + " " + errorThrown;
-                     console.log(errstr);
-                     alert(errstr);
-                 },
+         if (typeof Quill !== 'undefined') {
+             var quill = new Quill('#quill-editor', {
+                 theme: 'snow',
              });
-         });
+             $('#post-button').click(function () {
+                 var post_html = quill.root.innerHTML;
+                 console.log('doing post');
+                 $.ajax(post_url, {
+                     method: 'POST',
+                     data: { chapter_id: chapter_id, post_text: post_html },
+                     success: function () {
+                         document.location.href = document.location.href;
+                     },
+                     error: function (jqxhr, status, errorThrown) {
+                         var errstr = "Error: " + status + " " + errorThrown;
+                         console.log(errstr);
+                         alert(errstr);
+                     },
+                 });
+             });
+         }
          var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
          /* Adds a message to the chatbox, rendering it. Called
             for every message that comes in over the wire. */
