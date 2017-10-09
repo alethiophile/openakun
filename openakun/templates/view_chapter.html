@@ -20,10 +20,9 @@
      }
      #chat-messages {
          overflow-y: auto;
-         position: absolute;
-         top: 0;
-         bottom: 60px;
          width: 100%;
+         flex: auto;
+         margin-bottom: 20px;
      }
      #chat-type {
          width: 15%;
@@ -36,10 +35,9 @@
          flex: none;
      }
      .chat-controls {
-         position: absolute;
-         bottom: 0;
          width: 100%;
          display: flex;
+         padding-right: 10px;
      }
      .chatmsg {
          padding: 5px;
@@ -82,19 +80,6 @@
                  },
              });
          });
-         /* copied from https://codepen.io/vsync/pen/frudD, with modifications */
-         $(document).one('focus.autoExpand', 'textarea.autoExpand', function(){
-             var savedValue = this.value;
-             this.value = '';
-             this.baseScrollHeight = this.scrollHeight;
-             this.value = savedValue;
-         }).on('input.autoExpand', 'textarea.autoExpand', function(){
-             var minRows = this.getAttribute('data-min-rows')|0, rows;
-             this.rows = minRows;
-             rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 21);
-             this.rows = minRows + rows;
-             size_chatmsgs();
-         });
          var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
          /* Adds a message to the chatbox, rendering it. Called
             for every message that comes in over the wire. */
@@ -120,25 +105,27 @@
                              date_sent: new Date(Date.now()) };
              add_chat_msg(msg_obj);
          }
-         /* Resize the chat-messages div according to the current size of the
-         chat-controls div. Tries to ensure the same relative scroll percent,
-         rather than absolute scroll pixels; this mostly just makes it stay
-         scrolled to the very bottom when the chatbox grows, so as not to break
-         the scrollTop conditional in add_chat_msg. */
-         function size_chatmsgs () {
-             var $cm = $('#chat-messages');
-             var scrollFrac = $cm[0].scrollTop / ($cm[0].scrollHeight - $cm.height());
-             var h = $('div.chat-controls').outerHeight(true);
-             $cm.css('bottom', h+15);
-             $cm[0].scrollTop = scrollFrac * ($cm[0].scrollHeight - $cm.height());
-         }
          function chat_trigger_send () {
              var $ct = $('#chat-type');
              chat_send($ct.val());
              $ct.val('');
              $ct.attr('rows', $ct.data('min-rows'));
-             size_chatmsgs();
          }
+         /* copied from https://codepen.io/vsync/pen/frudD, with modifications */
+         $('#chat-type').one('focus', function () {
+             var savedValue = this.value;
+             this.value = '';
+             this.baseScrollHeight = this.scrollHeight;
+             this.value = savedValue;
+         }).on('input', function () {
+             var minRows = this.getAttribute('data-min-rows')|0, rows;
+             this.rows = minRows;
+             rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 21);
+             var $cm = $('#chat-messages');
+             var scrollFrac = $cm[0].scrollTop / ($cm[0].scrollHeight - $cm.height());
+             this.rows = minRows + rows;
+             $cm[0].scrollTop = scrollFrac * ($cm[0].scrollHeight - $cm.height());
+         });
          $('#chat-type').keydown(function (ev) {
              if (ev.which == 13 && !ev.shiftKey) {
                  chat_trigger_send();
@@ -170,12 +157,10 @@
     {% endif %}
 {% endblock %}
 {% block sidebar %}
-    <div class="chat">
-        <div id="chat-messages">
-        </div>
-        <div class="chat-controls form-inline mb-2">
-            <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1" placeholder="Chat"></textarea>
-            <button id="chat-send" class="btn btn-sm">Send</button>
-        </div>
+    <div id="chat-messages">
+    </div>
+    <div class="chat-controls form-inline mb-2">
+        <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1" placeholder="Chat"></textarea>
+        <button id="chat-send" class="btn btn-sm">Send</button>
     </div>
 {% endblock %}
