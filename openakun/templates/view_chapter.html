@@ -64,6 +64,15 @@
          visibility: hidden;
          flex: auto;
      }
+     .post {
+         margin-bottom: 1rem;
+     }
+     .post_date {
+         margin-top: -.5rem;
+         text-align: right;
+         font-size: small;
+         color: #888;
+     }
     </style>
     <script id="render_post" type="text/x-tmpl-jinja">
      {{- include_raw('render_post.html') -}}
@@ -77,6 +86,11 @@
      var username = '{{ 'anon' if user.is_anonymous else user.name }}';
      var csrf_token = '{{ session['_csrf_token']}}';
      $(function () {
+         $('.rerender-date').each(function () {
+             var m = moment($(this).data('dateval'));
+             var rd = m.format("MMM Do, YYYY h:mm A");
+             $(this).html(rd);
+         });
          if (typeof Quill !== 'undefined') {
              var quill = new Quill('#quill-editor', {
                  theme: 'snow',
@@ -169,6 +183,7 @@
         </div>
     {% endif %}
     {% for p in chapter.posts %}
+        {% do prepare_post(p) %}
         {% include 'render_post.html' %}
     {% endfor %}
     {% if chapter.story.author == user %}

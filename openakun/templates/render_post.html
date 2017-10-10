@@ -1,4 +1,5 @@
 {# Rendered by both server-side and jinja.js. Make sure to maintain compatibility. #}
 <div class="post">
     {{ p.text | safe }}
+    <div class="post_date{% if server %} rerender-date" data-dateval="{{ p.date_millis }}"{% else %}"{% endif %}>{{ p.rendered_date }}</div>
 </div>

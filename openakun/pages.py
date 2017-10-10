@@ -37,9 +37,15 @@ app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
 
+app.jinja_env.add_extension('jinja2.ext.do')
+
+def jinja_global(f):
+    app.jinja_env.globals[f.__name__] = f
+    return f
+
+@jinja_global
 def include_raw(filename):
     return Markup(app.jinja_loader.get_source(app.jinja_env, filename)[0])
-app.jinja_env.globals['include_raw'] = include_raw
 
 db_engine = None
 Session = None
@@ -213,6 +219,12 @@ def view_story(story_id):
     return redirect(url_for('view_chapter', story_id=story.id,
                             chapter_id=story.chapters[0].id))
 
+@jinja_global
+def prepare_post(p):
+    p.rendered_date = p.posted_date.strftime("%b %d, %Y %I:%M %p UTC")
+    p.date_millis = (p.posted_date.replace(tzinfo=datetime.timezone.utc).
+                     timestamp() * 1000)
+
 @app.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id, chapter_id):
     s = db_connect()
@@ -223,7 +235,7 @@ def view_chapter(story_id, chapter_id):
     if chapter is None:
         abort(404)
     return render_template("view_chapter.html", user=current_user,
-                           chapter=chapter)
+                           chapter=chapter, server=True)
 
 def create_post(chapter_id, text, order_idx=None):
     s = db_connect()
