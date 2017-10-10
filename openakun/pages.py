@@ -7,6 +7,7 @@ from flask import (Flask, render_template, request, redirect, url_for, g,
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 from jinja2 import Markup
+from flask_socketio import SocketIO
 
 from passlib.context import CryptContext
 
@@ -36,6 +37,7 @@ if ('secret_key' not in config['openakun'] or
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
+socketio = SocketIO(app)
 
 app.jinja_env.add_extension('jinja2.ext.do')
 
