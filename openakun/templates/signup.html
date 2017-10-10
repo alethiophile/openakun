@@ -7,6 +7,7 @@
         Email: <input type="text" name="email"><br>
         Password: <input type="password" name="pass1"><br>
         Verify: <input type="password" name="pass2"><br>
+        <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
         <input type="submit" value="Sign up">
     </form>
 {% endblock %}

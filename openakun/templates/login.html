@@ -12,6 +12,7 @@
         {% if request.args.get('next') != None %}
             <input type="hidden" name="next" value="{{ request.args.get('next') }}">
         {% endif %}
+        <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
         <input type="submit" value="Log in" class="btn">
     </form><br>
     <a href="{{ url_for('register') }}">Register new user</a>

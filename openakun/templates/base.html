@@ -24,6 +24,14 @@
             <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha384-xBuQ/xzmlsLoJpyjoggmTEz8OWUFM0/RC5BsqQBDX2v5cMvDHcMakNTNrHIW2I5f" crossorigin="anonymous"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
             <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
+            <script type="text/javascript">
+             $(function () {
+                 $('#logout_link').click(function () {
+                     $('#logout_form').submit();
+                     return false;
+                 });
+             });
+            </script>
         {% endblock %}
     </head>
     <body>
@@ -43,7 +51,9 @@
                 {% else %}
                     <span class="navbar-text mr-lg-3">Welcome, {{ user.name }}</span>
                     <a class="nav-item nav-link mr-lg-3" href="{{ url_for('post_story') }}">Post a story</a>
-                    <a class="nav-item nav-link" href="{{ url_for('logout') }}">Log out</a>
+                    <form action="{{ url_for('logout') }}" method="POST" id="logout_form"><input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
+                        <a class="nav-item nav-link" href="#" id="logout_link">Log out</a>
+                    </form>
                 {% endif %}
             </div>
         </nav>

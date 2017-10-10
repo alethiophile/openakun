@@ -3,14 +3,15 @@
 from . import models
 
 from flask import (Flask, render_template, request, redirect, url_for, g,
-                   flash, abort, jsonify)
+                   flash, abort, jsonify, session)
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 from jinja2 import Markup
 
 from passlib.context import CryptContext
 
-import datetime, configparser, bleach, os
+import datetime, configparser, bleach, os, secrets
+from functools import wraps
 
 pwd_context = CryptContext(
     schemes=['pbkdf2_sha256'],
@@ -51,6 +52,22 @@ def db_setup():
                                                             'echo_sql'))
     Session = models.sessionmaker(bind=db_engine)
 
+@app.before_request
+def make_csrf(force=False):
+    if force or '_csrf_token' not in session:
+        session['_csrf_token'] = secrets.token_urlsafe()
+
+def csrf_check(view):
+    @wraps(view)
+    def csrf_wrapper(*args, **kwargs):
+        if request.method == 'POST':
+            # constant-time compare operation
+            if not secrets.compare_digest(request.form.get('_csrf_token', ''),
+                                          session['_csrf_token']):
+                abort(400)
+        return view(*args, **kwargs)
+    return csrf_wrapper
+
 @login_mgr.user_loader
 def load_user(user_id):
     s = db_connect()
@@ -69,6 +86,7 @@ def main():
     return render_template("main.html", user=current_user, stories=stories)
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf_check
 def login():
     if request.method == 'POST':
         s = db_connect()
@@ -77,6 +95,7 @@ def login():
         if user is not None and pwd_context.verify(request.form['pass'],
                                                    user.password_hash):
             login_user(user)
+            make_csrf(force=True)
             next_url = request.form.get('next', url_for('main'))
             return redirect(next_url)
         else:
@@ -85,10 +104,12 @@ def login():
     else:
         return render_template("login.html", user=current_user)
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
+@csrf_check
 def logout():
     if not current_user.is_anonymous:
         logout_user()
+        make_csrf(force=True)
     return redirect(url_for('main'))
 
 def create_user(name, email, password):
@@ -107,6 +128,7 @@ def add_user(name, email, password):
     return u
 
 @app.route('/signup', methods=['GET', 'POST'])
+@csrf_check
 def register():
     if request.method == 'POST':
         s = db_connect()
@@ -169,6 +191,7 @@ def add_story(title, desc, author):
 
 @app.route('/new_story', methods=['GET', 'POST'])
 @login_required
+@csrf_check
 def post_story():
     if request.method == 'POST':
         try:
@@ -223,6 +246,7 @@ def create_post(chapter_id, text, order_idx=None):
     return np
 
 @app.route('/new_post', methods=['POST'])
+@csrf_check
 def new_post():
     s = db_connect()
     c = (s.query(models.Chapter).

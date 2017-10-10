@@ -60,6 +60,7 @@
      var chapter_id = {{ chapter.id }};
      var post_url = '{{ url_for('new_post') }}';
      var username = '{{ 'anon' if user.is_anonymous else user.name }}';
+     var csrf_token = '{{ session['_csrf_token']}}';
      $(function () {
          if (typeof Quill !== 'undefined') {
              var quill = new Quill('#quill-editor', {
@@ -70,7 +71,8 @@
                  console.log('doing post');
                  $.ajax(post_url, {
                      method: 'POST',
-                     data: { chapter_id: chapter_id, post_text: post_html },
+                     data: { chapter_id: chapter_id, post_text: post_html,
+                             _csrf_token: csrf_token },
                      success: function () {
                          document.location.href = document.location.href;
                      },

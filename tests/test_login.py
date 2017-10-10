@@ -1,4 +1,4 @@
-import unittest, os
+import unittest, os, re
 
 test_config = {
     'openakun': {
@@ -25,13 +25,23 @@ class OpenakunTestCase(unittest.TestCase):
         s.add(pages.create_user('admin', 'placeholder@example.com', 'test'))
         s.commit()
 
+    def get_csrf(self, url='/'):
+        rv = self.client.get(url)
+        csrf = re.search(r'name="_csrf_token" value="([^"]+)"',
+                         rv.data.decode()).group(1)
+        return csrf
+
     def login(self, user, password):
+        csrf = self.get_csrf('/login')
         return self.client.post('/login',
-                                data={ 'user': user, 'pass': password },
+                                data={ 'user': user, 'pass': password,
+                                       '_csrf_token': csrf },
                                 follow_redirects=True)
 
     def logout(self):
-        return self.client.get('/logout', follow_redirects=True)
+        csrf = self.get_csrf()
+        return self.client.post('/logout', data={ '_csrf_token': csrf},
+                                follow_redirects=True)
 
     @classmethod
     def tearDownClass(self):
@@ -53,9 +63,11 @@ class PostStoryTest(OpenakunTestCase):
         rv = self.client.get('/new_story', follow_redirects=True)
         self.assertIn(b'Please log in to access this page', rv.data)
         self.login('admin', 'test')
+        csrf = self.get_csrf()
         rv = self.client.post('/new_story',
                               data={ 'title': 'test title',
-                                     'description': 'test description' },
+                                     'description': 'test description',
+                                     '_csrf_token': csrf },
                               follow_redirects=True)
         self.assertIn(b'<h2>test title</h2>', rv.data)
         self.assertRegex(rv.data.decode(),
