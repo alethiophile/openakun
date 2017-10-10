@@ -48,6 +48,12 @@
      .chat_sender {
          font-size: small;
          font-weight: bold;
+     #chapter_section {
+         display: flex;
+     }
+     #chaptertitle_inp {
+         visibility: hidden;
+         flex: auto;
      }
     </style>
     <script id="render_post" type="text/x-tmpl-jinja">
@@ -136,6 +142,13 @@
          $('#chat-send').click(function () {
              chat_trigger_send();
          });
+         $('#newchapter').change(function () {
+             if ($(this).is(':checked')) {
+                 $('#chaptertitle_inp').css('visibility', 'visible');
+             } else {
+                 $('#chaptertitle_inp').css('visibility', 'hidden');
+             }
+         });
      });
     </script>
 {% endblock %}
@@ -150,7 +163,12 @@
         {% include 'render_post.html' %}
     {% endfor %}
     {% if chapter.story.author == user %}
-        <h5 class="mb-3">Post a new chapter</h5>
+        <h5 class="mb-3">Make a new post</h5>
+        <div class="form-inline form-group" id="chapter_section">
+            <input class="form-check-input" type="checkbox" value="1" id="newchapter">
+            <label class="form-check-label mr-5">Begin a new chapter</label>
+            <input class="form-control" type="text" id="chaptertitle_inp" placeholder="Title">
+        </div>
         <div id="quill-editor">
         </div>
         <button class="btn mt-2" id="post-button">Post</button>
