@@ -45,9 +45,18 @@
      .chatmsg:hover {
          background-color: #ccc;
      }
+     .chat_head {
+         display: flex;
+     }
      .chat_sender {
          font-size: small;
          font-weight: bold;
+         margin-right: .5rem;
+     }
+     .chat_date {
+         font-size: small;
+         color: #888;
+     }
      #chapter_section {
          display: flex;
      }
@@ -108,7 +117,7 @@
             that just feeds it back to the display function. */
          function chat_send (msg) {
              var msg_obj = { username: username, text: msg,
-                             date_sent: new Date(Date.now()) };
+                             rendered_date: moment().format("MMM Do, YYYY h:mm A") };
              add_chat_msg(msg_obj);
          }
          function chat_trigger_send () {
