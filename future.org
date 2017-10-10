@@ -31,6 +31,16 @@
  - Make it an optional item; if you want you can run an instance without using
    it at all
    - In that case, let users not provide it?
+*** TODO Write E-mail verification/password recovery code
+ - Works by sending a random token to the E-mail given
+ - Store tokens + expirations in a table (or two?)
+   - Table: hashed token, user, expiration, purpose
+   - Periodically clean DB of expired tokens
+ - A route for each purpose (verify, reset password) with tokens in
+   GETDATA
+   - Also have ID for token table entry
+ - Can only use E-mail to reset password if E-mail is already verified
+   - Actually, this applies to sending any E-mail at all
 ** DONE Write test suite
    CLOSED: [2017-09-25 Mon 19:51]
 ** TODO Write a real frontend
@@ -62,7 +72,6 @@
      one
    - players able to roll dice? in chat, e.g.?
 
-
 * Realtime engine architecture
  - Based on socketIO/eventlet (Flask-SocketIO)
  - That provides rooms already, supports most chat functionality
@@ -78,6 +87,8 @@
 
 * Database schema
  - Users, stories, chapters, posts, as current
+   - Story: need to add word count, last updated, live and live timer
+   - User: add whether E-mail is verified
  - Chat messages, private chat messages
    - Probably have a "conversations" table to facilitate private
  - User settings (probably just on the current User table?)
@@ -110,6 +121,7 @@
  - Site main menu
    - Another home link, view categories, about page, post new story
    - Maybe some user preferences like posting as anon or light/dark theme
+     - Use [[https://github.com/thomaspark/bootswatch][Bootswatch]] for themes
  - Story main menu
    - Like/follow/review, display preferences?
  - Contents page
