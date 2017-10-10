@@ -89,14 +89,10 @@
             for every message that comes in over the wire. */
          function add_chat_msg (msg) {
              var $cm = $('#chat-messages');
-             console.log('scrollHeight', $cm[0].scrollHeight);
              var scrollBottomVal = $cm[0].scrollHeight - $cm.height();
-             console.log('scrollBottomVal', scrollBottomVal);
              var $d = $(chat_tmpl.render({ c: msg}));
              $('#chat-messages').append($d);
              var msgHeight = $d.height();
-             console.log('msgHeight', msgHeight);
-             console.log($d[0].scrollTop);
              if (scrollBottomVal - $cm[0].scrollTop < msgHeight) {
                  $cm.scrollTop($cm.height());
              }
