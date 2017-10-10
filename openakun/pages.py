@@ -117,7 +117,7 @@ def create_user(name, email, password):
         name=name,
         email=email,
         password_hash=pwd_context.hash(password),
-        joined_date=datetime.datetime.now()
+        joined_date=datetime.datetime.utcnow()
     )
 
 def add_user(name, email, password):
@@ -239,7 +239,7 @@ def create_post(chapter_id, text, order_idx=None):
         else:
             order_idx += 10
     np = models.Post(
-        text=text_clean.clean_html, posted_date=datetime.datetime.now(),
+        text=text_clean.clean_html, posted_date=datetime.datetime.utcnow(),
         chapter=c, story=c.story, order_idx=order_idx)
     s.add(np)
     s.commit()
