@@ -39,7 +39,7 @@
             </div>
             <div class="navbar-nav">
                 {% if user.is_anonymous %}
-                    <a class="nav-item nav-link" href="{{ url_for('login') }}">Log in</a>
+                    <a class="nav-item nav-link" href="{{ url_for('login', next=request.path) }}">Log in</a>
                 {% else %}
                     <span class="navbar-text mr-lg-3">Welcome, {{ user.name }}</span>
                     <a class="nav-item nav-link mr-lg-3" href="{{ url_for('post_story') }}">Post a story</a>
