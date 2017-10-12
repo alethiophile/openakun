@@ -91,6 +91,15 @@
    - User: add whether E-mail is verified
  - Chat messages, private chat messages
    - Probably have a "conversations" table to facilitate private
+   - Chat: "messages" table, "rooms" table
+   - Messages is obvious
+   - Rooms are what hold messages; each story has a room; private chats create a
+     room private to the users involved
+     - Make sure to have proper access controls on those
+     - "Room" has a column "private" boolean for whether it's access-controlled;
+       then also a many-to-many table rooms to users
+   - This can potentially support creating arbitrary rooms, later, but that's
+     maybe extraneous
  - User settings (probably just on the current User table?)
    - "is currently anon" as a setting?
    - Possible: anons can do settings too, in session object
