@@ -175,7 +175,7 @@ class HTMLText(object):
         return self.clean_html
 
 class ChapterHTMLText(HTMLText):
-    allowed_tags = ['a', 'b', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
+    allowed_tags = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
                     'strike', 'ul']
 
     def allowed_attributes(self, tag, name, value):
@@ -195,8 +195,11 @@ def add_story(title, desc, author):
     desc_clean = clean_html(desc)
     ns = models.Story(title=title, description=desc_clean, author=author)
     nc = models.Chapter(order_idx=0, story=ns)
+    chan = models.Channel()
+    ns.channel = chan
     s.add(ns)
     s.add(nc)
+    s.add(chan)
     s.commit()
     return ns
 

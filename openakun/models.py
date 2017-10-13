@@ -61,6 +61,7 @@ class Story(Base):
     title = Column(String)
     description = Column(String)
     author_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
 
     author = relationship("User", backref="stories")
 
@@ -102,6 +103,28 @@ class Post(Base):
         order_by='Post.order_idx'
     ))
     chapter = relationship("Chapter", backref="posts")
+
+class Channel(Base):
+    __tablename__ = 'channels'
+
+    id = Column(Integer, primary_key=True)
+    private = Column(Boolean, default=False, nullable=False)
+
+    story = relationship("Story", backref=backref("channel", uselist=False))
+
+class ChatMessage(Base):
+    __tablename__ = 'chat_messages'
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    anon_id = Column(String)
+    date = Column(DateTime(timezone=True), nullable=False)
+    text = Column(String)
+    special = Column(Boolean, default=False, nullable=False)
+    image = Column(Boolean, default=False, nullable=False)
+
+    channel = relationship("Channel", backref="messages")
 
 def init_db(engine, use_alembic=True):
     Base.metadata.create_all(engine)
