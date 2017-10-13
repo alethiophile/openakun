@@ -57,10 +57,11 @@ Session = None
 @app.before_first_request
 def db_setup():
     global db_engine, Session
-    db_engine = models.create_engine(config['openakun']['database_url'],
-                                     echo=config.getboolean('openakun',
-                                                            'echo_sql'))
-    Session = models.sessionmaker(bind=db_engine)
+    if db_engine is None:
+        db_engine = models.create_engine(config['openakun']['database_url'],
+                                         echo=config.getboolean('openakun',
+                                                                'echo_sql'))
+        Session = models.sessionmaker(bind=db_engine)
 
 @app.before_request
 def make_csrf(force=False):

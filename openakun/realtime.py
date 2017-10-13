@@ -1,13 +1,15 @@
 #!python3
 
+from . import pages
 from .pages import models, socketio
-from flask_socketio import join_room, leave_room, emit
+from flask_socketio import join_room, emit
 from flask_login import current_user
 import datetime
 
 @socketio.on('connect')
 def handle_connect():
     print("Got connection")
+    pages.db_setup()
 
 @socketio.on('join')
 def handle_join(data):
