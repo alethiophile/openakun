@@ -226,9 +226,9 @@ def view_story(story_id):
 
 @jinja_global
 def prepare_post(p):
-    p.rendered_date = p.posted_date.strftime("%b %d, %Y %I:%M %p UTC")
-    p.date_millis = (p.posted_date.replace(tzinfo=datetime.timezone.utc).
-                     timestamp() * 1000)
+    p.rendered_date = (p.posted_date.astimezone(datetime.timezone.utc).
+                       strftime("%b %d, %Y %I:%M %p UTC"))
+    p.date_millis = (p.posted_date.timestamp() * 1000)
 
 @app.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id, chapter_id):
@@ -256,7 +256,8 @@ def create_post(chapter_id, text, order_idx=None):
         else:
             order_idx += 10
     np = models.Post(
-        text=text_clean.clean_html, posted_date=datetime.datetime.utcnow(),
+        text=text_clean.clean_html,
+        posted_date=datetime.datetime.now(),
         chapter=c, story=c.story, order_idx=order_idx)
     s.add(np)
     s.commit()

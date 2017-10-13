@@ -33,7 +33,7 @@ class User(Base):
     name = Column(String, unique=True)
     email = Column(String)
     password_hash = Column(String)
-    joined_date = Column(DateTime)
+    joined_date = Column(DateTime(timezone=True))
 
     def __repr__(self):
         return "<User '{}' (id {})>".format(self.name, self.id)
@@ -92,7 +92,7 @@ class Post(Base):
 
     id = Column(Integer, primary_key=True)
     text = Column(String)
-    posted_date = Column(DateTime, nullable=False)
+    posted_date = Column(DateTime(timezone=True), nullable=False)
     story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
     chapter_id = Column(Integer, ForeignKey('chapters.id'), nullable=False)
     order_idx = Column(Integer, nullable=False)

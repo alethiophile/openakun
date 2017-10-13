@@ -22,8 +22,8 @@ def handle_chat(data):
     print("Chat message", data)
     room = data['channel']
     message = data['msg']
+    username = 'anon' if current_user.is_anonymous else current_user.name
     emit('chat_msg',
-         { 'username': current_user.name, 'text': message,
-           'date': (datetime.datetime.now(tz=datetime.timezone.utc).
-                    timestamp() * 1000) },
+         { 'username': username, 'text': message,
+           'date': (datetime.datetime.now().timestamp() * 1000) },
          room=room)
