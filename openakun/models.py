@@ -3,7 +3,7 @@
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
-                        MetaData, Boolean)
+                        MetaData, Boolean, CheckConstraint)
 from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 
@@ -114,8 +114,13 @@ class Channel(Base):
 
 class ChatMessage(Base):
     __tablename__ = 'chat_messages'
+    __table_args__ = (
+        CheckConstraint('(user_id is null) != (anon_id is null)',
+                        name='user_or_anon'),
+    )
 
     id = Column(Integer, primary_key=True)
+    id_token = Column(String, nullable=False)
     channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'))
     anon_id = Column(String)
