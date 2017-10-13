@@ -41,6 +41,8 @@ socketio = SocketIO(app)
 
 app.jinja_env.add_extension('jinja2.ext.do')
 
+from . import realtime
+
 def jinja_global(f):
     app.jinja_env.globals[f.__name__] = f
     return f
