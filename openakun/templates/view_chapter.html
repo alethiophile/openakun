@@ -82,7 +82,7 @@
     </script>
     <script>
      var chapter_id = {{ chapter.id }};
-     var story_id = {{ chapter.story.id }};
+     var channel_id = {{ chapter.story.channel_id }};
      var post_url = '{{ url_for('new_post') }}';
      var username = '{{ 'anon' if user.is_anonymous else user.name }}';
      var csrf_token = '{{ session['_csrf_token']}}';
@@ -118,7 +118,7 @@
          var socket = io();
          socket.on('connect', function () {
              console.log('joining room');
-             socket.emit('join', { channel: '' + story_id });
+             socket.emit('join', { channel: '' + channel_id });
          });
          socket.on('chat_msg', function (data) {
              console.log('got chat message', data);
@@ -142,6 +142,15 @@
          socket.on('error', socket_err);
          socket.on('connect_timeout', socket_err);
 
+         /* basically compatible with Python's secrets.token_urlsafe */
+         function make_token(bytes=32) {
+             var arr = new Uint8Array(bytes);
+             window.crypto.getRandomValues(arr);
+             var b64 = btoa(String.fromCharCode.apply(null, arr));
+             var tok = b64.replace(/\+/g, '_').replace(/\//g, '-').replace(/=/g, '');
+             return tok;
+         }
+
          var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
          /* Adds a message to the chatbox, rendering it. Called
             for every message that comes in over the wire. */
@@ -159,7 +168,8 @@
             for it to be sent. Currently a testing implementation
             that just feeds it back to the display function. */
          function chat_send (msg) {
-             socket.emit('chat_msg', { channel: '' + story_id, msg: msg });
+             var mo = { channel: '' + channel_id, msg: msg, id_token: make_token() }
+             socket.emit('chat_msg', mo);
          }
          function chat_trigger_send () {
              var $ct = $('#chat-type');
