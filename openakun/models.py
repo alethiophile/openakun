@@ -121,7 +121,7 @@ class ChatMessage(Base):
     )
 
     id = Column(Integer, primary_key=True)
-    id_token = Column(String, nullable=False)
+    id_token = Column(String, nullable=False, unique=True)
     channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'))
     anon_id = Column(String)
