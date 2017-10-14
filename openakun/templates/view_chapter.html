@@ -179,7 +179,7 @@
             for it to be sent. Currently a testing implementation
             that just feeds it back to the display function. */
          function chat_send (msg) {
-             var mo = { channel: '' + channel_id, msg: msg, id_token: make_token() }
+             var mo = { channel: '' + channel_id, msg: msg, id_token: make_token() };
              socket.emit('chat_msg', mo);
          }
          function chat_trigger_send () {
