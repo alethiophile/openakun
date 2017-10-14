@@ -176,8 +176,7 @@
              }
          }
          /* Send a chat message. Takes a string message, arranges
-            for it to be sent. Currently a testing implementation
-            that just feeds it back to the display function. */
+            for it to be sent. */
          function chat_send (msg) {
              var mo = { channel: '' + channel_id, msg: msg, id_token: make_token() };
              socket.emit('chat_msg', mo);
