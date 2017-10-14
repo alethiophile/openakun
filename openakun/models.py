@@ -3,7 +3,7 @@
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
-                        MetaData, Boolean, CheckConstraint)
+                        MetaData, Boolean, CheckConstraint, Index)
 from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 
@@ -117,6 +117,7 @@ class ChatMessage(Base):
     __table_args__ = (
         CheckConstraint('(user_id is null) != (anon_id is null)',
                         name='user_or_anon'),
+        Index('channel_idx', 'channel_id', 'date')
     )
 
     id = Column(Integer, primary_key=True)
@@ -129,7 +130,14 @@ class ChatMessage(Base):
     special = Column(Boolean, default=False, nullable=False)
     image = Column(Boolean, default=False, nullable=False)
 
+    user = relationship("User")
     channel = relationship("Channel", backref="messages")
+
+class AddressIdentifier(Base):
+    __tablename__ = 'address_identifier'
+
+    hash = Column(String, primary_key=True)
+    ip = Column(String, nullable=False)
 
 def init_db(engine, use_alembic=True):
     Base.metadata.create_all(engine)
