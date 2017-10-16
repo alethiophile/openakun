@@ -71,6 +71,19 @@
    - what options? make sure to include best- or worst-of-n, that's a popular
      one
    - players able to roll dice? in chat, e.g.?
+** TODO autodiscover proxy setup on install
+ - Probably only doable once there's a web-based installer
+ - Check the remote IP/access_route, display it to user, ask them which entries
+   are their configured reverse proxies
+ - Use this to configure ProxyFix or similar
+
+* Requirements before test deployment
+** TODO Set up error logging (Sentry)
+** TODO User profile, account management
+** TODO Chapter UI
+** TODO Fix UI arrangement
+** TODO Log user actions
+** TODO User privileges for log viewing
 
 * Realtime engine architecture
  - Based on socketIO/eventlet (Flask-SocketIO)
