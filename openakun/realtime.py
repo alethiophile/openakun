@@ -25,10 +25,9 @@ def with_channel_auth(err_val=None):
     def return_func(f):
         @wraps(f)
         def auth_wrapper(data):
-            channel = get_channel(data['channel'])
-            if channel.private:
+            if not pages.verify_channel_auth(data['channel_auth'],
+                                             data['channel']):
                 return err_val
-            data['channel_obj'] = channel
             return f(data)
         return auth_wrapper
     return return_func
@@ -51,7 +50,6 @@ def handle_join(data):
 def handle_backlog(data):
     print("Sending backlog for channel", data['channel'])
     bl = get_back_messages(data['channel'])
-    print([get_browser_msg(i) for i in bl])
     send_back_messages(bl, request.sid)
     return { 'success': True }
 
@@ -97,14 +95,13 @@ def get_back_messages(cid):
 def handle_chat(data):
     print("Chat message", data, request.remote_addr, current_user)
     channel_id = data['channel']
-    channel = data['channel_obj']
     c_ts = datetime.datetime.now()
     if current_user.is_anonymous:
         hashval = register_ip(request.remote_addr)
     s = pages.db_connect()
     cm = models.ChatMessage(
         id_token=data['id_token'],
-        channel=channel,
+        channel_id=channel_id,
         date=c_ts,
         text=data['msg']
     )

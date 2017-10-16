@@ -82,9 +82,9 @@
     </script>
     <script>
      var chapter_id = {{ chapter.id }};
-     var channel_id = {{ chapter.story.channel_id }};
+     var channel_id = '{{ chapter.story.channel_id }}';
+     var channel_auth = '{{ authorize_channel(chapter.story.channel) }}';
      var post_url = '{{ url_for('new_post') }}';
-     var username = '{{ 'anon' if user.is_anonymous else user.name }}';
      var csrf_token = '{{ session['_csrf_token']}}';
      var anon_username = 'anon';
      $(function () {
@@ -120,9 +120,9 @@
          var msgs_recvd = new Set();
          socket.on('connect', function () {
              console.log('joining room');
-             socket.emit('join', { channel: '' + channel_id }, function (res) {
+             socket.emit('join', { channel: channel_id, channel_auth: channel_auth }, function (res) {
                  console.log("join result", res)
-                 socket.emit('backlog', { channel: '' + channel_id });
+                 socket.emit('backlog', { channel: channel_id, channel_auth: channel_auth });
              });
          });
          socket.on('chat_msg', function (data) {
@@ -178,7 +178,7 @@
          /* Send a chat message. Takes a string message, arranges
             for it to be sent. */
          function chat_send (msg) {
-             var mo = { channel: '' + channel_id, msg: msg, id_token: make_token() };
+             var mo = { channel: channel_id, msg: msg, id_token: make_token(), channel_auth: channel_auth };
              socket.emit('chat_msg', mo);
          }
          function chat_trigger_send () {

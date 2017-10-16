@@ -10,9 +10,10 @@ from jinja2 import Markup
 from flask_socketio import SocketIO
 from raven.contrib.flask import Sentry
 
+import itsdangerous
 from passlib.context import CryptContext
 
-import datetime, configparser, bleach, os, secrets
+import datetime, configparser, bleach, os, secrets, re
 from functools import wraps
 
 pwd_context = CryptContext(
@@ -94,6 +95,43 @@ def db_connect():
     if not hasattr(g, 'db_session'):
         g.db_session = Session()
     return g.db_session
+
+class AuthorizeError(Exception):
+    pass
+
+class VerifyError(Exception):
+    pass
+
+def get_signer():
+    return itsdangerous.TimestampSigner(app.config['SECRET_KEY'])
+
+@jinja_global
+def authorize_channel(channel):
+    if channel.private:
+        raise AuthorizeError("channel {} is private".format(channel.id))
+    uid = 'anon' if current_user.is_anonymous else current_user.id
+    authstr = "authorize_channel:user={}:channel={}".format(uid, channel.id)
+    return get_signer().sign(authstr).decode('utf-8')
+
+authstr_re = re.compile(r"^authorize_channel:user=(\d+|anon):channel=(\d+)")
+
+def verify_channel_auth(sigstr, channel_id):
+    try:
+        authstr = get_signer().unsign(sigstr, max_age=3600).decode('utf-8')
+    except:
+        raise VerifyError("Bad signature '{}'".format(sigstr))
+    o = authstr_re.match(authstr)
+    if o is None:
+        raise VerifyError("Invalid authstr '{}'".format(authstr))
+    user_id = int(o.group(1)) if o.group(1).isnumeric() else 'anon'
+    ac_id = o.group(2)
+    if user_id != 'anon' and current_user.id != user_id:
+        raise VerifyError("Authstring '{}' invalid for user_id '{}'".
+                          format(authstr, current_user.id))
+    if channel_id != ac_id:
+        raise VerifyError("Authstring '{}' invalid for channel_id '{}'".
+                          format(authstr, channel_id))
+    return True
 
 @app.route('/')
 def main():
