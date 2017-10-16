@@ -5,7 +5,11 @@
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
             <title>{% block title %}{% endblock %} - openakun</title>
-            <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+            {% if request.args.get('dark') == '1' %}
+                <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+            {% else %}
+                <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+            {% endif %}
             <style>
              body {
                  padding-top: 4.5rem;
@@ -19,6 +23,9 @@
                  display: flex;
                  flex-direction: column;
                  padding-right: 0;
+             }
+             #navbar_top {
+                 background-color: #eee;
              }
             </style>
             <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha384-xBuQ/xzmlsLoJpyjoggmTEz8OWUFM0/RC5BsqQBDX2v5cMvDHcMakNTNrHIW2I5f" crossorigin="anonymous"></script>
@@ -37,7 +44,7 @@
         {% endblock %}
     </head>
     <body>
-        <nav class="navbar fixed-top navbar-expand-lg navbar-light" style="background-color: #eee">
+        <nav class="navbar fixed-top navbar-expand-lg navbar-light" id="navbar_top">
             <a class="navbar-brand" href="{{ url_for('main') }}">openakun</a>
             <div class="navbar-nav mr-auto">
                 <div class="dropdown">
