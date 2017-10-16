@@ -146,6 +146,6 @@
      - Use [[https://github.com/thomaspark/bootswatch][Bootswatch]] for themes
  - Story main menu
    - Like/follow/review, display preferences?
- - Contents page
-   - Some routes UI here, if doing that
+   - Contents page
+     - Some routes UI here, if doing that
  - User prefs area, login link if not logged in, link to profile if so
