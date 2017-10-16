@@ -8,6 +8,7 @@ from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 from jinja2 import Markup
 from flask_socketio import SocketIO
+from raven.contrib.flask import Sentry
 
 from passlib.context import CryptContext
 
@@ -29,6 +30,10 @@ else:
 
 login_mgr = LoginManager()
 app = Flask('openakun')
+
+sentry = None
+if 'sentry_dsn' in config['openakun']:
+    sentry = Sentry(app, dsn=config['openakun']['sentry_dsn'])
 
 if ('secret_key' not in config['openakun'] or
     len(config['openakun']['secret_key']) == 0):  # noqa: E129

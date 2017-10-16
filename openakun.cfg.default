@@ -20,3 +20,7 @@ echo_sql = false
 # Whether to add Alembic metadata to the database on from-scratch
 # initialization. Recommended in all production environments.
 use_alembic = true
+
+# A Sentry DSN for error reporting. This includes a secret key; be careful. If
+# not provided, Sentry logging is disabled.
+#sentry_dsn =

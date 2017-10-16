@@ -78,7 +78,7 @@
  - Use this to configure ProxyFix or similar
 
 * Requirements before test deployment
-** TODO Set up error logging (Sentry)
+** DONE Set up error logging (Sentry)
 ** TODO User profile, account management
 ** TODO Chapter UI
 ** TODO Fix UI arrangement

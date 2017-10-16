@@ -8,6 +8,13 @@ from flask import request
 from functools import wraps
 import datetime, hashlib
 
+if pages.sentry is not None:
+    @socketio.on_error_default
+    def sentry_report_socketio(e):
+        pages.sentry.before_request()
+        pages.sentry.captureException()
+        pages.sentry.client.context.clear()
+
 def get_channel(channel_id):
     s = pages.db_connect()
     channel = (s.query(models.Channel).
