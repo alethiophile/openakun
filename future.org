@@ -76,6 +76,13 @@
  - Check the remote IP/access_route, display it to user, ask them which entries
    are their configured reverse proxies
  - Use this to configure ProxyFix or similar
+** TODO Set up per-deploy salt for IP hashes
+ - Since anons are identified by IP hash, need to be sure people can't just
+   brute-force it
+ - Add a consistent server-side salt that's appended first
+ - Probably shouldn't just make it the secret key; that can implicitly be
+   changed, whereas salt will break all anon-identifying functions if it changes
+ - Store in database? A "config" table?
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
