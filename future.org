@@ -63,6 +63,9 @@
  - Configure caching with very long TTL; the same URL will never change, because
    hash
  - Good synergy with a CDN, if we ever do that
+ - Method: files just go under static/ during development; have a function to
+   take a hash and get a proper static url; static resources can just be
+   identified by hash; images store hash in DB, fetch as necessary
 ** TODO Think about routes, dice
  - Routes: list of chapters? chapter DAG? how to deal with contents listing?
    - Normal case is still single throughout, make sure not to compromise that
@@ -83,6 +86,19 @@
  - Probably shouldn't just make it the secret key; that can implicitly be
    changed, whereas salt will break all anon-identifying functions if it changes
  - Store in database? A "config" table?
+** TODO Image storage considerations
+ - Images are stored in static area by hash, as above
+ - Also stored in DB; save hash name/path, which user uploaded, thumbnails
+ - Generate thumbnails at upload time
+ - In stories/topics, have normal <img> tags with src= pointing to the static area
+   - In bleach rules, allow only img tags pointing to that area
+ - In chat, have an "image" attribute with URL, which JS renders into an img tag
+   at receive time
+ - Image upload dialog: three choices: upload local, use URL, use your prior image
+   - hence uploader tag on image in DB
+   - How to deal with multiple users uploading same image? Plain many-to-many
+     relationship?
+   - Log every image uploaded
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
