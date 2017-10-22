@@ -43,14 +43,14 @@
    - Actually, this applies to sending any E-mail at all
 ** DONE Write test suite
    CLOSED: [2017-09-25 Mon 19:51]
-** TODO Write a real frontend
+** DONE Write a real frontend
  - CSS is awful
 ** TODO Make per-instance configuration better
  - How to find the configuration file?
 ** TODO Write more tests
  - Test the anti-XSS backend lots; look for lists of test cases
  - How to test realtime engine?
-** TODO Figure out Sentry, add a setup
+** DONE Figure out Sentry, add a setup
  - May wait until I've got a public instance
 ** TODO Set up good static file serving
  - Hash in URL path (probably just sha512)
@@ -99,6 +99,11 @@
    - How to deal with multiple users uploading same image? Plain many-to-many
      relationship?
    - Log every image uploaded
+** DONE Set up Redis for caching
+ - Start with caching channel auth, rather than the MAC setup
+*** TODO Consider making Redis optional?
+** TODO Set up Celery for periodics
+ - Use to delete expired rows in tokens table
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
