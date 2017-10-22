@@ -21,12 +21,27 @@ def get_channel(channel_id):
                filter(models.Channel.id == channel_id).one())
     return channel
 
+# user_id can be string ID or 'anon'
+def check_channel_auth(channel_id, user_id):
+    auth_hkey = '{}:{}'.format(user_id, channel_id)
+    cv = pages.redis_conn.hget('channel_auth', auth_hkey)
+    if cv is None:
+        c = get_channel(channel_id)
+        if c.private:
+            cv = '0'
+        else:
+            cv = '1'
+        pages.redis_conn.hset('channel_auth', auth_hkey, cv)
+    else:
+        cv = cv.decode()
+    return cv == '1'
+
 def with_channel_auth(err_val=None):
     def return_func(f):
         @wraps(f)
         def auth_wrapper(data):
-            if not pages.verify_channel_auth(data['channel_auth'],
-                                             data['channel']):
+            uid = 'anon' if current_user.is_anonymous else current_user.id
+            if not check_channel_auth(data['channel'], uid):
                 return err_val
             return f(data)
         return auth_wrapper

@@ -24,3 +24,6 @@ use_alembic = true
 # A Sentry DSN for error reporting. This includes a secret key; be careful. If
 # not provided, Sentry logging is disabled.
 #sentry_dsn =
+
+# A Redis URL, used for caching. Defaults to the local service on port 6379.
+redis_url = redis://

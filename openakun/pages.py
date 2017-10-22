@@ -10,7 +10,7 @@ from jinja2 import Markup
 from flask_socketio import SocketIO
 from raven.contrib.flask import Sentry
 
-import itsdangerous
+import itsdangerous, redis
 from passlib.context import CryptContext
 
 import datetime, configparser, bleach, os, secrets, re
@@ -32,13 +32,16 @@ else:
 login_mgr = LoginManager()
 app = Flask('openakun')
 
+class ConfigError(Exception):
+    pass
+
 sentry = None
 if 'sentry_dsn' in config['openakun']:
     sentry = Sentry(app, dsn=config['openakun']['sentry_dsn'])
 
 if ('secret_key' not in config['openakun'] or
     len(config['openakun']['secret_key']) == 0):  # noqa: E129
-    raise RuntimeError("Secret key not provided")
+    raise ConfigError("Secret key not provided")
 
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
@@ -59,15 +62,33 @@ def include_raw(filename):
 
 db_engine = None
 Session = None
+redis_conn = None
+
+redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?" +
+                          "(:(?P<port>\d+))?" +
+                          "(/(?P<db>\d+))?$")
+
+def parse_redis_url(url):
+    o = redis_url_re.match(url)
+    if o is None:
+        raise ConfigError("Couldn't parse Redis url '{}'".format(url))
+    rv = {}
+    rv['host'] = o.group('hostname') or '127.0.0.1'
+    rv['port'] = int(o.group('port') or '6379')
+    rv['db'] = int(o.group('db') or '0')
+    return rv
 
 @app.before_first_request
 def db_setup():
-    global db_engine, Session
+    global db_engine, Session, redis_conn
     if db_engine is None:
         db_engine = models.create_engine(config['openakun']['database_url'],
                                          echo=config.getboolean('openakun',
                                                                 'echo_sql'))
         Session = models.sessionmaker(bind=db_engine)
+    if redis_conn is None:
+        redis_info = parse_redis_url(config['openakun']['redis_url'])
+        redis_conn = redis.StrictRedis(**redis_info)
 
 @app.before_request
 def make_csrf(force=False):
@@ -96,42 +117,8 @@ def db_connect():
         g.db_session = Session()
     return g.db_session
 
-class AuthorizeError(Exception):
-    pass
-
-class VerifyError(Exception):
-    pass
-
 def get_signer():
     return itsdangerous.TimestampSigner(app.config['SECRET_KEY'])
-
-@jinja_global
-def authorize_channel(channel):
-    if channel.private:
-        raise AuthorizeError("channel {} is private".format(channel.id))
-    uid = 'anon' if current_user.is_anonymous else current_user.id
-    authstr = "authorize_channel:user={}:channel={}".format(uid, channel.id)
-    return get_signer().sign(authstr).decode('utf-8')
-
-authstr_re = re.compile(r"^authorize_channel:user=(\d+|anon):channel=(\d+)")
-
-def verify_channel_auth(sigstr, channel_id):
-    try:
-        authstr = get_signer().unsign(sigstr, max_age=3600).decode('utf-8')
-    except:
-        raise VerifyError("Bad signature '{}'".format(sigstr))
-    o = authstr_re.match(authstr)
-    if o is None:
-        raise VerifyError("Invalid authstr '{}'".format(authstr))
-    user_id = int(o.group(1)) if o.group(1).isnumeric() else 'anon'
-    ac_id = o.group(2)
-    if user_id != 'anon' and current_user.id != user_id:
-        raise VerifyError("Authstring '{}' invalid for user_id '{}'".
-                          format(authstr, current_user.id))
-    if channel_id != ac_id:
-        raise VerifyError("Authstring '{}' invalid for channel_id '{}'".
-                          format(authstr, channel_id))
-    return True
 
 @app.route('/')
 def main():
