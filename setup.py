@@ -10,7 +10,8 @@ setup(
     packages=['openakun'],
     install_requires=['Flask', 'passlib', 'fastpbkdf2', 'alembic',
                       'SQLAlchemy', 'psycopg2', 'flask-login', 'bleach',
-                      'flask-socketio', 'eventlet' ],
+                      'flask-socketio', 'eventlet', 'raven[flask]', 'redis',
+                      'itsdangerous' ],
     python_requires='~=3.6',
     entry_points={
         'console_scripts': [
