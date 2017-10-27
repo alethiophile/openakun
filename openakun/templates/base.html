@@ -39,6 +39,9 @@
                      $('#logout_form').submit();
                      return false;
                  });
+                 $('.todo').click(function () {
+                     alert("Sorry, this function is not implemented yet");
+                 });
              });
             </script>
         {% endblock %}
@@ -50,7 +53,10 @@
                 <div class="dropdown">
                     <a class="btn nav-link dropdown-toggle" id="mainmenu-link" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Menu</a>
                     <div class="dropdown-menu" aria-labelledby="mainmenu-link">
-                        <span class="dropdown-item">Not actually a menu yet</span>
+                        <a class="dropdown-item" href="{{ url_for('main') }}">Home</a>
+                        <a class="dropdown-item todo" href="#">Tags</a>
+                        <a class="dropdown-item todo" href="#">About</a>
+                        {% if not user.is_anonymous %}<a class="dropdown-item" href="{{ url_for('post_story') }}">Post a story</a>{% endif %}
                     </div>
                 </div>
             </div>
@@ -59,7 +65,7 @@
                     <a class="nav-item nav-link" href="{{ url_for('login', next=request.path) }}">Log in</a>
                 {% else %}
                     <span class="navbar-text mr-lg-3">Welcome, {{ user.name }}</span>
-                    <a class="nav-item nav-link mr-lg-3" href="{{ url_for('post_story') }}">Post a story</a>
+                    <a class="nav-item nav-link mr-lg-3 todo" href="#">Profile</a>
                     <form action="{{ url_for('logout') }}" method="POST" id="logout_form"><input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
                         <a class="nav-item nav-link" href="#" id="logout_link">Log out</a>
                     </form>
