@@ -104,6 +104,24 @@
 *** TODO Consider making Redis optional?
 ** TODO Set up Celery for periodics
  - Use to delete expired rows in tokens table
+ - Also useful for sending out E-mails
+** TODO Figure out Content-Security-Policy
+ - Split out as much JS code as possible, put in static scripts
+ - Static scripts can be served from separate origin (subdomain), maybe just
+   same as main site
+ - Images should be separate from this (in particular, not allowed as
+   resources), since users can upload them and heaven knows someone's probably
+   got a polyglot of JS/GIF somewhere
+ - For inline scripts (used to communicate to client-side), use nonce; pattern
+   is like CSRF tokens, except in g (ephemeral per request) rather than session
+   - May need to use an after_request function to add necessary headers
+ - Potentially, instead of an origin that allows scripts, just embed the hashes
+   of all the scripts we include (probably via a make_script_tag helper function
+   and another after_request)
+   - This saves special-casing CDN origins, at least
+ - Make it configurable; do CSP off/report-only/on
+ - Set up receiving reports; log these through the normal event log
+   - Need an "urgent" flag on the log
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
