@@ -221,6 +221,16 @@
      });
     </script>
 {% endblock %}
+{% block inside_menubar %}
+    <div class="navbar-nav">
+        <div class="dropdown">
+            <a class="btn nav-link dropdown-toggle" id="chaptermenu-link" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Story</a>
+            <div class="dropdown-menu" aria-labelledby="chaptermenu-link">
+                <span class="dropdown-item">Not actually a menu yet</span>
+            </div>
+        </div>
+    </div>
+{% endblock %}
 {% block content %}
     <h2>{{ chapter.story.title }}</h2>
     {% if chapter == chapter.story.chapters[0] %}
