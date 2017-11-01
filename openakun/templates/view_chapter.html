@@ -84,7 +84,7 @@
      var chapter_id = {{ chapter.id }};
      var channel_id = '{{ chapter.story.channel_id }}';
      var post_url = '{{ url_for('new_post') }}';
-     var csrf_token = '{{ session['_csrf_token']}}';
+     var csrf_token = '{{ session['_csrf_token'] }}';
      var anon_username = 'anon';
      $(function () {
          $('.rerender-date').each(function () {
