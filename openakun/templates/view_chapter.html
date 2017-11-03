@@ -73,6 +73,13 @@
          font-size: small;
          color: #888;
      }
+     #story_actions {
+         display: flex;
+     }
+     #story_actions div {
+         flex: auto;
+         text-align: center;
+     }
     </style>
     <script id="render_post" type="text/x-tmpl-jinja">
      {{- include_raw('render_post.html') -}}
@@ -226,7 +233,14 @@
         <div class="dropdown">
             <a class="btn nav-link dropdown-toggle" id="chaptermenu-link" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Story</a>
             <div class="dropdown-menu" aria-labelledby="chaptermenu-link">
-                <span class="dropdown-item">Not actually a menu yet</span>
+                {% if chapter.story.chapters|length > 1 %}
+                    <span class="dropdown-header">Contents</span>
+                    {% for i in chapter.story.chapters %}
+                        <a class="dropdown-item" href="{{ url_for('view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}">{{ i.title }}</a>
+                    {% endfor %}
+                {% endif %}
+                <span class="dropdown-header">Story actions</span>
+                <div id="story_actions"><div class="dropdown-item">1</div><div class="dropdown-item">2</div></div>
             </div>
         </div>
     </div>
