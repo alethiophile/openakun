@@ -224,7 +224,7 @@ def add_story(title, desc, author):
     s = db_connect()
     desc_clean = clean_html(desc)
     ns = models.Story(title=title, description=desc_clean, author=author)
-    nc = models.Chapter(order_idx=0, story=ns)
+    nc = models.Chapter(order_idx=0, story=ns, title='Chapter 1')
     chan = models.Channel()
     ns.channel = chan
     s.add(ns)

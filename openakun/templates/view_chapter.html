@@ -105,10 +105,13 @@
              });
              $('#post-button').click(function () {
                  var post_html = quill.root.innerHTML;
+                 var new_chapter = $('#newchapter').is(':checked');
+                 var chap_title = $('#chaptertitle_inp').val();
                  console.log('doing post');
                  $.ajax(post_url, {
                      method: 'POST',
                      data: { chapter_id: chapter_id, post_text: post_html,
+                             new_chapter: new_chapter, chapter_title: chap_title,
                              _csrf_token: csrf_token },
                      success: function () {
                          document.location.href = document.location.href;
