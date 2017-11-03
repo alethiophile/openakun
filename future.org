@@ -168,6 +168,10 @@
    - Log: users logging in/out, all user info changes, user email verification
      (registration is implicit in the user row), all stages of password reset
      process, all edits to posts?
+   - Rate limiting: refer to log, possibly optimize via redis
+   - Limit: stories created/time, stories live at once, chat messages/time (high
+     limit, maybe 30/min), password reset attempts/time, login attempts/time,
+     topics created/time
  - Achievements, which users have seen which achievements
  - Votes/writeins
    - Each vote as a separate entry? store who votes for what, anons?
