@@ -126,7 +126,7 @@ def get_signer():
 def main():
     s = db_connect()
     stories = s.query(models.Story).limit(10).all()
-    return render_template("main.html", user=current_user, stories=stories)
+    return render_template("main.html", stories=stories)
 
 @app.route('/login', methods=['GET', 'POST'])
 @csrf_check
@@ -145,7 +145,7 @@ def login():
             flash("Login failed")
             return redirect(url_for('login'))
     else:
-        return render_template("login.html", user=current_user)
+        return render_template("login.html")
 
 @app.route('/logout', methods=['POST'])
 @csrf_check
@@ -188,7 +188,7 @@ def register():
         login_user(u)
         return redirect(url_for('main'))
     else:
-        return render_template("signup.html", user=current_user)
+        return render_template("signup.html")
 
 class BadHTMLError(Exception):
     def __init__(self, *args, good_html, bad_html, **kwargs):
@@ -250,7 +250,7 @@ def post_story():
                 abort(400)
         return redirect(url_for('view_story', story_id=ns.id))
     else:
-        return render_template("post_story.html", user=current_user)
+        return render_template("post_story.html")
 
 @app.route('/story/<int:story_id>')
 def view_story(story_id):
@@ -274,8 +274,7 @@ def view_chapter(story_id, chapter_id):
                one_or_none())
     if chapter is None:
         abort(404)
-    return render_template("view_chapter.html", user=current_user,
-                           chapter=chapter, server=True)
+    return render_template("view_chapter.html", chapter=chapter, server=True)
 
 def create_post(c, text, order_idx=None):
     s = db_connect()
