@@ -334,6 +334,15 @@ def new_post():
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 
+@app.route('/user/<int:user_id>')
+def user_profile(user_id):
+    s = db_connect()
+    u = (s.query(models.User).filter(models.User.id == user_id).one_or_none())
+    if u is None:
+        abort(404)
+    sl = (s.query(models.Story).filter(models.Story.author == u).all())
+    return render_template("user_profile.html", user=u, stories=sl)
+
 def init_db(silent=False):
     db_setup()
     if not silent:
