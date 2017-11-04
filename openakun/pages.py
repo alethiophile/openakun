@@ -318,7 +318,9 @@ def create_chapter(story, title, order_idx=None):
 def new_post():
     s = db_connect()
     c = (s.query(models.Chapter).
-         filter(models.Chapter.id == request.form['chapter_id']).one())
+         filter(models.Chapter.id == request.form['chapter_id']).one_or_none())
+    if c is None:
+        abort(404)
     if current_user != c.story.author:
         abort(403)
     if request.form['new_chapter'] == 'true':
