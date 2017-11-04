@@ -275,16 +275,15 @@ def view_chapter(story_id, chapter_id):
     return render_template("view_chapter.html", user=current_user,
                            chapter=chapter, server=True)
 
-def create_post(chapter_id, text, order_idx=None):
+def create_post(c, text, order_idx=None):
     s = db_connect()
-    c = s.query(models.Chapter).filter(models.Chapter.id == chapter_id).one()
     text_clean = ChapterHTMLText(text)
     # if no explicit order given, it's the last in the current
     # chapter, plus 10
     if order_idx is None:
         order_idx = (s.query(models.func.max(models.Post.order_idx).
                              label('max')).
-                     filter(models.Post.chapter_id == chapter_id).one().max)
+                     filter(models.Post.chapter == c).one().max)
         if order_idx is None:
             order_idx = 0
         else:
@@ -297,6 +296,23 @@ def create_post(chapter_id, text, order_idx=None):
     s.commit()
     return np
 
+def create_chapter(story, title, order_idx=None):
+    s = db_connect()
+    if order_idx is None:
+        order_idx = (s.query(models.func.max(models.Chapter.order_idx).
+                             label('max')).
+                     filter(models.Chapter.story == story).one().max)
+        if order_idx is None:
+            order_idx = 0
+        else:
+            order_idx += 10
+    nc = models.Chapter(
+        title=title, story=story, order_idx=order_idx,
+        is_appendix=False)
+    s.add(nc)
+    s.commit()
+    return nc
+
 @app.route('/new_post', methods=['POST'])
 @csrf_check
 def new_post():
@@ -305,7 +321,13 @@ def new_post():
          filter(models.Chapter.id == request.form['chapter_id']).one())
     if current_user != c.story.author:
         abort(403)
-    p = create_post(request.form['chapter_id'], request.form['post_text'])
+    if request.form['new_chapter'] == 'true':
+        if request.form['chapter_title'] == '':
+            abort(400)
+        nc = create_chapter(c.story, request.form['chapter_title'])
+    else:
+        nc = c
+    p = create_post(nc, request.form['post_text'])
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 

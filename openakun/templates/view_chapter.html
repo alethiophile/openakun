@@ -107,6 +107,10 @@
                  var post_html = quill.root.innerHTML;
                  var new_chapter = $('#newchapter').is(':checked');
                  var chap_title = $('#chaptertitle_inp').val();
+                 if (new_chapter && chap_title === '') {
+                     alert("Chapter title can't be empty");
+                     return false;
+                 }
                  console.log('doing post');
                  $.ajax(post_url, {
                      method: 'POST',
