@@ -283,7 +283,8 @@ def create_post(chapter_id, text, order_idx=None):
     # chapter, plus 10
     if order_idx is None:
         order_idx = (s.query(models.func.max(models.Post.order_idx).
-                             label('max')).one().max)
+                             label('max')).
+                     filter(models.Post.chapter_id == chapter_id).one().max)
         if order_idx is None:
             order_idx = 0
         else:
