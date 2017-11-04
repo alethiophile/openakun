@@ -50,7 +50,9 @@ socketio = SocketIO(app)
 
 app.jinja_env.add_extension('jinja2.ext.do')
 
-from . import realtime
+# Import needs to be here, since it imports variables from pages.py itself.
+# Importing alone has all the side effects needed.
+from . import realtime  # noqa
 
 def jinja_global(f):
     app.jinja_env.globals[f.__name__] = f
