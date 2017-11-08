@@ -1,14 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Main{% endblock %}
+{% block head %}
+    {{ super() }}
+    <style>
+     div.story-display {
+       display: flex;
+       flex-direction: column;
+     }
+     div.story-description {
+       flex: auto;
+     }
+    </style>
+    <script type="text/javascript">
+     /* a hack to work around the fact that flex is weird */
+     $(function () {
+         $('.story-display').each(function () {
+             var h = $(this).prev().height();
+             $(this).css('min-height', h);
+         });
+     });
+    </script>
+{% endblock %}
 {% block content %}
     {% for s in stories %}
         <div class="media mb-3">
             <img class="mr-3" src="https://via.placeholder.com/200x200">
-            <div class="media-body">
+            <div class="media-body story-display">
                 <h4><a href="{{ url_for('view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
-                <div>
+                <div class="story-description">
                     {{ s.description | safe }}
                 </div>
+                <div class="story-info"><div class="author">{{ s.author.name }}</div></div>
             </div>
         </div>
     {% endfor %}
