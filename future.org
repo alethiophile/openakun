@@ -126,8 +126,8 @@
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
 ** TODO User profile, account management
-** TODO Chapter UI
-** TODO Fix UI arrangement
+** DONE Chapter UI
+** DONE Fix UI arrangement
 ** TODO Log user actions
 ** TODO User privileges for log viewing
 
