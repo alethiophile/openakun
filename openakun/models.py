@@ -3,7 +3,7 @@
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
-                        MetaData, Boolean, CheckConstraint, Index)
+                        MetaData, Boolean, CheckConstraint, Index, Table)
 from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 
@@ -25,6 +25,10 @@ if os.environ.get('OPENAKUN_TESTING') == '1':
 else:
     Base = declarative_base(metadata=MetaData(naming_convention=naming))
 
+user_with_role = Table('user_with_role', Base.metadata,
+                       Column('user_id', Integer, ForeignKey('users.id')),
+                       Column('role_id', Integer, ForeignKey('user_roles.id')))
+
 # This satisfies the requirements of flask_login for a User class.
 class User(Base):
     __tablename__ = 'users'
@@ -32,8 +36,12 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True)
     email = Column(String)
+    email_verified = Column(Boolean, nullable=False, default=False)
     password_hash = Column(String)
     joined_date = Column(DateTime(timezone=True))
+
+    roles = relationship("UserRole", secondary=user_with_role,
+                         backref='users')
 
     def __repr__(self):
         return "<User '{}' (id {})>".format(self.name, self.id)
@@ -53,6 +61,12 @@ class User(Base):
 
     def get_id(self):
         return str(self.id)
+
+class UserRole(Base):
+    __tablename__ = 'user_roles'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
 
 class Story(Base):
     __tablename__ = 'stories'
