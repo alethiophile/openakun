@@ -66,9 +66,9 @@ db_engine = None
 Session = None
 redis_conn = None
 
-redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?" +
-                          "(:(?P<port>\d+))?" +
-                          "(/(?P<db>\d+))?$")
+redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?"
+                          r"(:(?P<port>\d+))?"
+                          r"(/(?P<db>\d+))?$")
 
 def parse_redis_url(url):
     o = redis_url_re.match(url)
