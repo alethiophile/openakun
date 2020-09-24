@@ -23,6 +23,8 @@ itsdangerous = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.3"
+mypy = "^0.782"
+sqlalchemy-stubs = "^0.3"
 
 [tool.poetry.scripts]
 openakun_initdb = 'openakun.pages:init_db'
