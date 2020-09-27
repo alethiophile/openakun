@@ -4,6 +4,7 @@ from . import models
 
 from flask import (Flask, render_template, request, redirect, url_for, g,
                    flash, abort, jsonify, session)
+import flask
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 from jinja2 import Markup
@@ -13,8 +14,11 @@ from raven.contrib.flask import Sentry
 import itsdangerous, redis
 from passlib.context import CryptContext
 
-import datetime, configparser, bleach, os, secrets, re
+import datetime, configparser, bleach, os, secrets, re, click
 from functools import wraps
+from base64 import b64encode
+
+from typing import Callable, Optional
 
 pwd_context = CryptContext(
     schemes=['pbkdf2_sha256'],
@@ -97,7 +101,32 @@ def make_csrf(force=False):
     if force or '_csrf_token' not in session:
         session['_csrf_token'] = secrets.token_urlsafe()
 
-def csrf_check(view):
+@jinja_global
+def get_script_nonce() -> str:
+    if not hasattr(g, 'script_nonce'):
+        # this has to be real base64, per the spec, not urlencoded; thus
+        # token_urlsafe won't work
+        g.script_nonce = b64encode(secrets.token_bytes()).decode()
+    return g.script_nonce
+
+@app.after_request
+def add_csp(resp: flask.Response) -> flask.Response:
+    nv = get_script_nonce()
+    report_only = config['openakun']['csp_level'] == 'report'
+    header_name = ('Content-Security-Policy-Report-Only' if report_only else
+                   'Content-Security-Policy')
+    hval = f"script-src 'nonce-{nv}' 'unsafe-eval'"
+    if report_only:
+        hval += f"; report-uri {url_for('csp_report')}"
+    resp.headers[header_name] = hval
+    return resp
+
+@app.route('/csp_violation_report', methods=['POST'])
+def csp_report() -> str:
+    print(request.data)
+    return ''
+
+def csrf_check(view: Callable) -> Callable:
     @wraps(view)
     def csrf_wrapper(*args, **kwargs):
         if request.method == 'POST':
@@ -109,7 +138,7 @@ def csrf_check(view):
     return csrf_wrapper
 
 @login_mgr.user_loader
-def load_user(user_id):
+def load_user(user_id) -> Optional[models.User]:
     s = db_connect()
     return (s.query(models.User).
             filter(models.User.id == int(user_id)).one_or_none())
@@ -331,6 +360,12 @@ def new_post():
     else:
         nc = c
     p = create_post(nc, request.form['post_text'])
+    channel_id = c.story.channel_id
+    browser_post_msg = {
+        'text': p.text,
+        'date_millis': p.posted_date.timestamp() * 1000
+    }
+    socketio.emit('new_post', browser_post_msg, room=str(channel_id))
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 
@@ -349,3 +384,11 @@ def init_db(silent=False):
         print("Initializing DB in {}".format(db_engine.url))
     models.init_db(db_engine,
                    config.getboolean('openakun', 'use_alembic', fallback=True))
+
+@click.command()
+@click.option('--host', '-h', type=str, default=None,
+              help="Hostname to bind to (default 127.0.0.1)")
+@click.option('--port', '-p', type=int, default=None,
+              help="Port to listen on (default 5000)")
+def do_run(host, port):
+    socketio.run(app, host=host, port=port)
