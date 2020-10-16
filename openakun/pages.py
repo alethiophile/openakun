@@ -51,10 +51,6 @@ if 'sentry_dsn' in config['openakun']:
 login_mgr = LoginManager()
 app = Flask('openakun')
 
-if config.getboolean('openakun', 'proxy_fix', fallback=False):
-    print("adding ProxyFix")
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-
 class ConfigError(Exception):
     pass
 
@@ -65,11 +61,15 @@ if ('secret_key' not in config['openakun'] or
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
-site_origin = config.get('openakun', 'main_origin', fallback=None)
-ol = [site_origin] if site_origin is not None else None
-socketio = SocketIO(app, cors_allowed_origins=ol,
+socketio = SocketIO(app,
                     logger=app.config['DEBUG'],
                     engineio_logger=app.config['DEBUG'])
+
+# to make the proxy_fix apply to the socketio as well, this has to be done
+# after the socketio is constructed
+if config.getboolean('openakun', 'proxy_fix', fallback=False):
+    print("adding ProxyFix")
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 app.jinja_env.add_extension('jinja2.ext.do')
 
