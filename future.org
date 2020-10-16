@@ -15,6 +15,15 @@
      objects
 ** TODO Write view/post story functions
  - Need to add functionality for votes
+ - Vote function:
+   - realtime engine messages: vote, un-vote, create new option, create new
+     writein, edit writein
+   - to client messages: tally changed, new option/writein created, option
+     killed, writein edited
+   - while vote is active, numbers are tracked in Redis; when closed, copied to
+     Postgres
+   - when vote is rendered, need to show which options current user is voting
+     for
 *** TODO display posts better
  - include date of posting
 *** TODO set up UI for chapters
@@ -66,6 +75,8 @@
  - Method: files just go under static/ during development; have a function to
    take a hash and get a proper static url; static resources can just be
    identified by hash; images store hash in DB, fetch as necessary
+ - separate origins for static and images (configurable in site config)
+ - Cache-Control: max-age=31536000, immutable, no-transform
 ** TODO Think about routes, dice
  - Routes: list of chapters? chapter DAG? how to deal with contents listing?
    - Normal case is still single throughout, make sure not to compromise that
@@ -101,6 +112,7 @@
    - Log every image uploaded
 ** DONE Set up Redis for caching
  - Start with caching channel auth, rather than the MAC setup
+ - Redis needs to be set with AOF persistence for chat correctness
 *** TODO Consider making Redis optional?
 ** TODO Set up Celery for periodics
  - Use to delete expired rows in tokens table
@@ -131,7 +143,8 @@
 ** TODO Log user actions
 ** TODO User privileges for log viewing
 
-* Realtime engine architecture
+* Design
+** Realtime engine architecture
  - Based on socketIO/eventlet (Flask-SocketIO)
  - That provides rooms already, supports most chat functionality
  - For "rooms", each story gets one, so does each user
@@ -143,11 +156,29 @@
    - Should probably implement ack'd messages in any case (dumb and slow across
      TCP, but should handle disconnect/reconnect, refresh, &c.)
      - How does this work with rooms?
+ - Realtime actions mostly go via Redis; copied to main DB in batch mode
+   - Chat messages go in Redis on receipt (and are re-broadcast), Celery task
+     copies them to DB once per minute
+   - Chat backlog requests come from Redis
+   - Active votes are stored in Redis exclusively while active, copied to DB
+     when QM closes the vote
+   - If QM reopens a vote, data from DB is copied back to Redis again for
+     duration
+ - For story chat, the SocketIO room is simply the story's channel ID
+ - For PM chat, a separate channel in the DB is made for each pair of users who
+   PM, but updates via SocketIO are funneled via the user's room (thus the
+   equivalence between channel and room is broken)
 
-* Database schema
+** Database schema
  - Users, stories, chapters, posts, as current
    - Story: need to add word count, last updated, live and live timer
    - User: add whether E-mail is verified
+ - Vote schema:
+   - Store per vote: vote settings like multivote/hidden vote; start and end
+     times; active status
+   - Store per vote entry: who's voting for it; whether it's been killed by QM;
+     kill message if any; who created it? (is this necessary?)
+   - Store per write-in: who created it
  - Chat messages, private chat messages
    - Probably have a "conversations" table to facilitate private
    - Chat: "messages" table, "rooms" table
@@ -182,6 +213,23 @@
  - Bans (many-many, story to user-or-anon)
  - Reviews, likes
 
+** Markup text
+ - To avoid XSS, we're very strict about what markup user-generated text can contain
+ - Fields that allow markup are text posts, story descriptions only (other
+   user-generated text is universally HTML-escaped via jinja2)
+ - For user-generated markup, HTML is processed via bleach, which is a
+   whitelist-based sanitization library
+ - Allowed tags are only:
+   - basic inline markup: i, em, b, strong, s, strike
+   - basic other markup: br, ul, ol, li, p
+   - images: only allowed from the configured image origin (all images are
+     mirrored and served by openakun); only attribute allowed is 'src'
+   - achievements: implemented with 'a' tag, no 'href' ever allowed, passes
+     'class="achieve-link"' and 'data-achieve="name"' only
+ - HTML is scanned on upload; if any forbidden elements are found, the request
+   is denied and logged
+ - On client end, rich text editor generates known-good HTML; HTML
+   cleaning/scanning should be transparent to ordinary users
 * Feature requests
  - Ability to delete writeins
  - Ability to change multivote and writein permission on a vote

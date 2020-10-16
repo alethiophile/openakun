@@ -5,8 +5,8 @@
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
             <title>{% block title %}{% endblock %} - openakun</title>
-            {% if request.args.get('dark') == '1' %}
-                <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+            {% if get_dark_mode() %}
+                <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-darkly.min.css') }}">
             {% else %}
                 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
             {% endif %}
@@ -31,14 +31,23 @@
             <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='moment.min.js') }}" integrity="sha384-meAyhHvmIHRDgCRCuiknGm4rw6gVWtahMXXtKkbvrMZnQClqzbK/tJTlt+QnqE+l" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js" integrity="sha256-sdmLD9jD1PIzq3KOQPNSGZYxjv76rds79Mnyk5JNp1M=" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" type="text/javascript">
+             var settings_url = '{{ url_for('change_settings') }}';
+             var in_dark_mode = {{ 'true' if get_dark_mode() else 'false' }};
              $(function () {
-                 $('#logout_link').click(function () {
-                     $('#logout_form').submit();
-                     return false;
-                 });
-                 $('.todo').click(function () {
-                     alert("Sorry, this function is not implemented yet");
-                 });
+               $('#logout_link').click(function () {
+                 $('#logout_form').submit();
+                 return false;
+               });
+               $('.todo').click(function () {
+                 alert("Sorry, this function is not implemented yet");
+               });
+               $('#change_color_mode').click(function () {
+                 $.post(settings_url, { 'dark_mode': in_dark_mode ? 0 : 1 },
+                        function () {
+                          location.reload();
+                        });
+                 return false;
+               });
              });
             </script>
         {% endblock %}
@@ -54,6 +63,7 @@
                         <a class="dropdown-item todo" href="#">Tags</a>
                         <a class="dropdown-item todo" href="#">About</a>
                         {% if not current_user.is_anonymous %}<a class="dropdown-item" href="{{ url_for('post_story') }}">Post a story</a>{% endif %}
+                        <a class="dropdown-item" id="change_color_mode" href="#">Use {% if get_dark_mode() %}light{% else %}dark{% endif %} mode</a>
                         {% block inside_mainmenu %}{% endblock %}
                     </div>
                 </div>

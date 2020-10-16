@@ -21,6 +21,8 @@ raven = {extras = ["flask"], version = "^6.10.0"}
 redis = "^3.5.3"
 itsdangerous = "^1.1.0"
 click = "^7.1.2"
+attrs = "^20.2.0"
+celery = {extras = ["redis"], version = "^5.0.0"}
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.3"

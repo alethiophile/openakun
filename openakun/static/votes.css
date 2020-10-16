@@ -1,0 +1,32 @@
+#vote-editor {
+  margin: 1em 0;
+}
+.vote {
+  font-size: large;
+  width: 95%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.vote-question {
+  margin-bottom: 0.5em;
+}
+textarea.vote-editor {
+  border-width: 1px;
+  width: 100%;
+  margin-bottom: -3px;          /* I don't understand this, but it's necessary somehow? */
+}
+div.vote-entry {
+  display: flex;
+}
+div.vote-text {
+  flex: auto;
+  padding: .5em;
+}
+div.delete-vote {
+  padding: .5em;
+  display: flex;
+  align-items: center;
+}
+div.new-vote {
+  padding: .5em;
+}

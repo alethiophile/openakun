@@ -7,92 +7,147 @@
         <script nonce="{{ get_script_nonce() }}" src="https://cdn.quilljs.com/1.3.2/quill.js"></script>
     {% endif %}
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='jinja.js') }}" integrity="sha384-cm3HUQ6bTRjf6UEdiBbA4EVE+5HHakERCDN3cwzBZbJxfi8ZdCNH6OGNEiJKv36F" crossorigin="anonymous"></script>
-    <style>
-     #quill-editor {
-         min-height: 5rem;
-         overflow-y: auto;
-     }
-     .chat {
-         position: absolute;
-         width: 95%;
-         bottom: 0;
-         height: 100%;
-     }
-     #chat-messages {
-         overflow-y: auto;
-         width: 100%;
-         flex: auto;
-         margin-bottom: 20px;
-     }
-     #chat-type {
-         width: 15%;
-         display: block;
-         box-sizing: padding-box;
-         overflow: hidden;
-         flex: auto;
-     }
-     #chat-send {
-         flex: none;
-     }
-     .chat-controls {
-         width: 100%;
-         display: flex;
-         padding-right: 10px;
-     }
-     .chatmsg {
-         padding: 5px;
-     }
-     .chatmsg:hover {
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
+    {# all color directives should be put in this block and varied light/dark #}
+    {% if get_dark_mode() %}
+      <style>
+       .chatmsg:hover {
+         background-color: #555;
+       }
+       .story-author a {
+         color: #8888ff;
+       }
+       .nextchapter_link {
+         color: #507bff;
+         border: 1px solid #507bff;
+       }
+       .nextchapter_link:hover {
+         color: #fff;
+         background-color: #507bff;
+       }
+       div.vote-entry:hover {
+         color: #eee;
+         background-color: #507bff;
+       }
+       div.delete-vote:hover {
+         background-color: #ff5555;
+       }
+       .chat_date, .post_date {
+         color: #888;
+       }
+      </style>
+    {% else %}
+      <style>
+       .chatmsg:hover {
          background-color: #ccc;
-     }
-     .chat_head {
-         display: flex;
-     }
-     .chat_sender {
-         font-size: small;
-         font-weight: bold;
-         margin-right: .5rem;
-     }
-     .chat_date {
-         font-size: small;
+       }
+       .chat_date {
          color: #888;
-     }
-     #chapter_section {
-         display: flex;
-     }
-     #chaptertitle_inp {
-         visibility: hidden;
-         flex: auto;
-     }
-     .post {
-         margin-bottom: 1rem;
-     }
-     .post_date {
-         margin-top: -.5rem;
-         text-align: right;
-         font-size: small;
+       }
+       .post_date {
          color: #888;
-     }
-     #story_actions {
-         display: flex;
-     }
-     #story_actions div {
-         flex: auto;
-         text-align: center;
-     }
-     .nextchapter_link {
-         display: block;
-         width: 100%;
-         padding: 2rem 0;
-         margin: 2rem auto 2rem auto;
+       }
+       .nextchapter_link {
          color: #007bff;
          border: 1px solid #007bff;
-         text-align: center;
-     }
-     .nextchapter_link:hover {
+       }
+       .nextchapter_link:hover {
          color: #fff;
          background-color: #007bff;
-         text-decoration: none;
+       }
+       div.vote-entry:hover {
+         color: #eee;
+         background-color: #007bff;
+       }
+       div.delete-vote:hover {
+         background-color: #ff5555;
+       }
+       .story-author a {
+         color: black;
+       }
+       input.vote_question {
+         border-color: #aaa;
+       }
+      </style>
+    {% endif %}
+    <style>
+     #quill-editor {
+       min-height: 5rem;
+       overflow-y: auto;
+     }
+     .chat {
+       position: absolute;
+       width: 95%;
+       bottom: 0;
+       height: 100%;
+     }
+     #chat-messages {
+       overflow-y: auto;
+       width: 100%;
+       flex: auto;
+       margin-bottom: 20px;
+     }
+     #chat-type {
+       width: 15%;
+       display: block;
+       box-sizing: padding-box;
+       overflow: hidden;
+       flex: auto;
+     }
+     #chat-send {
+       flex: none;
+     }
+     .chat-controls {
+       width: 100%;
+       display: flex;
+       padding-right: 10px;
+     }
+     .chatmsg {
+       padding: 5px;
+     }
+     .chat_head {
+       display: flex;
+     }
+     .chat_sender {
+       font-size: small;
+       font-weight: bold;
+       margin-right: .5rem;
+     }
+     .chat_date {
+       font-size: small;
+     }
+     #chapter_section {
+       display: flex;
+     }
+     #chaptertitle_inp {
+       visibility: hidden;
+       flex: auto;
+     }
+     .post {
+       margin-bottom: 1rem;
+     }
+     .post_date {
+       margin-top: -.5rem;
+       text-align: right;
+       font-size: small;
+     }
+     #story_actions {
+       display: flex;
+     }
+     #story_actions div {
+       flex: auto;
+       text-align: center;
+     }
+     .nextchapter_link {
+       display: block;
+       width: 100%;
+       padding: 2rem 0;
+       margin: 2rem auto 2rem auto;
+       text-align: center;
+     }
+     .nextchapter_link:hover {
+       text-decoration: none;
      }
      .story-title {
        text-align: center;
@@ -102,10 +157,14 @@
        margin-top: 1em;
        margin-bottom: 1em;
      }
-     .story-author a {
-       color: black;
+     textarea {
+       resize: none;
+     }
+     label.radio-inline {
+       margin-right: 1em;
      }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}">
     <script id="render_post" type="text/x-tmpl-jinja">
      {{- include_raw('render_post.html') -}}
     </script>
@@ -118,6 +177,12 @@
      var post_url = '{{ url_for('new_post') }}';
      var csrf_token = '{{ session['_csrf_token'] }}';
      var anon_username = 'anon';
+     var vote_data_list = {
+       {% for p in chapter.posts %}{% if p.post_type == models.PostType.Vote -%}
+       {% do prepare_post(p) -%}
+       {{ p.vote_info.id }}: {{ p.vote_info_json|safe }},
+       {% endif %}{% endfor %}
+     };
      $(function () {
        $('.rerender-date').each(function () {
          var m = moment($(this).data('dateval'));
@@ -129,28 +194,59 @@
            theme: 'snow',
          });
          $('#post-button').click(function () {
-           var post_html = quill.root.innerHTML;
-           var new_chapter = $('#newchapter').is(':checked');
-           var chap_title = $('#chaptertitle_inp').val();
+           let post_type = $('input:radio[name=post_type]:checked').val();
+           let new_chapter = $('#newchapter').is(':checked');
+           let chap_title = $('#chaptertitle_inp').val();
            if (new_chapter && chap_title === '') {
              alert("Chapter title can't be empty");
              return false;
            }
-           console.log('doing post');
+           let post_data = { chapter_id: chapter_id,
+                             new_chapter: new_chapter, chapter_title: chap_title,
+                             _csrf_token: csrf_token };
+           if (post_type == 'text') {
+             let post_html = quill.root.innerHTML;
+             post_data['post_text'] = post_html;
+             // this names one of the server-side PostType enum values
+             post_data['post_type'] = 'Text';
+           }
+           else if (post_type == 'vote') {
+             /* let vote_question = $('#vote-editor textarea.vote-editor').val();
+              * let vote_entries = [];
+              * $('div.vote-entries div.vote-text').each(function () {
+              *   vote_entries.push($(this).html());
+              * });*/
+             /* post_data['vote_question'] = vote_question;
+              * post_data['vote_options'] = vote_entries;*/
+             post_data['vote_data'] = vote_editor.get_vote_data();
+             post_data['post_type'] = 'Vote';
+             console.log(post_data);
+           }
            $.ajax(post_url, {
              method: 'POST',
-             data: { chapter_id: chapter_id, post_text: post_html,
-                     new_chapter: new_chapter, chapter_title: chap_title,
-                     _csrf_token: csrf_token },
-             success: function () {
-               document.location.href = document.location.href;
-             },
+             data: JSON.stringify(post_data),
+             contentType: 'application/json',
+             /* success: function () {
+              *   document.location.href = document.location.href;
+              * },*/
              error: function (jqxhr, status, errorThrown) {
                var errstr = "Error: " + status + " " + errorThrown;
                console.log(errstr);
                alert(errstr);
              },
            });
+         });
+         $('input:radio[name=post_type]').click(function () {
+           let val = $('input:radio[name=post_type]:checked').val();
+           if (val === 'text') {
+             $('#text-editor').show();
+             $('#vote-editor').hide();
+           } else if (val === 'vote') {
+             $('#vote-editor').show();
+             $('#text-editor').hide();
+           } else if (val === 'writein') {
+             
+           }
          });
        }
 
@@ -175,8 +271,18 @@
        socket.on('new_post', function (data) {
          console.log('new post:', data);
          data.rendered_date = moment(data.date_millis).format("MMM Do, YYYY h:mm A");
-         var $d = $(post_tmpl.render({ p: data }));
-         $('#story-content').append($d);
+         if (data.type == 'Text') {
+           let $d = $(post_tmpl.render({ p: data }));
+           $('#story-content').append($d);
+         } else if (data.type == 'Vote') {
+           let $d = $('<div></div>');
+           $('#story-content').append($d);
+           DisplayVote({
+             elem: $d,
+             edit: false,
+             vote: data.vote_data,
+           });
+         }
        });
        socket.on('disconnect', function (reason) {
          console.log('disconnected', reason);
@@ -194,15 +300,6 @@
        }
        socket.on('error', socket_err);
        socket.on('connect_timeout', socket_err);
-
-       /* basically compatible with Python's secrets.token_urlsafe */
-       function make_token(bytes=32) {
-         var arr = new Uint8Array(bytes);
-         window.crypto.getRandomValues(arr);
-         var b64 = btoa(String.fromCharCode.apply(null, arr));
-         var tok = b64.replace(/\+/g, '_').replace(/\//g, '-').replace(/=/g, '');
-         return tok;
-       }
 
        var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
        /* Adds a message to the chatbox, rendering it. Called
@@ -228,25 +325,29 @@
        }
        function chat_trigger_send () {
          var $ct = $('#chat-type');
-         chat_send($ct.val());
+         var chat_msg = $ct.val();
+         if (chat_msg === '') {
+           return;
+         }
+         chat_send(chat_msg);
          $ct.val('');
          $ct.attr('rows', $ct.data('min-rows'));
        }
-       /* copied from https://codepen.io/vsync/pen/frudD, with modifications */
-       $('#chat-type').one('focus', function () {
-         var savedValue = this.value;
-         this.value = '';
-         this.baseScrollHeight = this.scrollHeight;
-         this.value = savedValue;
-       }).on('input', function () {
-         var minRows = this.getAttribute('data-min-rows')|0, rows;
-         this.rows = minRows;
-         rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 21);
-         var $cm = $('#chat-messages');
-         var scrollFrac = $cm[0].scrollTop / ($cm[0].scrollHeight - $cm.height());
-         this.rows = minRows + rows;
-         $cm[0].scrollTop = scrollFrac * ($cm[0].scrollHeight - $cm.height());
+
+       ExpandingTextarea({
+         id: 'chat-type',
+         pixel_height: 21,
+         before_resize: function () {
+           let $cm = $('#chat-messages');
+           this.$cm = $cm;
+           this.scrollFrac = $cm[0].scrollTop / ($cm[0].scrollHeight - $cm.height());
+         },
+         after_resize: function () {
+           let $cm = this.$cm;
+           $cm[0].scrollTop = this.scrollFrac * ($cm[0].scrollHeight - $cm.height());
+         },
        });
+
        $('#chat-type').keydown(function (ev) {
          if (ev.which == 13 && !ev.shiftKey) {
            chat_trigger_send();
@@ -263,6 +364,25 @@
          } else {
            $('#chaptertitle_inp').css('visibility', 'hidden');
          }
+       });
+
+       let $vedit = $('#vote-editor');
+       let vote_editor;
+       if ($vedit.length > 0) {
+         vote_editor = DisplayVote({
+           elem: $vedit,
+           edit: true
+         });
+       }
+
+       $('.vote-from-server').each(function () {
+         let vi = $(this).attr('data-id');
+         let vd = vote_data_list[vi];
+         DisplayVote({
+           elem: $(this),
+           edit: false,
+           vote: vd,
+         });
        });
      });
     </script>
@@ -296,8 +416,12 @@
   {% endif %}
   <div id="story-content">
     {% for p in chapter.posts %}
-      {% do prepare_post(p) %}
-      {% include 'render_post.html' %}
+      {% if p.post_type == models.PostType.Text %}
+        {% do prepare_post(p) %}
+        {% include 'render_post.html' %}
+      {% elif p.post_type == models.PostType.Vote %}
+        <div class="vote-from-server" data-id="{{ p.vote_info.id }}"></div>
+      {% endif %}
     {% endfor %}
   </div>
   {% if chapter != chapter.story.chapters[-1] %}
@@ -311,7 +435,22 @@
       <label class="form-check-label mr-5">Begin a new chapter</label>
       <input class="form-control" type="text" id="chaptertitle_inp" placeholder="Title">
     </div>
-    <div id="quill-editor">
+    <label class="radio-inline"><input type="radio" name="post_type" value="text" checked="checked"> Text post</label>
+    <label class="radio-inline"><input type="radio" name="post_type" value="vote"> Vote</label>
+    <label class="radio-inline"><input type="radio" name="post_type" value="writein"> Write-in</label>
+    <div id="text-editor">
+      <div id="quill-editor">
+      </div>
+    </div>
+    <div id="vote-editor" style="display:none">
+      <!-- <div class="vote">
+           <div class="vote-question">
+           <textarea class="vote-editor" rows="1" data-min-rows="1" placeholder="What are you voting on?"></textarea>
+           </div>
+           <div class="vote-entries">
+           <div class="vote-entry new-vote">+ Add new option</div>
+           </div>
+           </div> -->
     </div>
     <button class="btn mt-2" id="post-button">Post</button>
   {% endif %}

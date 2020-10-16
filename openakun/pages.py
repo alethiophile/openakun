@@ -1,12 +1,13 @@
 #!python
 
 from . import models
+from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText
 
 from flask import (Flask, render_template, request, redirect, url_for, g,
                    flash, abort, jsonify, session)
-import flask
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
+from werkzeug import Response
 from jinja2 import Markup
 from flask_socketio import SocketIO
 from raven.contrib.flask import Sentry
@@ -14,11 +15,12 @@ from raven.contrib.flask import Sentry
 import itsdangerous, redis
 from passlib.context import CryptContext
 
-import datetime, configparser, bleach, os, secrets, re, click
+import configparser, os, secrets, re, click, json
+from datetime import datetime, timezone
 from functools import wraps
 from base64 import b64encode
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 pwd_context = CryptContext(
     schemes=['pbkdf2_sha256'],
@@ -62,6 +64,8 @@ def jinja_global(f):
     app.jinja_env.globals[f.__name__] = f
     return f
 
+app.jinja_env.globals['models'] = models
+
 @jinja_global
 def include_raw(filename):
     return Markup(app.jinja_loader.get_source(app.jinja_env, filename)[0])
@@ -85,7 +89,7 @@ def parse_redis_url(url):
     return rv
 
 @app.before_first_request
-def db_setup():
+def db_setup() -> None:
     global db_engine, Session, redis_conn
     if db_engine is None:
         db_engine = models.create_engine(config['openakun']['database_url'],
@@ -97,7 +101,7 @@ def db_setup():
         redis_conn = redis.StrictRedis(**redis_info)
 
 @app.before_request
-def make_csrf(force=False):
+def make_csrf(force: bool = False) -> None:
     if force or '_csrf_token' not in session:
         session['_csrf_token'] = secrets.token_urlsafe()
 
@@ -110,12 +114,13 @@ def get_script_nonce() -> str:
     return g.script_nonce
 
 @app.after_request
-def add_csp(resp: flask.Response) -> flask.Response:
+def add_csp(resp: Response) -> Response:
     nv = get_script_nonce()
     report_only = config['openakun']['csp_level'] == 'report'
     header_name = ('Content-Security-Policy-Report-Only' if report_only else
                    'Content-Security-Policy')
     hval = f"script-src 'nonce-{nv}' 'unsafe-eval'"
+    # TODO report even in enforcing mode
     if report_only:
         hval += f"; report-uri {url_for('csp_report')}"
     resp.headers[header_name] = hval
@@ -123,22 +128,30 @@ def add_csp(resp: flask.Response) -> flask.Response:
 
 @app.route('/csp_violation_report', methods=['POST'])
 def csp_report() -> str:
+    # TODO log this
     print(request.data)
+    if sentry is not None:
+        sentry.captureMessage("CSP violation", data={
+            'request': request.get_json()
+        })
     return ''
 
 def csrf_check(view: Callable) -> Callable:
     @wraps(view)
     def csrf_wrapper(*args, **kwargs):
         if request.method == 'POST':
+            data = request.json
+            tok = (data.get('_csrf_token', '') if data else
+                   request.form.get('_csrf_token', ''))
             # constant-time compare operation
-            if not secrets.compare_digest(request.form.get('_csrf_token', ''),
+            if not secrets.compare_digest(tok,
                                           session['_csrf_token']):
                 abort(400)
         return view(*args, **kwargs)
     return csrf_wrapper
 
 @login_mgr.user_loader
-def load_user(user_id) -> Optional[models.User]:
+def load_user(user_id: int) -> Optional[models.User]:
     s = db_connect()
     return (s.query(models.User).
             filter(models.User.id == int(user_id)).one_or_none())
@@ -159,7 +172,7 @@ def main():
 
 @app.route('/login', methods=['GET', 'POST'])
 @csrf_check
-def login():
+def login() -> Union[str, Response]:
     if request.method == 'POST':
         s = db_connect()
         user = (s.query(models.User).
@@ -178,21 +191,21 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 @csrf_check
-def logout():
+def logout() -> Response:
     if not current_user.is_anonymous:
         logout_user()
         make_csrf(force=True)
     return redirect(url_for('main'))
 
-def create_user(name, email, password):
+def create_user(name: str, email: str, password: str) -> models.User:
     return models.User(
         name=name,
         email=email,
         password_hash=pwd_context.hash(password),
-        joined_date=datetime.datetime.utcnow()
+        joined_date=datetime.now(tz=timezone.utc)
     )
 
-def add_user(name, email, password):
+def add_user(name: str, email: str, password: str) -> models.User:
     s = db_connect()
     u = create_user(name, email, password)
     s.add(u)
@@ -201,7 +214,7 @@ def add_user(name, email, password):
 
 @app.route('/signup', methods=['GET', 'POST'])
 @csrf_check
-def register():
+def register() -> Union[str, Response]:
     if request.method == 'POST':
         s = db_connect()
         if request.form['pass1'] != request.form['pass2']:
@@ -219,39 +232,7 @@ def register():
     else:
         return render_template("signup.html")
 
-class BadHTMLError(Exception):
-    def __init__(self, *args, good_html, bad_html, **kwargs):
-        self.good_html = good_html
-        self.bad_html = bad_html
-        super().__init__(*args, **kwargs)
-
-class HTMLText(object):
-    def __init__(self, html_data):
-        self.dirty_html = html_data
-        self.clean_html = bleach.clean(html_data,
-                                       tags=self.allowed_tags,
-                                       attributes=self.allowed_attributes)
-
-    def __str__(self):
-        return self.clean_html
-
-class ChapterHTMLText(HTMLText):
-    allowed_tags = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
-                    'strike', 'ul']
-
-    def allowed_attributes(self, tag, name, value):
-        if tag == 'a':
-            if name == 'data-achieve': return True
-            if name == 'class' and value == 'achieve-link': return True
-        return False
-
-def clean_html(html_in):
-    html = ChapterHTMLText(html_in)
-    if html.clean_html != html.dirty_html:
-        raise BadHTMLError(good_html=html.clean_html, bad_html=html.dirty_html)
-    return html.clean_html
-
-def add_story(title, desc, author):
+def add_story(title: str, desc: str, author: models.User) -> models.Story:
     s = db_connect()
     desc_clean = clean_html(desc)
     ns = models.Story(title=title, description=desc_clean, author=author)
@@ -267,7 +248,7 @@ def add_story(title, desc, author):
 @app.route('/new_story', methods=['GET', 'POST'])
 @login_required
 @csrf_check
-def post_story():
+def post_story() -> Union[str, Response]:
     if request.method == 'POST':
         try:
             ns = add_story(request.form['title'], request.form['description'],
@@ -282,20 +263,22 @@ def post_story():
         return render_template("post_story.html")
 
 @app.route('/story/<int:story_id>')
-def view_story(story_id):
+def view_story(story_id) -> Response:
     s = db_connect()
     story = s.query(models.Story).filter(models.Story.id == story_id).one()
     return redirect(url_for('view_chapter', story_id=story.id,
                             chapter_id=story.chapters[0].id))
 
 @jinja_global
-def prepare_post(p):
-    p.rendered_date = (p.posted_date.astimezone(datetime.timezone.utc).
+def prepare_post(p: models.Post) -> None:
+    p.rendered_date = (p.posted_date.astimezone(timezone.utc).
                        strftime("%b %d, %Y %I:%M %p UTC"))
     p.date_millis = (p.posted_date.timestamp() * 1000)
+    if p.post_type == models.PostType.Vote:
+        p.vote_info_json = json.dumps(Vote.from_model(p.vote_info).to_dict())
 
 @app.route('/story/<int:story_id>/<int:chapter_id>')
-def view_chapter(story_id, chapter_id):
+def view_chapter(story_id: int, chapter_id: int) -> str:
     s = db_connect()
     chapter = (s.query(models.Chapter).
                filter(models.Chapter.id == chapter_id,
@@ -305,9 +288,17 @@ def view_chapter(story_id, chapter_id):
         abort(404)
     return render_template("view_chapter.html", chapter=chapter, server=True)
 
-def create_post(c, text, order_idx=None):
+def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
+                order_idx: Optional[int] = None) -> models.Post:
     s = db_connect()
-    text_clean = ChapterHTMLText(text)
+    if ptype == models.PostType.Text:
+        assert text is not None
+        text_clean = ChapterHTMLText(text)
+        post_text: Optional[str] = text_clean.clean_html
+    elif text is None:
+        post_text = None
+    else:
+        raise ValueError("can't pass text unless ptype is Text")
     # if no explicit order given, it's the last in the current
     # chapter, plus 10
     if order_idx is None:
@@ -319,14 +310,16 @@ def create_post(c, text, order_idx=None):
         else:
             order_idx += 10
     np = models.Post(
-        text=text_clean.clean_html,
-        posted_date=datetime.datetime.now(),
+        text=post_text,
+        posted_date=datetime.now(tz=timezone.utc),
+        post_type=ptype,
         chapter=c, story=c.story, order_idx=order_idx)
     s.add(np)
     s.commit()
     return np
 
-def create_chapter(story, title, order_idx=None):
+def create_chapter(story: models.Story, title: str,
+                   order_idx: Optional[int] = None) -> models.Chapter:
     s = db_connect()
     if order_idx is None:
         order_idx = (s.query(models.func.max(models.Chapter.order_idx).
@@ -345,32 +338,54 @@ def create_chapter(story, title, order_idx=None):
 
 @app.route('/new_post', methods=['POST'])
 @csrf_check
-def new_post():
+def new_post() -> Response:
     s = db_connect()
+    print('new_post')
+    data = request.json
+    print(data)
     c = (s.query(models.Chapter).
-         filter(models.Chapter.id == request.form['chapter_id']).one_or_none())
+         filter(models.Chapter.id == data['chapter_id']).one_or_none())
     if c is None:
         abort(404)
     if current_user != c.story.author:
         abort(403)
-    if request.form['new_chapter'] == 'true':
-        if request.form['chapter_title'] == '':
+    if data['new_chapter']:
+        if data['chapter_title'] == '':
             abort(400)
-        nc = create_chapter(c.story, request.form['chapter_title'])
+        nc = create_chapter(c.story, data['chapter_title'])
     else:
         nc = c
-    p = create_post(nc, request.form['post_text'])
+    try:
+        ptype = models.PostType[data['post_type']]
+    except KeyError:
+        abort(400)
+    if ptype == models.PostType.Text:
+        pt = data['post_text']
+    else:
+        pt = None
+    p = create_post(nc, ptype, pt)
+    if ptype == models.PostType.Vote:
+        vote_info = Vote.from_dict(data['vote_data'])
+        vote_model = vote_info.create_model()
+        vote_model.post = p
+        s.add(vote_model)
     channel_id = c.story.channel_id
     browser_post_msg = {
-        'text': p.text,
+        'type': p.post_type.name,
         'date_millis': p.posted_date.timestamp() * 1000
     }
+    if p.post_type == models.PostType.Text:
+        browser_post_msg['text'] = p.text
+    elif p.post_type == models.PostType.Vote:
+        vote_info = Vote.from_model(vote_model)
+        browser_post_msg['vote_data'] = vote_info.to_dict()
     socketio.emit('new_post', browser_post_msg, room=str(channel_id))
+    s.commit()
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 
 @app.route('/user/<int:user_id>')
-def user_profile(user_id):
+def user_profile(user_id: int) -> str:
     s = db_connect()
     u = (s.query(models.User).filter(models.User.id == user_id).one_or_none())
     if u is None:
@@ -378,8 +393,19 @@ def user_profile(user_id):
     sl = (s.query(models.Story).filter(models.Story.author == u).all())
     return render_template("user_profile.html", user=u, stories=sl)
 
-def init_db(silent=False):
+@jinja_global
+def get_dark_mode() -> bool:
+    return session.get('dark_mode', False)
+
+@app.route('/settings', methods=['POST'])
+def change_settings() -> str:
+    dark_mode = int(request.form.get('dark_mode', 0))
+    session['dark_mode'] = bool(dark_mode)
+    return ''
+
+def init_db(silent: bool = False) -> None:
     db_setup()
+    assert db_engine is not None
     if not silent:
         print("Initializing DB in {}".format(db_engine.url))
     models.init_db(db_engine,
@@ -390,5 +416,5 @@ def init_db(silent=False):
               help="Hostname to bind to (default 127.0.0.1)")
 @click.option('--port', '-p', type=int, default=None,
               help="Port to listen on (default 5000)")
-def do_run(host, port):
+def do_run(host: str, port: int) -> None:
     socketio.run(app, host=host, port=port)

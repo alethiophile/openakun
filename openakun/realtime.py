@@ -1,12 +1,19 @@
 #!python3
 
+from __future__ import annotations
+
 from . import pages
 from .pages import models, socketio
+from .data import ChatMessage
 from flask_socketio import join_room, emit
 from flask_login import current_user
 from flask import request
 from functools import wraps
-import datetime, hashlib
+from operator import attrgetter
+from datetime import datetime, timezone
+import hashlib, json
+
+from typing import List
 
 if pages.sentry is not None:
     @socketio.on_error_default
@@ -68,9 +75,9 @@ def handle_backlog(data):
     send_back_messages(bl, request.sid)
     return { 'success': True }
 
-def send_back_messages(msgs, to):
+def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
     for i in msgs:
-        mo = get_browser_msg(i)
+        mo = i.to_browser_message()
         socketio.emit('chat_msg', mo, room=to)
 
 def register_ip(addr):
@@ -83,48 +90,64 @@ def register_ip(addr):
         s.add(ai)
     return hashval
 
-def get_browser_msg(msg, admin=False):
-    rv = { 'is_anon': (msg.user is None),
-           'text': msg.text, 'date': msg.date.timestamp() * 1000,
-           'id_token': msg.id_token, 'channel': msg.channel_id }
-    if msg.user is not None:
-        rv['username'] = msg.user.name
-    if admin and msg.user is None:
-        rv['anon_id'] = msg.anon_id
-    return rv
-
 message_cache_len = 60
 
-def get_back_messages(cid):
-    s = pages.db_connect()
-    rv = (s.query(models.ChatMessage).
-          filter(models.ChatMessage.channel_id == cid).
-          order_by(models.ChatMessage.date.desc()).
-          limit(message_cache_len).
-          all())
-    return list(reversed(rv))
-
+def get_back_messages(cid: int) -> List[ChatMessage]:
+    assert pages.redis_conn is not None
+    rkey = f"channel_messages:{cid}"
+    msgs = [ChatMessage.from_dict(json.loads(i.decode())) for i in
+            pages.redis_conn.lrange(rkey, - message_cache_len, -1)]
+    redis_msg_count = len(msgs)
+    if redis_msg_count < message_cache_len:
+        s = pages.db_connect()
+        rv = (s.query(models.ChatMessage).
+              filter(models.ChatMessage.channel_id == cid).
+              order_by(models.ChatMessage.date.desc()).
+              limit(message_cache_len).
+              all())
+        toks = set(i.server_token for i in msgs)
+        db_msgs = [ChatMessage.from_model(i) for i in rv
+                   if i.id_token not in toks]
+        msgs = list(reversed(db_msgs)) + msgs
+        msgs.sort(key=attrgetter('date'))
+        msgs = msgs[- message_cache_len:]
+        if len(msgs) > redis_msg_count:
+            pass
+    return msgs
 
 @socketio.on('chat_msg')
 @with_channel_auth()
-def handle_chat(data):
+def handle_chat(data) -> None:
     print("Chat message", data, request.remote_addr, current_user)
+    if len(data['msg']) == 0:
+        return
+
+    assert pages.redis_conn is not None
+    token = data['id_token']
+    if pages.redis_conn.zscore('messages_seen', token) is not None:
+        return
+    c_ts = datetime.now(tz=timezone.utc)
+    us_now = c_ts.timestamp() * 1000000
+    pages.redis_conn.zadd('messages_seen', { token: us_now })
+
     channel_id = data['channel']
-    c_ts = datetime.datetime.now()
     if current_user.is_anonymous:
         hashval = register_ip(request.remote_addr)
-    s = pages.db_connect()
-    cm = models.ChatMessage(
-        id_token=data['id_token'],
+    user_info = (
+        { 'anon_id': hashval } if current_user.is_anonymous else
+        { 'user_id': current_user.id, 'user_name': current_user.name })
+    msg = ChatMessage.new(
+        browser_token=token,
+        msg_text=data['msg'],
         channel_id=channel_id,
         date=c_ts,
-        text=data['msg']
-    )
-    if current_user.is_anonymous:
-        cm.anon_id = hashval
-    else:
-        cm.user = current_user
-    s.add(cm)
-    s.commit()
-    mo = get_browser_msg(cm)
+        **user_info)
+
+    rkey = f"channel_messages:{channel_id}"
+    val = json.dumps(msg.to_dict())
+    pages.redis_conn.rpush(rkey, val)
+
+    pages.redis_conn.sadd('all_channels', rkey)
+
+    mo = msg.to_browser_message()
     emit('chat_msg', mo, room=channel_id)

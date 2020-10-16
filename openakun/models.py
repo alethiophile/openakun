@@ -3,11 +3,11 @@
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
-                        MetaData, Boolean, CheckConstraint, Index, Table)
+                        MetaData, Boolean, CheckConstraint, Index, Table, Enum)
 from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 
-import os
+import os, enum
 
 # for Alembic
 naming = {
@@ -78,6 +78,7 @@ class Story(Base):
     channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
 
     author = relationship("User", backref="stories")
+    channel = relationship("Channel", uselist=False)
 
     def __repr__(self):
         return "<Story '{}' (id {}) by {}>".format(self.title, self.id,
@@ -102,6 +103,11 @@ class Chapter(Base):
                 format(self.title, self.id, self.order_idx, self.story.title,
                        self.is_appendix))
 
+class PostType(enum.Enum):
+    Text = 1
+    Vote = 2
+    Writein = 3
+
 class Post(Base):
     __tablename__ = 'posts'
 
@@ -111,12 +117,71 @@ class Post(Base):
     story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
     chapter_id = Column(Integer, ForeignKey('chapters.id'), nullable=False)
     order_idx = Column(Integer, nullable=False)
+    post_type = Column(Enum(PostType), default=PostType.Text, nullable=False)
+    # null unless type is Vote
+    # vote_id = Column(Integer, ForeignKey('vote_info.id'))
 
     story = relationship("Story", backref=backref(
         "posts",
         order_by='Post.order_idx'
     ))
     chapter = relationship("Chapter", backref="posts")
+    vote_info = relationship("VoteInfo", uselist=False, back_populates="post")
+
+class VoteInfo(Base):
+    __tablename__ = 'vote_info'
+
+    id = Column(Integer, primary_key=True)
+    # unique is True to enforce one-to-one relationship with Post
+    post_id = Column(Integer, ForeignKey('posts.id'), nullable=False,
+                     unique=True)
+    vote_question = Column(String, nullable=False)
+    multivote = Column(Boolean, default=True, nullable=False)
+    writein_allowed = Column(Boolean, default=True, nullable=False)
+    votes_hidden = Column(Boolean, default=False, nullable=False)
+    time_closed = Column(DateTime(timezone=True))
+
+    votes = relationship('VoteEntry', uselist=True, back_populates='vote_info')
+    post = relationship('Post', back_populates='vote_info')
+
+class VoteEntry(Base):
+    __tablename__ = 'vote_entries'
+
+    id = Column(Integer, primary_key=True)
+    vote_id = Column(Integer, ForeignKey('vote_info.id'), nullable=False)
+    vote_text = Column(String, nullable=False)
+    killed = Column(Boolean, default=False, nullable=False)
+    killed_text = Column(String)
+
+    votes = relationship('UserVote')
+    vote_info = relationship('VoteInfo', uselist=False, back_populates='votes')
+
+class UserVote(Base):
+    __tablename__ = 'user_votes'
+    __table_args__ = (
+        CheckConstraint('(user_id is null) != (anon_id is null)',
+                        name='user_or_anon'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    entry_id = Column(Integer, ForeignKey('vote_entries.id'), nullable=False,
+                      )
+    user_id = Column(Integer, ForeignKey('users.id'),
+                     nullable=True)
+    anon_id = Column(String, nullable=True)
+
+class WriteinEntry(Base):
+    __tablename__ = 'writein_entries'
+    __table_args__ = (
+        CheckConstraint('(user_id is null) != (anon_id is null)',
+                        name='user_or_anon'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    anon_id = Column(String)
+    text = Column(String)
+    date_added = Column(DateTime(timezone=True), nullable=False)
 
 class Channel(Base):
     __tablename__ = 'channels'
@@ -124,7 +189,7 @@ class Channel(Base):
     id = Column(Integer, primary_key=True)
     private = Column(Boolean, default=False, nullable=False)
 
-    story = relationship("Story", backref=backref("channel", uselist=False))
+    story = relationship("Story", back_populates='channel')
 
 class ChatMessage(Base):
     __tablename__ = 'chat_messages'
