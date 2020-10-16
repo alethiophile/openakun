@@ -12,15 +12,16 @@ from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone
 import hashlib, json
+from sentry_sdk import push_scope, capture_exception
 
 from typing import List
 
-if pages.sentry is not None:
+if pages.using_sentry:
     @socketio.on_error_default
     def sentry_report_socketio(e):
-        pages.sentry.before_request()
-        pages.sentry.captureException()
-        pages.sentry.client.context.clear()
+        with push_scope() as scope:
+            scope.set_extra('event', request.event)
+            capture_exception()
 
 def get_channel(channel_id):
     s = pages.db_connect()

@@ -251,3 +251,27 @@
    - Contents page
      - Some routes UI here, if doing that
  - User prefs area, login link if not logged in, link to profile if so
+* Deploy process
+ - Need to install:
+   - postgresql-server
+   - postgresql-devel
+   - certbot
+   - nginx
+   - firewall (ufw or firewalld)
+   - redis
+   - build-essential (~yum groupinstall "Development Tools"~)
+   - python38
+   - python38-devel
+   - openssl-devel
+ - Set up nginx for reverse proxying
+   - HTTP proxy
+ - Create a virtualenv and activate it
+ - Get the dist and run: ~pip3 install --upgrade openakun-x.y.z.tar.gz~
+ - run the worker:
+   - in development, you run:
+     ~celery -A openakun.tasks.queue worker --loglevel INFO -B~
+     which runs the beat scheduler in the same process as a single worker
+   - in production, you need to run ~celery beat~ in a separate process, and
+     maybe multiple workers for load-sharing
+ - run the server:
+   ~openakun_server~

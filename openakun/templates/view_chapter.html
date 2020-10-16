@@ -206,6 +206,7 @@
                              _csrf_token: csrf_token };
            if (post_type == 'text') {
              let post_html = quill.root.innerHTML;
+             post_html = fix_quill_html(post_html);
              post_data['post_text'] = post_html;
              // this names one of the server-side PostType enum values
              post_data['post_type'] = 'Text';
@@ -320,7 +321,7 @@
        /* Send a chat message. Takes a string message, arranges
           for it to be sent. */
        function chat_send (msg) {
-         var mo = { channel: channel_id, msg: msg, id_token: make_token() };
+         var mo = { channel: channel_id, msg: msg, id_token: make_random_token() };
          socket.emit('chat_msg', mo);
        }
        function chat_trigger_send () {

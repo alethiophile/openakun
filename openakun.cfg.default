@@ -27,3 +27,19 @@ use_alembic = true
 
 # A Redis URL, used for caching. Defaults to the local service on port 6379.
 redis_url = redis://
+
+# The level to set CSP at. Can be 'report' or 'enforce'; the former will set the
+# Content-Security-Policy-Report-Only header, the latter plain
+# Content-Security-Policy.
+csp_level = report
+
+# Whether to insert a ProxyFix middleware into the app. This should be set to
+# true if the app is set up behind a reverse proxy like nginx. It must only be
+# set true if behind a reverse proxy -- setting this true when the app is
+# directly exposed is a security risk, since the ProxyFix trusts headers set by
+# the proxy.
+proxy_fix = false
+
+# The main site origin, including scheme and host. If behind a proxy, this must
+# be set to allow the origin policy to work.
+#main_origin =

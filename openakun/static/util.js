@@ -46,3 +46,9 @@ function make_random_token(bytes=32) {
   var tok = b64.replace(/\+/g, '_').replace(/\//g, '-').replace(/=/g, '');
   return tok;
 }
+
+function fix_quill_html (html_s) {
+  let $h = $('<div/>').append(html_s);
+  $h.find('span').remove();
+  return $h.html();
+}

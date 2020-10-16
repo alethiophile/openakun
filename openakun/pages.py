@@ -8,9 +8,12 @@ from flask import (Flask, render_template, request, redirect, url_for, g,
 from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 from werkzeug import Response
+from werkzeug.middleware.proxy_fix import ProxyFix
 from jinja2 import Markup
 from flask_socketio import SocketIO
-from raven.contrib.flask import Sentry
+import sentry_sdk
+from sentry_sdk import push_scope, capture_message
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 import itsdangerous, redis
 from passlib.context import CryptContext
@@ -31,19 +34,29 @@ config = configparser.ConfigParser()
 if os.environ.get('OPENAKUN_TESTING') == '1':
     config.read_dict(os.openakun_test_config)  # this is a terrible hack
 else:
-    rv = config.read('openakun.cfg')
+    config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
+    rv = config.read(config_fn)
     if len(rv) == 0:
         raise RuntimeError("Couldn't find config file")
+
+using_sentry = False
+if 'sentry_dsn' in config['openakun']:
+    using_sentry = True
+    sentry_sdk.init(
+        dsn=config['openakun']['sentry_dsn'],
+        send_default_pii=True,
+        integrations=[FlaskIntegration()]
+    )
 
 login_mgr = LoginManager()
 app = Flask('openakun')
 
+if config.getboolean('openakun', 'proxy_fix', fallback=False):
+    print("adding ProxyFix")
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
 class ConfigError(Exception):
     pass
-
-sentry = None
-if 'sentry_dsn' in config['openakun']:
-    sentry = Sentry(app, dsn=config['openakun']['sentry_dsn'])
 
 if ('secret_key' not in config['openakun'] or
     len(config['openakun']['secret_key']) == 0):  # noqa: E129
@@ -52,7 +65,11 @@ if ('secret_key' not in config['openakun'] or
 app.config['SECRET_KEY'] = config['openakun']['secret_key']
 login_mgr.init_app(app)
 login_mgr.login_view = 'login'
-socketio = SocketIO(app)
+site_origin = config.get('openakun', 'main_origin', fallback=None)
+ol = [site_origin] if site_origin is not None else None
+socketio = SocketIO(app, cors_allowed_origins=ol,
+                    logger=app.config['DEBUG'],
+                    engineio_logger=app.config['DEBUG'])
 
 app.jinja_env.add_extension('jinja2.ext.do')
 
@@ -130,10 +147,10 @@ def add_csp(resp: Response) -> Response:
 def csp_report() -> str:
     # TODO log this
     print(request.data)
-    if sentry is not None:
-        sentry.captureMessage("CSP violation", data={
-            'request': request.get_json()
-        })
+    if using_sentry:
+        with push_scope() as scope:
+            scope.set_extra('request', request.get_json())
+            capture_message("CSP violation")
     return ''
 
 def csrf_check(view: Callable) -> Callable:
@@ -253,11 +270,17 @@ def post_story() -> Union[str, Response]:
         try:
             ns = add_story(request.form['title'], request.form['description'],
                            current_user)
-        except BadHTMLError:
-            if app.config['DEBUG']:
-                raise
-            else:
-                abort(400)
+        except BadHTMLError as e:
+            if using_sentry:
+                with push_scope() as scope:
+                    scope.set_extra('good_html', e.good_html)
+                    scope.set_extra('bad_html', e.bad_html)
+                    capture_message('HTML sanitization violation '
+                                    '(description)')
+            # if app.config['DEBUG']:
+            #     raise
+            # else:
+            abort(400)
         return redirect(url_for('view_story', story_id=ns.id))
     else:
         return render_template("post_story.html")
@@ -294,6 +317,11 @@ def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
     if ptype == models.PostType.Text:
         assert text is not None
         text_clean = ChapterHTMLText(text)
+        if text_clean.clean_html != text_clean.dirty_html and using_sentry:
+            with push_scope() as scope:
+                scope.set_extra('bad_html', text_clean.dirty_html)
+                scope.set_extra('good_html', text_clean.clean_html)
+                capture_message('HTML sanitization violation (post)')
         post_text: Optional[str] = text_clean.clean_html
     elif text is None:
         post_text = None
