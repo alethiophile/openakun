@@ -273,13 +273,16 @@
          console.log('new post:', data);
          data.rendered_date = moment(data.date_millis).format("MMM Do, YYYY h:mm A");
          if (data.type == 'Text') {
+           data.render_text = data.text;
            let $d = $(post_tmpl.render({ p: data }));
            $('#story-content').append($d);
          } else if (data.type == 'Vote') {
-           let $d = $('<div></div>');
+           data.render_text = '<div class="rt-vote"></div>';
+           let $d = $(post_tmpl.render({ p: data }));
+           let $vel = $d.find('.rt-vote');
            $('#story-content').append($d);
            DisplayVote({
-             elem: $d,
+             elem: $vel,
              edit: false,
              vote: data.vote_data,
            });

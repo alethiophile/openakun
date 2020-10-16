@@ -300,10 +300,13 @@ def prepare_post(p: models.Post) -> None:
     p.rendered_date = (p.posted_date.astimezone(timezone.utc).
                        strftime("%b %d, %Y %I:%M %p UTC"))
     p.date_millis = (p.posted_date.timestamp() * 1000)
-    if p.post_type == models.PostType.Vote:
+    if p.post_type == models.PostType.Text:
+        p.render_text = p.text
+    elif p.post_type == models.PostType.Vote:
         p.vote_info_json = json.dumps(Vote.from_model(p.vote_info).to_dict())
-        p.text = (f'<div class="vote-from-server" data-id="{p.vote_info.id}">'
-                  '</div>')
+        p.render_text = (f'<div class="vote-from-server" '
+                         f'data-id="{p.vote_info.id}">'
+                         '</div>')
 
 @app.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id: int, chapter_id: int) -> str:
