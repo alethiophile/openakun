@@ -6,6 +6,7 @@
   width: 95%;
   margin-left: auto;
   margin-right: auto;
+  margin-bottom: 1rem;
 }
 .vote-question {
   margin-bottom: 0.5em;
@@ -23,6 +24,9 @@ div.vote-text {
   padding: .5em;
 }
 div.delete-vote {
+  display: none;
+}
+div.vote-editing div.delete-vote {
   padding: .5em;
   display: flex;
   align-items: center;

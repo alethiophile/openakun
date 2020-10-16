@@ -421,7 +421,7 @@
         {% do prepare_post(p) %}
         {% include 'render_post.html' %}
       {% elif p.post_type == models.PostType.Vote %}
-        <div class="vote-from-server" data-id="{{ p.vote_info.id }}"></div>
+        {% include 'render_post.html' %}
       {% endif %}
     {% endfor %}
   </div>
@@ -444,14 +444,6 @@
       </div>
     </div>
     <div id="vote-editor" style="display:none">
-      <!-- <div class="vote">
-           <div class="vote-question">
-           <textarea class="vote-editor" rows="1" data-min-rows="1" placeholder="What are you voting on?"></textarea>
-           </div>
-           <div class="vote-entries">
-           <div class="vote-entry new-vote">+ Add new option</div>
-           </div>
-           </div> -->
     </div>
     <button class="btn mt-2" id="post-button">Post</button>
   {% endif %}

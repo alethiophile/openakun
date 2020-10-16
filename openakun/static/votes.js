@@ -8,9 +8,16 @@
 var DisplayVote = (function (args) {
   /* args:
   * elem: a jQuery selector for a single empty element
-  * edit: true or false 
+  * edit: whether editing this vote (used only for posting new votes)
+  * vote: vote data if pre-populated
+  * active: whether voting is currently ongoing
+  * (at most one of edit or active can be true)
   */
   let edit_mode = args.edit !== undefined ? args.edit : false;
+  let vote_active = args.active !== undefined ? args.active : false;
+  if (edit_mode && vote_active) {
+    throw 'Vote cannot be both editing and active';
+  }
 
   let $el = args.elem;
 
@@ -104,9 +111,7 @@ var DisplayVote = (function (args) {
       function make_vote_el (vd) {
         let $new_entry = $('<div class="vote-entry real-vote"><div class="vote-text"></div></div>');
         $new_entry.attr('data-index', ind);
-        if (edit_mode) {
-          $new_entry.append('<div class="delete-vote" title="Delete entry">✘</div>');
-        }
+        $new_entry.append('<div class="delete-vote" title="Delete entry">✘</div>');
         $new_entry.find('.vote-text').text(vd.text);
         return $new_entry;
       }
@@ -120,12 +125,12 @@ var DisplayVote = (function (args) {
       }
       rv._vote.votes.push(vdata);
       let vo = this.get_vote(ind);
-      if (edit_mode) {
-        new_entry.find('div.vote-text').click(function () { vo.toggle_edit(); });
-        new_entry.find('div.delete-vote').click(function () {
-          vo.del();
-        });
-      }
+      /* the methods on vo check if edit_mode is set, so no need to make the
+      handlers conditional */
+      new_entry.find('div.vote-text').click(function () { vo.toggle_edit(); });
+      new_entry.find('div.delete-vote').click(function () {
+        vo.del();
+      });
       return vo;
     },
 
@@ -171,6 +176,9 @@ var DisplayVote = (function (args) {
     return rv;
   }
   $el.append(make_start_el());
+  if (edit_mode) {
+    $el.find('div.vote').addClass('vote-editing');
+  }
   rv._vote.votes = [];
   for (let vote of vote_obj.votes) {
     rv.add_new_vote(vote);
