@@ -6,6 +6,7 @@ from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
                         MetaData, Boolean, CheckConstraint, Index, Table, Enum)
 from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
+from sqlalchemy.sql import select
 
 import os, enum
 
@@ -108,6 +109,15 @@ class PostType(enum.Enum):
     Vote = 2
     Writein = 3
 
+def order_idx_default(context):
+    cid = context.get_current_parameters()['chapter_id']
+    rv = context.connection.execute(select([
+        func.coalesce(
+            func.max(Post.order_idx) + 10,
+            0)]).where(Post.chapter_id == cid))
+    rows = rv.fetchall()
+    return rows[0][0]
+
 class Post(Base):
     __tablename__ = 'posts'
 
@@ -116,7 +126,7 @@ class Post(Base):
     posted_date = Column(DateTime(timezone=True), nullable=False)
     story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
     chapter_id = Column(Integer, ForeignKey('chapters.id'), nullable=False)
-    order_idx = Column(Integer, nullable=False)
+    order_idx = Column(Integer, nullable=False, default=order_idx_default)
     post_type = Column(Enum(PostType), default=PostType.Text, nullable=False)
     # null unless type is Vote
     # vote_id = Column(Integer, ForeignKey('vote_info.id'))

@@ -1,7 +1,7 @@
 #!python
 
 from . import models
-from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText
+from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
 
 from flask import (Flask, render_template, request, redirect, url_for, g,
                    flash, abort, jsonify, session)
@@ -12,7 +12,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from jinja2 import Markup
 from flask_socketio import SocketIO
 import sentry_sdk
-from sentry_sdk import push_scope, capture_message
+from sentry_sdk import push_scope, capture_message, capture_exception
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 import itsdangerous, redis
@@ -277,9 +277,6 @@ def post_story() -> Union[str, Response]:
                     scope.set_extra('bad_html', e.bad_html)
                     capture_message('HTML sanitization violation '
                                     '(description)')
-            # if app.config['DEBUG']:
-            #     raise
-            # else:
             abort(400)
         return redirect(url_for('view_story', story_id=ns.id))
     else:
@@ -402,7 +399,18 @@ def new_post() -> Response:
         pt = data['post_text']
     else:
         pt = None
-    p = create_post(nc, ptype, pt)
+    # p = create_post(nc, ptype, pt)
+    # this will throw BadHTMLError if HTML is bad
+    try:
+        post_info = Post(text=pt, post_type=ptype)
+    except BadHTMLError as e:
+        if using_sentry:
+            capture_exception(e)
+        abort(400)
+    p = post_info.create_model()
+    p.chapter = nc
+    p.story = nc.story
+    s.add(p)
     if ptype == models.PostType.Vote:
         vote_info = Vote.from_dict(data['vote_data'])
         vote_model = vote_info.create_model()
@@ -419,8 +427,10 @@ def new_post() -> Response:
         vote_info = Vote.from_model(vote_model)
         browser_post_msg['vote_data'] = vote_info.to_dict()
         realtime.add_active_vote(vote_info, c.story.channel_id)
-    socketio.emit('new_post', browser_post_msg, room=str(channel_id))
     s.commit()
+    # emit the post after committing the session, so that clients don't see a
+    # chapter that failed DB write
+    socketio.emit('new_post', browser_post_msg, room=str(channel_id))
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 

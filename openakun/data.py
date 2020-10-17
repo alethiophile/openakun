@@ -194,6 +194,10 @@ class BadHTMLError(Exception):
         self.bad_html = bad_html
         super().__init__(*args, **kwargs)
 
+    def __repr__(self):
+        return (f"BadHTMLError(good_html={repr(self.good_html)}, "
+                f"bad_html={repr(self.bad_html)})")
+
 class HTMLText(object):
     allowed_tags: Optional[List[str]]
 
@@ -210,6 +214,10 @@ class HTMLText(object):
     def __str__(self) -> str:
         return self.clean_html
 
+    def __repr__(self) -> str:
+        return (f"{type(self).__name__}(clean_html={repr(self.clean_html)}, "
+                f"dirty_html={repr(self.dirty_html)})")
+
 class ChapterHTMLText(HTMLText):
     allowed_tags = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
                     'strike', 'ul']
@@ -225,3 +233,50 @@ def clean_html(html_in: str) -> str:
     if html.clean_html != html.dirty_html:
         raise BadHTMLError(good_html=html.clean_html, bad_html=html.dirty_html)
     return html.clean_html
+
+@attr.s(auto_attribs=True)
+class Post:
+    text: Optional[str] = attr.ib()
+    post_type: models.PostType
+    posted_date: datetime = attr.Factory(lambda: datetime.now(tz=timezone.utc))
+    order_idx: Optional[int] = None
+
+    @text.validator
+    def _cleck_clean_html(self, attrib, val):
+        html = ChapterHTMLText(val)
+        if html.clean_html != html.dirty_html:
+            raise BadHTMLError(good_html=html.clean_html,
+                               bad_html=html.dirty_html)
+
+    @classmethod
+    def from_dict(cls, inp_dict: Dict[str, Any]) -> Post:
+        d = inp_dict.copy()
+        # enum class gets stored as member name
+        d['post_type'] = models.PostType[d['post_type']]
+        if 'posted_date' in d:
+            d['posted_date'] = datetime.fromisoformat(d['posted_date'])
+        return cls(**d)
+
+    def to_dict(self) -> Dict[str, Any]:
+        rv = attr.asdict(self)
+        rv['post_type'] = rv['post_type'].name
+        rv['posted_date'] = rv['posted_date'].isoformat()
+        return rv
+
+    @classmethod
+    def from_model(cls, m: models.Post) -> Post:
+        return cls(
+            text=m.text,
+            posted_date=m.posted_date,
+            order_idx=m.order_idx,
+            post_type=m.post_type)
+
+    def create_model(self) -> models.Post:
+        d = { 'text': self.text,
+              'posted_date': self.posted_date,
+              'post_type': self.post_type }
+        if self.order_idx is not None:
+            d['order_idx'] = self.order_idx
+        # we do it this way because we have to not pass order_idx at all if
+        # it's None, so that the model's default triggers
+        return models.Post(**d)
