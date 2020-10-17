@@ -19,17 +19,25 @@ textarea.vote-editor {
 div.vote-entry {
   display: flex;
 }
-div.vote-text {
+.vote-text {
   flex: auto;
   padding: .5em;
 }
-div.delete-vote {
+.delete-vote {
   display: none;
 }
-div.vote-editing div.delete-vote {
+div.vote-editing .delete-vote {
   padding: .5em;
   display: flex;
   align-items: center;
+}
+div.vote-count {
+  padding: .5em;
+  display: flex;
+  align-items: center;
+}
+div.vote-editing div.vote-count {
+  display: none;
 }
 div.new-vote {
   padding: .5em;

@@ -115,6 +115,7 @@ class ChatMessage:
 class VoteEntry:
     text: str
     killed: bool = False
+    vote_count: Optional[int] = None
     killed_text: Optional[str] = None
     db_id: Optional[int] = None
 
@@ -148,6 +149,7 @@ class Vote:
     votes_hidden: bool
     votes: List[VoteEntry]
     db_id: Optional[int] = None
+    active: Optional[bool] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> Vote:

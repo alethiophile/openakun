@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from . import pages
 from .pages import models, socketio
-from .data import ChatMessage
+from .data import ChatMessage, Vote
 from flask_socketio import join_room, emit
 from flask_login import current_user
 from flask import request
@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import hashlib, json
 from sentry_sdk import push_scope, capture_exception
 
-from typing import List
+from typing import List, Dict, Optional
 
 if pages.using_sentry:
     @socketio.on_error_default
@@ -82,6 +82,7 @@ def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
         socketio.emit('chat_msg', mo, room=to)
 
 def register_ip(addr):
+    # TODO make this use Redis and a periodic sweep, like chat messages
     hashval = hashlib.sha256(addr.encode()).hexdigest()
     s = pages.db_connect()
     q_num = (s.query(models.AddressIdentifier).
@@ -89,6 +90,7 @@ def register_ip(addr):
     if (q_num == 0):
         ai = models.AddressIdentifier(hash=hashval, ip=addr)
         s.add(ai)
+    s.commit()
     return hashval
 
 message_cache_len = 60
@@ -152,3 +154,210 @@ def handle_chat(data) -> None:
 
     mo = msg.to_browser_message()
     emit('chat_msg', mo, room=channel_id)
+
+def add_active_vote(vote: Vote, channel_id: int) -> None:
+    """This function takes trusted input: it gets called when a new vote is
+    created, and its parameters come from pages.new_post(), which verifies the
+    data.
+
+    """
+    assert vote.db_id is not None
+
+    channel_key = f"channel_votes:{channel_id}"
+    pages.redis_conn.sadd(channel_key, vote.db_id)
+
+    vote_key = f"vote_options:{vote.db_id}"
+    for v in vote.votes:
+        assert v.db_id is not None
+        pages.redis_conn.sadd(vote_key, v.db_id)
+
+    vote_opts = { k: v for k, v in vote.to_dict().items() if k in
+                  ['multivote', 'writein_allowed', 'votes_hidden'] }
+    opts_key = f"vote_config:{vote.db_id}"
+    pages.redis_conn.set(opts_key, json.dumps(vote_opts))
+
+def vote_is_active(channel_id: int, vote_id: int) -> bool:
+    channel_key = f"channel_votes:{channel_id}"
+    return pages.redis_conn.sismember(channel_key, vote_id)
+
+def populate_vote(channel_id: int, vote: Vote) -> Vote:
+    """Takes a vote, populates its options with the killed/killed_text/vote_count
+    items and it with active. vote is populated in-place, return value is
+    always the same object.
+
+    """
+    if not vote_is_active(channel_id, vote.db_id):
+        vote.active = False
+        return vote
+
+    vote.active = True
+
+    for v in vote.votes:
+        option_key = f"option_votes:{v.db_id}"
+        v.vote_count = pages.redis_conn.scard(option_key)
+        ks = pages.redis_conn.hget("options_killed", v.db_id)
+        if ks is None:
+            v.killed = False
+            v.killed_text = None
+        elif ks == '':
+            v.killed = True
+            v.killed_text = None
+        else:
+            v.killed = True
+            v.killed_text = ks
+
+    return vote
+
+def get_vote_config(vote_id: int) -> Dict[str, bool]:
+    opts_key = f"vote_config:{vote_id}"
+    rv = pages.redis_conn.get(opts_key)
+    assert rv is not None
+    return json.loads(rv)
+
+def verify_valid_option(channel_id: int, vote_id: int,
+                        option_id: Optional[int]) -> bool:
+    """This function verifies that 1. the given vote belongs to the given channel,
+    2. the given option belongs to the given vote, 3. the given option has not
+    been killed.
+
+    If option_id is None, skips the latter two steps and only checks 1.
+
+    """
+    # no race conditions should apply here; channel_votes and vote_options are
+    # write-once quantities, while options_killed is only read as a oneshot
+    channel_key = f"channel_votes:{channel_id}"
+    if not pages.redis_conn.sismember(channel_key, str(vote_id)):
+        return False
+
+    if option_id is None:
+        return True
+
+    vote_key = f"vote_options:{vote_id}"
+    if not pages.redis_conn.sismember(vote_key, str(option_id)):
+        return False
+
+    if pages.redis_conn.hexists("options_killed", str(option_id)):
+        return False
+
+    return True
+
+def get_user_identifier():
+    if current_user.is_anonymous:
+        return register_ip(request.remote_addr)
+    else:
+        return f"user:{current_user.id}"
+
+@socketio.on('add_vote')
+@with_channel_auth()
+def handle_add_vote(data) -> None:
+    """Takes an info dictionary of the form:
+    { 'channel': channel_id, 'vote': vote_id, 'option': option_id }
+
+    """
+    channel_id = data['channel']
+    vote_id = data['vote']
+    option_id = data['option']
+
+    if not verify_valid_option(channel_id, vote_id, option_id):
+        print("invalid option")
+        return None
+
+    opts = get_vote_config(vote_id)
+    uid = get_user_identifier()
+
+    print(f"{opts=} {uid=}")
+
+    # in the non-multivote case, we need to atomically 1. add the new vote, 2.
+    # set the user_votes value to the new vote, 3. remove the old vote (from
+    # the prior user_votes value); there's a potential for race conditions
+
+    # the key is to put the atomic getset operation on user_votes between
+    # adding the new vote and removing the old; this ensures that any option in
+    # the getset value has already been voted for, and so removing it and
+    # unsetting that vote is always a valid operation
+
+    # really this is a silly concern, since it can only happen if a single user
+    # is spamming vote messages at high rate, if I have problems with this I'll
+    # just implement rate-limiting or something.
+
+    # there is still a potential race condition where your existing vote is X
+    # and you quickly switch to Y then back to X, where your vote ends up
+    # getting deleted from both X and Y
+
+    # I don't know if I actually care, but if so the answer is probably lua
+    # scripting on the redis end
+
+    # and all this is equally stupid because the only plausible situation in
+    # which there is contention on this is if nginx is load-balancing multiple
+    # socketios, and in that case one IP must always go to the same process and
+    # so will never have contention
+
+    option_key = f"option_votes:{option_id}"
+    print(f"{option_key=}")
+    res = pages.redis_conn.sadd(option_key, uid)
+
+    if not opts['multivote']:
+        uv_key = f"user_votes:{vote_id}:{uid}"
+        old_vote_bytes = pages.redis_conn.getset(uv_key, option_id)
+        old_option_id = (None if old_vote_bytes is None else
+                         int(old_vote_bytes.decode()))
+        if old_option_id == option_id:
+            # in this case it's a repeat vote, so we don't need to do anything
+            old_option_id = None
+
+    if res == 0:
+        # in this case, it was a duplicate vote message for what the user was
+        # already voting for, so we don't need either to send a new totals
+        # message, or to unvote the old vote if not multivote
+        print("res=0")
+        return None
+
+    unvote_res = 0
+    if not opts['multivote']:
+        if old_option_id is not None:
+            old_option_key = f"option_votes:{old_option_id}"
+            unvote_res = pages.redis_conn.srem(old_option_key, uid)
+
+    if not opts['votes_hidden']:
+        if res > 0:
+            t = pages.redis_conn.scard(option_key)
+            msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
+            emit('option_vote_total', msg, room=channel_id)
+
+        if unvote_res > 0:
+            t = pages.redis_conn.scard(old_option_key)
+            msg = { 'vote': vote_id, 'option': old_option_id, 'vote_total': t }
+            emit('option_vote_total', msg, room=channel_id)
+
+@socketio.on('remove_vote')
+@with_channel_auth()
+def handle_remove_vote(data) -> None:
+    channel_id = data['channel']
+    vote_id = data['vote']
+    option_id = data['option']
+
+    if not verify_valid_option(channel_id, vote_id, option_id):
+        return None
+
+    opts = get_vote_config(vote_id)
+    uid = get_user_identifier()
+
+    option_key = f"option_votes:{option_id}"
+    res = pages.redis_conn.srem(option_key, uid)
+
+    if res == 0:
+        return None
+
+    if not opts['multivote']:
+        uv_key = f"user_votes:{vote_id}:{uid}"
+        pages.redis_conn.delete(uv_key)
+
+    if not opts['votes_hidden'] and res > 0:
+        t = pages.redis_conn.scard(option_key)
+        msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
+        emit('option_vote_total', msg, room=channel_id)
+
+@socketio.on('new_vote_entry')
+@with_channel_auth()
+def handle_new_vote_entry(data) -> None:
+    pass

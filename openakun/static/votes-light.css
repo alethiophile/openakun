@@ -1,0 +1,14 @@
+div.vote-text:hover {
+  color: #eee;
+  background-color: #007bff;
+}
+.voted-for div.vote-text {
+  color: #eee;
+  background-color: #007bff;
+}
+div.delete-vote:hover {
+  background-color: #ff5555;
+}
+input.vote_question {
+  border-color: #aaa;
+}

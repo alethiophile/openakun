@@ -26,17 +26,11 @@
          color: #fff;
          background-color: #507bff;
        }
-       div.vote-entry:hover {
-         color: #eee;
-         background-color: #507bff;
-       }
-       div.delete-vote:hover {
-         background-color: #ff5555;
-       }
        .chat_date, .post_date {
          color: #888;
        }
       </style>
+      <link rel="stylesheet" href="{{ url_for('static', filename='votes-dark.css') }}">
     {% else %}
       <style>
        .chatmsg:hover {
@@ -56,20 +50,11 @@
          color: #fff;
          background-color: #007bff;
        }
-       div.vote-entry:hover {
-         color: #eee;
-         background-color: #007bff;
-       }
-       div.delete-vote:hover {
-         background-color: #ff5555;
-       }
        .story-author a {
          color: black;
        }
-       input.vote_question {
-         border-color: #aaa;
-       }
       </style>
+      <link rel="stylesheet" href="{{ url_for('static', filename='votes-light.css') }}">
     {% endif %}
     <style>
      #quill-editor {
@@ -269,6 +254,7 @@
          }
        });
        var post_tmpl = jinja.compile($('#render_post').html(), {runtime: true});
+       let active_votes = {};
        socket.on('new_post', function (data) {
          console.log('new post:', data);
          data.rendered_date = moment(data.date_millis).format("MMM Do, YYYY h:mm A");
@@ -281,12 +267,21 @@
            let $d = $(post_tmpl.render({ p: data }));
            let $vel = $d.find('.rt-vote');
            $('#story-content').append($d);
-           DisplayVote({
+           let dv = DisplayVote({
              elem: $vel,
              edit: false,
              vote: data.vote_data,
+             active: true,
+             socket: socket,
+             channel_id: channel_id
            });
+           active_votes[data.vote_data.db_id] = dv;
          }
+       });
+       socket.on('option_vote_total', function (data) {
+         let vote_id = data.vote;
+         let dv = active_votes[vote_id];
+         dv.get_vote_dbid(data.option).set_count(data.vote_total);
        });
        socket.on('disconnect', function (reason) {
          console.log('disconnected', reason);
@@ -382,11 +377,17 @@
        $('.vote-from-server').each(function () {
          let vi = $(this).attr('data-id');
          let vd = vote_data_list[vi];
-         DisplayVote({
+         let dv = DisplayVote({
            elem: $(this),
            edit: false,
            vote: vd,
+           active: vd.active,
+           socket: socket,
+           channel_id: channel_id
          });
+         if (vd.active) {
+           active_votes[vd.db_id] = dv;
+         }
        });
      });
     </script>

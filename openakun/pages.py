@@ -303,7 +303,10 @@ def prepare_post(p: models.Post) -> None:
     if p.post_type == models.PostType.Text:
         p.render_text = p.text
     elif p.post_type == models.PostType.Vote:
-        p.vote_info_json = json.dumps(Vote.from_model(p.vote_info).to_dict())
+        channel_id = p.story.channel_id
+        v = Vote.from_model(p.vote_info)
+        realtime.populate_vote(channel_id, v)
+        p.vote_info_json = json.dumps(v.to_dict())
         p.render_text = (f'<div class="vote-from-server" '
                          f'data-id="{p.vote_info.id}">'
                          '</div>')
@@ -415,6 +418,7 @@ def new_post() -> Response:
     elif p.post_type == models.PostType.Vote:
         vote_info = Vote.from_model(vote_model)
         browser_post_msg['vote_data'] = vote_info.to_dict()
+        realtime.add_active_vote(vote_info, c.story.channel_id)
     socketio.emit('new_post', browser_post_msg, room=str(channel_id))
     s.commit()
     return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,

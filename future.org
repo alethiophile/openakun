@@ -29,12 +29,131 @@
 *** TODO set up UI for chapters
 *** TODO tune Quill editors for real markup abilities
  - incl. achievement links
-** TODO Write realtime engine
- - Difficult to unit-test
- - Make sure to track time-on-page for proxy detection
- - When write-ins, add a show/hide for all the suggestions
-*** TODO figure out DB layout
-*** TODO implement votes frontend
+** DONE Realtime engine: chat
+** TODO Realtime engine: votes
+ - [X] Create votes on client, send as author
+ - [X] Allow voting
+ - [X] Server-side render for closed votes
+ - [ ] allow closing votes (by author only)
+   - this can be a post endpoint maybe? doesn't matter
+ - [ ] differentiate closed votes in style
+ - [ ] implement hidden totals on client side
+ - [ ] make votes reorder by total (if not hidden)
+ - [ ] allow killing votes
+ - [ ] allow adding writeins
+ - [ ] allow setting vote config on creation time
+ - [ ] handle voted-for for server-side-rendered votes
+
+The vote subsystem has several entities: channel (bound to story), vote and
+option. The channel is the basis of authentication: permission to chat in a
+story's channel is equivalent to permission to vote in that story's votes. A
+channel may have many votes, and a vote may have many options.
+
+Redis maintains the following state:
+
+ - a "channel_votes:{channel_id}" set, which contains the IDs of every active
+   vote in a channel
+ - a "vote_options:{vote_id}" set, which contains the IDs of every option on a
+   vote
+ - a "vote_config:{vote_id}" string, which is JSON containing the vote
+   configuration options
+ - an "options_killed" hash, with keys option_id and values kill_text string (if
+   empty string, this corresponds to killed=True, kill_text=None)
+ - an "option_votes:{option_id}" set, which contains the IDs of the users voting
+   for an option
+
+A vote or unvote message contains: { 'channel': channel_id, 'vote': vote_id,
+'option': option_id }. When receiving such a message, the backend verifies:
+
+1. that the sending user (authenticated or anon) has permission to vote in this
+   channel's votes
+   - this just means "not on the banlist"
+   - this step also verifies that the given channel exists/is active
+   - implemented by the decorator "with_channel_auth"
+2. that the given vote belongs to the given channel (and is active)
+   - use Redis set on key "channel_votes:{channel_id}", which contains every
+     active vote on a given channel
+3. that the given option belongs to the given vote
+   - use Redis set on key "vote_options:{vote_id}", which contains every active
+     option
+4. that the given option has not been killed
+   - how to handle killed options? correct action if option is killed is just to
+     ignore votes for it, same as if option is invalid; however, killed options
+     still need to show up when fetching vote data
+   - possibly just a "options_killed" hash w/ kill text values? empty string
+     here corresponds to "killed, but no kill string"
+
+If all of the above conditions obtain, then the backend will carry out the
+vote/unvote. The votes for a given option are stored in a set under the key
+"option_votes:{option_id}". The members of the set are either anon IDs (IP
+address hashes) or strings like "user:{user_id}". This is derived directly from
+the sending user, not from the message itself. Vote/unvote simply correspond to
+Redis sadd/srem. If the sending user was already in/not in the set, then these
+are NOOPs (and redis will return 0 from the sadd/srem operation). In this case,
+no further action is taken. If the set action was not a NOOP, then the function
+takes the SCARD (which will correspond to number of votes) and sends a message
+like "option_vote_total" to the channel. That message has: { 'vote': vote_id,
+'option': option_id, 'vote_total': total }. The frontend can use this to update
+the vote display. This message is only sent if the votes_hidden option is not
+set for that vote.
+
+If multivote is disabled, then voting when you have voted already implies
+unvoting the previously voted option. To aid in this, if multivote is disabled,
+a set of keys "user_votes:{vote_id}:{user_id}" is maintained. (This is a group
+of string keys, rather than a hash, due to atomicity concerns.) The user_id
+values are the same ID strings in the option_votes sets; the key values are vote
+options. If a user has voted already in a non-multivote vote, then:
+
+1. their previous vote is undone, i.e. they are removed from the
+   "option_votes:{option_id}" set for that option
+2. their entry in "user_votes:{vote_id}:{user_id}" is switched to the new vote
+3. option_vote_total messages are sent both for the old and new votes
+
+If we later want to count anon and verified votes separately, we can split this
+into two sets ("option_user_votes", "option_anon_votes", I guess) pretty
+trivially. This is preferable to fetching the entire set from Redis in order to
+count in server code.
+
+A vote is created by the author calling the /new_post POST endpoint with a post
+of type Vote. This has all the usual authentication of author posting; on the
+frontend it uses the vote editor. The new_post handler calls the add_active_vote
+function, which takes trusted arguments (!). It does the following setup tasks:
+
+1. adds the given vote_id to the correct "channel_votes:{channel_id}" set
+2. adds the option_id of every initial option to the corresponding
+   "vote_options:{vote_id}" set
+3. adds the vote configuration options to a dictionary "vote_config:{vote_id}".
+   This will contain the Vote attributes multivote, writein_allowed, and
+   votes_hidden.
+
+New options can be created by users by sending the 'new_vote_entry' message over
+the channel. The new_vote_entry message contains: { 'channel': channel_id,
+'vote': vote_id, 'vote_info': voteinfo } (where voteinfo is a vote dictionary as
+used by the frontend and the Vote constructor). voteinfo will not contain any
+db_id, but this method might have a browser token for client receipt
+verification (not going to bother for now).
+
+The new vote handler verifies:
+
+1. the given channel is valid and the sending user has permission to post in it
+   - handled by with_channel_auth
+2. the given vote belongs to the given channel, and is active
+   - Redis channel_votes set
+3. the given vote allows writein options
+   - fetch from the vote_config keys
+
+If all these checks pass, then the vote option is added. The option data is
+added to Postgres immediately. After receiving an option_id from Postgres, the
+handler does the following:
+
+1. the vote_count from the client voteinfo is coerced to 1, and a
+   vote_entry_added message is sent to the channel
+2. The option_id is added to the "vote_options:{vote_id}" set
+3. The "option_votes:{option_id}" is initialized with the ID of the sending user
+
+Submitting a new vote is assumed to include voting for it; if a user does not
+want this, they can unvote it.
+
 ** TODO Figure out E-mail
  - How to test this?
  - Make it an optional item; if you want you can run an instance without using
@@ -54,7 +173,7 @@
    CLOSED: [2017-09-25 Mon 19:51]
 ** DONE Write a real frontend
  - CSS is awful
-** TODO Make per-instance configuration better
+** DONE Make per-instance configuration better
  - How to find the configuration file?
 ** TODO Write more tests
  - Test the anti-XSS backend lots; look for lists of test cases
@@ -115,25 +234,29 @@
  - Redis needs to be set with AOF persistence for chat correctness
 *** TODO Consider making Redis optional?
 ** TODO Set up Celery for periodics
- - Use to delete expired rows in tokens table
- - Also useful for sending out E-mails
+ - [X] Add Celery, set up code
+ - [X] Use to sweep chats from redis into DB
+ - [ ] Use to delete expired rows in tokens table
+ - [ ] Use for E-mail sending
 ** TODO Figure out Content-Security-Policy
- - Split out as much JS code as possible, put in static scripts
- - Static scripts can be served from separate origin (subdomain), maybe just
+ - [-] Split out as much JS code as possible, put in static scripts
+   - [X] vote JS
+   - [ ] chat JS
+ - [ ] Static scripts can be served from separate origin (subdomain), maybe just
    same as main site
- - Images should be separate from this (in particular, not allowed as
+ - [ ] Images should be separate from this (in particular, not allowed as
    resources), since users can upload them and heaven knows someone's probably
    got a polyglot of JS/GIF somewhere
- - For inline scripts (used to communicate to client-side), use nonce; pattern
+ - [X] For inline scripts (used to communicate to client-side), use nonce; pattern
    is like CSRF tokens, except in g (ephemeral per request) rather than session
-   - May need to use an after_request function to add necessary headers
- - Potentially, instead of an origin that allows scripts, just embed the hashes
-   of all the scripts we include (probably via a make_script_tag helper function
-   and another after_request)
-   - This saves special-casing CDN origins, at least
- - Make it configurable; do CSP off/report-only/on
- - Set up receiving reports; log these through the normal event log
+   - [X] May need to use an after_request function to add necessary headers
+ - [-] Make it configurable; do CSP off/report-only/on
+   - [X] add basic configuration
+   - [ ] make enforcing CSP keep reporting
+ - [-] Set up receiving reports; log these through the normal event log
    - Need an "urgent" flag on the log
+   - [ ] log through native event log
+   - [X] log through Sentry
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)

@@ -12,6 +12,8 @@ var DisplayVote = (function (args) {
   * vote: vote data if pre-populated
   * active: whether voting is currently ongoing
   * (at most one of edit or active can be true)
+  * socket: a SocketIO object used to emit vote messages
+  * channel_id: the channel_id for the chapter
   */
   let edit_mode = args.edit !== undefined ? args.edit : false;
   let vote_active = args.active !== undefined ? args.active : false;
@@ -30,6 +32,8 @@ var DisplayVote = (function (args) {
     _vote: { ...vote_obj },
 
     length: vote_obj.votes.length,
+    socket: args.socket !== undefined ? args.socket : null,
+    channel_id: args.channel_id !== undefined ? args.channel_id : null,
 
     // this function takes all the vote entry divs in the DOM and sets their
     // data-index attributes to what they should be
@@ -77,6 +81,7 @@ var DisplayVote = (function (args) {
 
       let rv = {
         info: v,
+        voted_for: false,
         editing: function () {
           return ($vel.attr('data-editing') === '1');
         },
@@ -99,18 +104,61 @@ var DisplayVote = (function (args) {
           $vel.remove();
           parent_obj._reindex_dom();
         },
+        set_count: function (count) {
+          if (!vote_active) {
+            return;
+          }
+          this.info.count = count;
+          $vel.find('.vote-count').text(count);
+        },
+        toggle_voted_for: function () {
+          if (!vote_active || parent_obj.socket === null) {
+            return;
+          }
+          if (this.voted_for) {
+            // unvote
+            $vel.removeClass('voted-for');
+            this.voted_for = false;
+            msg = { channel: parent_obj.channel_id,
+                    vote: parent_obj._vote.db_id,
+                    option: this.info.db_id };
+            parent_obj.socket.emit('remove_vote', msg);
+          } else {
+            // add vote
+            if (!parent_obj._vote.multivote) {
+              $el.find('.real-vote').removeClass('voted-for');
+            }
+            $vel.addClass('voted-for');
+            this.voted_for = true;
+            msg = { channel: parent_obj.channel_id,
+                    vote: parent_obj._vote.db_id,
+                    option: this.info.db_id };
+            parent_obj.socket.emit('add_vote', msg);
+          }
+        },
       };
       v._vote_obj = rv;
       return rv;
     },
 
+    get_vote_dbid: function (dbid) {
+      let ind = this._vote.votes.findIndex(function (el) {
+        return el.db_id == dbid;
+      });
+      if (ind == -1) {
+        return null;
+      }
+      return this.get_vote(ind);
+    },
+
     add_new_vote: function (v) {
-      let vdata = v !== undefined ? v : { text: '', killed: false };
+      let vdata = v !== undefined ? v : { text: '', killed: false, vote_count: 0 };
       let ind = this._vote.votes.length;
 
       function make_vote_el (vd) {
         let $new_entry = $('<div class="vote-entry real-vote"><div class="vote-text"></div></div>');
         $new_entry.attr('data-index', ind);
+        $new_entry.append(`<div class="vote-count">${vd.vote_count}</div>`)
         $new_entry.append('<div class="delete-vote" title="Delete entry">✘</div>');
         $new_entry.find('.vote-text').text(vd.text);
         return $new_entry;
@@ -127,7 +175,13 @@ var DisplayVote = (function (args) {
       let vo = this.get_vote(ind);
       /* the methods on vo check if edit_mode is set, so no need to make the
       handlers conditional */
-      new_entry.find('div.vote-text').click(function () { vo.toggle_edit(); });
+      new_entry.find('div.vote-text').click(function () {
+        if (edit_mode) {
+          vo.toggle_edit();
+        } else if (vote_active) {
+          vo.toggle_voted_for();
+        }
+      });
       new_entry.find('div.delete-vote').click(function () {
         vo.del();
       });
