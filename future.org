@@ -398,3 +398,15 @@ want this, they can unvote it.
      maybe multiple workers for load-sharing
  - run the server:
    ~openakun_server~
+
+** Production DB notes
+
+I expect the recommended procedure for a production deployment will be to check
+out the corresponding version tag from Git and have alembic and poetry
+installed. This will ensure the alembic files come along, and at a given frozen
+state poetry and alembic can work fine. Upgrades will be handled by 1. checking
+out the new version tag, 2. doing ~poetry install~ to ensure all dependencies
+are up-to-date, 3. doing ~alembic upgrade~ to pull the DB up. Whether this can
+be done with site active is yet to be determined. The Redis DB should mostly not
+be any concern, since the goal is to make it capable of freezing to Postgres
+without loss of data.
