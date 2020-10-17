@@ -242,6 +242,14 @@
          console.log('joining room');
          socket.emit('join', { channel: channel_id }, function (res) {
            console.log("join result", res)
+           $('.vote-from-server').each(function () {
+             let vi = $(this).attr('data-id');
+             let vd = vote_data_list[vi];
+             console.log("vote-from-server handling", vd);
+             if (vd.active) {
+               socket.emit('get_my_votes', { vote: vd.db_id });
+             }
+           });
            socket.emit('backlog', { channel: channel_id });
          });
        });
@@ -282,6 +290,16 @@
          let vote_id = data.vote;
          let dv = active_votes[vote_id];
          dv.get_vote_dbid(data.option).set_count(data.vote_total);
+       });
+       socket.on('vote_entry_added', function (data) {
+         let vote_id = data.vote;
+         let dv = active_votes[vote_id];
+         dv.add_new_vote(data.vote_info);
+       });
+       socket.on('user_vote', function (data) {
+         let vote_id = data.vote;
+         let dv = active_votes[vote_id];
+         dv.get_vote_dbid(data.option).set_voted(data.value);
        });
        socket.on('disconnect', function (reason) {
          console.log('disconnected', reason);
@@ -387,6 +405,10 @@
          });
          if (vd.active) {
            active_votes[vd.db_id] = dv;
+         }
+         console.log("vote-from-server handling", vd);
+         if (vd.active) {
+           socket.emit('get_my_votes', { vote: vd.db_id });
          }
        });
      });

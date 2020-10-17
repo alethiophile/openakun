@@ -40,7 +40,7 @@
  - [ ] implement hidden totals on client side
  - [ ] make votes reorder by total (if not hidden)
  - [ ] allow killing votes
- - [ ] allow adding writeins
+ - [X] allow adding writeins
  - [ ] allow setting vote config on creation time
  - [ ] handle voted-for for server-side-rendered votes
 

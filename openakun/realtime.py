@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from . import pages
 from .pages import models, socketio
-from .data import ChatMessage, Vote
+from .data import ChatMessage, Vote, VoteEntry, Message
 from flask_socketio import join_room, emit
 from flask_login import current_user
 from flask import request
@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import hashlib, json
 from sentry_sdk import push_scope, capture_exception
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 if pages.using_sentry:
     @socketio.on_error_default
@@ -183,7 +183,8 @@ def vote_is_active(channel_id: int, vote_id: int) -> bool:
 def populate_vote(channel_id: int, vote: Vote) -> Vote:
     """Takes a vote, populates its options with the killed/killed_text/vote_count
     items and it with active. vote is populated in-place, return value is
-    always the same object.
+    always the same object. This is called by the Web endpoints in order to
+    render active votes in new loads.
 
     """
     if not vote_is_active(channel_id, vote.db_id):
@@ -241,31 +242,25 @@ def verify_valid_option(channel_id: int, vote_id: int,
 
     return True
 
-def get_user_identifier():
+def get_user_identifier() -> str:
     if current_user.is_anonymous:
         return register_ip(request.remote_addr)
     else:
         return f"user:{current_user.id}"
 
-@socketio.on('add_vote')
-@with_channel_auth()
-def handle_add_vote(data) -> None:
-    """Takes an info dictionary of the form:
-    { 'channel': channel_id, 'vote': vote_id, 'option': option_id }
+def do_add_vote(vote_id: int, option_id: int,
+                uid: str) -> List[Message]:
+    """This function does the work of add_vote, including the somewhat tricky
+    no-multivote logic. It trusts its input; all authentication is done by
+    handle_add_vote. The given uid is a user ID as returned by
+    get_user_identifier.
+
+    The return value is a list of dicts which should (if appropriate) be
+    emitted as option_vote_total messages. This function already takes account
+    of the votes_hidden option, so no values are returned if that option is
+    set.
 
     """
-    channel_id = data['channel']
-    vote_id = data['vote']
-    option_id = data['option']
-
-    if not verify_valid_option(channel_id, vote_id, option_id):
-        print("invalid option")
-        return None
-
-    opts = get_vote_config(vote_id)
-    uid = get_user_identifier()
-
-    print(f"{opts=} {uid=}")
 
     # in the non-multivote case, we need to atomically 1. add the new vote, 2.
     # set the user_votes value to the new vote, 3. remove the old vote (from
@@ -292,8 +287,10 @@ def handle_add_vote(data) -> None:
     # socketios, and in that case one IP must always go to the same process and
     # so will never have contention
 
+    opts = get_vote_config(vote_id)
+    rv = []
+
     option_key = f"option_votes:{option_id}"
-    print(f"{option_key=}")
     res = pages.redis_conn.sadd(option_key, uid)
 
     if not opts['multivote']:
@@ -309,25 +306,58 @@ def handle_add_vote(data) -> None:
         # in this case, it was a duplicate vote message for what the user was
         # already voting for, so we don't need either to send a new totals
         # message, or to unvote the old vote if not multivote
-        print("res=0")
-        return None
+        return []
+
+    rv.append(Message(
+        message_type='user_vote',
+        data={ 'vote': vote_id, 'option': option_id, 'value': True },
+        dest=request.sid))
 
     unvote_res = 0
     if not opts['multivote']:
         if old_option_id is not None:
             old_option_key = f"option_votes:{old_option_id}"
             unvote_res = pages.redis_conn.srem(old_option_key, uid)
+            rv.append(Message(
+                message_type='user_vote',
+                data={ 'vote': vote_id, 'option': old_option_id,
+                       'value': False },
+                dest=request.sid))
 
     if not opts['votes_hidden']:
         if res > 0:
             t = pages.redis_conn.scard(option_key)
             msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
-            emit('option_vote_total', msg, room=channel_id)
+            rv.append(Message(message_type='option_vote_total', data=msg))
 
         if unvote_res > 0:
             t = pages.redis_conn.scard(old_option_key)
             msg = { 'vote': vote_id, 'option': old_option_id, 'vote_total': t }
-            emit('option_vote_total', msg, room=channel_id)
+            rv.append(Message(message_type='option_vote_total', data=msg))
+
+    return rv
+
+@socketio.on('add_vote')
+@with_channel_auth()
+def handle_add_vote(data) -> None:
+    """Takes an info dictionary of the form:
+    { 'channel': channel_id, 'vote': vote_id, 'option': option_id }
+
+    """
+    channel_id = data['channel']
+    vote_id = data['vote']
+    option_id = data['option']
+
+    if not verify_valid_option(channel_id, vote_id, option_id):
+        return None
+
+    uid = get_user_identifier()
+    messages = do_add_vote(vote_id, option_id, uid)
+    for m in messages:
+        if m.dest is None:
+            m.dest = channel_id
+        m.send()
+        # emit('option_vote_total', m, room=channel_id)
 
 @socketio.on('remove_vote')
 @with_channel_auth()
@@ -348,6 +378,10 @@ def handle_remove_vote(data) -> None:
     if res == 0:
         return None
 
+    emit('user_vote',
+         {'vote': vote_id, 'option': option_id, 'value': False },
+         room=request.sid)
+
     if not opts['multivote']:
         uv_key = f"user_votes:{vote_id}:{uid}"
         pages.redis_conn.delete(uv_key)
@@ -360,4 +394,59 @@ def handle_remove_vote(data) -> None:
 @socketio.on('new_vote_entry')
 @with_channel_auth()
 def handle_new_vote_entry(data) -> None:
-    pass
+    channel_id = data['channel']
+    vote_id = data['vote']
+    voteinfo = data['vote_info']
+
+    if not verify_valid_option(channel_id, vote_id, None):
+        return None
+
+    opts = get_vote_config(vote_id)
+    if not opts['writein_allowed']:
+        return None
+
+    option = VoteEntry.from_dict(voteinfo)
+    # the only thing we accept from the client is the option text
+    option.killed = False
+    option.killed_text = None
+    option.vote_count = 1
+    option.db_id = None
+
+    m = option.create_model()
+    m.vote_id = vote_id
+    s = pages.db_connect()
+    s.add(m)
+    s.commit()
+
+    # this picks up the db_id just set by Postgres
+    option = VoteEntry.from_model(m)
+    vote_key = f"vote_options:{vote_id}"
+    pages.redis_conn.sadd(vote_key, option.db_id)
+
+    uid = get_user_identifier()
+    total_msgs = do_add_vote(vote_id, option.db_id, uid)
+
+    new_entry_message = { 'vote': vote_id, 'vote_info': option.to_dict() }
+    emit('vote_entry_added', new_entry_message, room=channel_id)
+    for m in total_msgs:
+        if m.dest is None:
+            m.dest = channel_id
+        m.send()
+
+@socketio.on('get_my_votes')
+def request_my_votes(data) -> None:
+    vote_id = data['vote']
+
+    vote_key = f'vote_options:{vote_id}'
+    opts = pages.redis_conn.smembers(vote_key)
+
+    uid = get_user_identifier()
+
+    for o in opts:
+        o = o.decode()
+        opt_key = f'option_votes:{o}'
+        print(f"{opt_key=}")
+        if pages.redis_conn.sismember(opt_key, uid):
+            emit('user_vote',
+                 {'vote': vote_id, 'option': o, 'value': True },
+                 room=request.sid)

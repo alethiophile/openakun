@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import attr, secrets, bleach
 from datetime import datetime, timezone
+from flask_socketio import emit
 
 from . import models
 
@@ -280,3 +281,14 @@ class Post:
         # we do it this way because we have to not pass order_idx at all if
         # it's None, so that the model's default triggers
         return models.Post(**d)
+
+@attr.s(auto_attribs=True)
+class Message:
+    message_type: str
+    data: Dict[str, Any]
+    dest: Optional[str] = None
+
+    def send(self, room: Optional[str] = None) -> None:
+        if room is None:
+            room = self.dest
+        emit(self.message_type, self.data, room=room)

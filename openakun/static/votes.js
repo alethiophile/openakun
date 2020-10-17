@@ -44,13 +44,14 @@ var DisplayVote = (function (args) {
       });
     },
 
-    get_vote: function (ind) {
+    get_vote: function (ind, as_active=false) {
       let v = this._vote.votes[ind];
       if (v._vote_obj !== undefined) {
         return v._vote_obj;
       }
       let parent_obj = this;
       let $vel = $el.find('.real-vote').slice(ind, ind + 1);
+      let rv;
 
       // this $te is a jQuery containing the textarea
       function end_edit ($te) {
@@ -59,6 +60,15 @@ var DisplayVote = (function (args) {
         v.text = text;
         $te.closest('div').text(text).click(function () { start_edit($vtd); });
         $te.closest('div.real-vote').removeAttr('data-editing');
+        if (as_active) {
+          let vote_info = { ...v };
+          delete vote_info._vote_obj;
+          let msg = { channel: parent_obj.channel_id,
+                      vote: parent_obj._vote.db_id,
+                      vote_info: vote_info };
+          parent_obj.socket.emit('new_vote_entry', msg);
+          rv.del();
+        }
       }
       
       // this $te is a jQuery containing the vote-text div
@@ -79,14 +89,14 @@ var DisplayVote = (function (args) {
         new_elem.focus();
       }
 
-      let rv = {
+      rv = {
         info: v,
         voted_for: false,
         editing: function () {
           return ($vel.attr('data-editing') === '1');
         },
         toggle_edit: function () {
-          if (!edit_mode) {
+          if (!(edit_mode || as_active)) {
             return;
           }
           if (this.editing()) {
@@ -96,7 +106,7 @@ var DisplayVote = (function (args) {
           }
         },
         del: function () {
-          if (!edit_mode) {
+          if (!(edit_mode || as_active)) {
             return;
           }
           let ind = $vel.attr('data-index');
@@ -111,14 +121,21 @@ var DisplayVote = (function (args) {
           this.info.count = count;
           $vel.find('.vote-count').text(count);
         },
+        set_voted: function (val) {
+          this.voted_for = val;
+          if (val) {
+            $vel.addClass('voted-for');
+          } else {
+            $vel.removeClass('voted-for');
+          }
+        },
         toggle_voted_for: function () {
           if (!vote_active || parent_obj.socket === null) {
             return;
           }
           if (this.voted_for) {
             // unvote
-            $vel.removeClass('voted-for');
-            this.voted_for = false;
+            this.set_voted(false);
             msg = { channel: parent_obj.channel_id,
                     vote: parent_obj._vote.db_id,
                     option: this.info.db_id };
@@ -128,8 +145,7 @@ var DisplayVote = (function (args) {
             if (!parent_obj._vote.multivote) {
               $el.find('.real-vote').removeClass('voted-for');
             }
-            $vel.addClass('voted-for');
-            this.voted_for = true;
+            this.set_voted(true);
             msg = { channel: parent_obj.channel_id,
                     vote: parent_obj._vote.db_id,
                     option: this.info.db_id };
@@ -151,7 +167,7 @@ var DisplayVote = (function (args) {
       return this.get_vote(ind);
     },
 
-    add_new_vote: function (v) {
+    add_new_vote: function (v, as_active=false) {
       let vdata = v !== undefined ? v : { text: '', killed: false, vote_count: 0 };
       let ind = this._vote.votes.length;
 
@@ -172,7 +188,7 @@ var DisplayVote = (function (args) {
         $el.find('.vote-entries').append(new_entry);
       }
       rv._vote.votes.push(vdata);
-      let vo = this.get_vote(ind);
+      let vo = this.get_vote(ind, as_active);
       /* the methods on vo check if edit_mode is set, so no need to make the
       handlers conditional */
       new_entry.find('div.vote-text').click(function () {
@@ -213,6 +229,12 @@ var DisplayVote = (function (args) {
   // set up vote
   function make_start_el () {
     let rv = $('<div class="vote"></div>');
+    if (edit_mode) {
+      rv.addClass('vote-editing');
+    }
+    if (vote_active && vote_obj.writein_allowed) {
+      rv.addClass('can-add-votes');
+    }
     let vq = $('<div class="vote-question"></div>');
     if (edit_mode) {
       let te = $('<textarea class="vote-editor" rows="1" data-min-rows="1" placeholder="What are you voting on?"></textarea>');
@@ -224,15 +246,10 @@ var DisplayVote = (function (args) {
     rv.append(vq);
     ves = $('<div class="vote-entries"></div>');
     rv.append(ves);
-    if (edit_mode) {
-      ves.append('<div class="vote-entry new-vote">+ Add new option</div>');
-    }
+    ves.append('<div class="vote-entry new-vote"><div class="vote-text">+ Add new option</div></div>');
     return rv;
   }
   $el.append(make_start_el());
-  if (edit_mode) {
-    $el.find('div.vote').addClass('vote-editing');
-  }
   rv._vote.votes = [];
   for (let vote of vote_obj.votes) {
     rv.add_new_vote(vote);
@@ -243,8 +260,13 @@ var DisplayVote = (function (args) {
   }
 
   $el.find('div.new-vote').click(function () {
-    let vo = rv.add_new_vote();
-    vo.toggle_edit();
+    if (edit_mode) {
+      let vo = rv.add_new_vote();
+      vo.toggle_edit();
+    } else if (vote_active && rv._vote.writein_allowed) {
+      let vo = rv.add_new_vote(undefined, true);
+      vo.toggle_edit();
+    }
   });
 
   return rv;

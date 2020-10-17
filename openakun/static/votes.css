@@ -26,6 +26,15 @@ div.vote-entry {
 .delete-vote {
   display: none;
 }
+.vote-entry.new-vote {
+  display: none;
+}
+div.vote-editing .vote-entry.new-vote {
+  display: flex;
+}
+div.can-add-votes .vote-entry.new-vote {
+  display: flex;
+}
 div.vote-editing .delete-vote {
   padding: .5em;
   display: flex;
