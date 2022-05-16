@@ -6,7 +6,7 @@
         <link href="https://cdn.quilljs.com/1.3.2/quill.snow.css" rel="stylesheet">
         <script nonce="{{ get_script_nonce() }}" src="https://cdn.quilljs.com/1.3.2/quill.js"></script>
     {% endif %}
-    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='jinja.js') }}" integrity="sha384-cm3HUQ6bTRjf6UEdiBbA4EVE+5HHakERCDN3cwzBZbJxfi8ZdCNH6OGNEiJKv36F" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='nunjucks.min.js') }}" integrity="sha384-XkUA224v0wKRJiWS8sAC+XghpZFy4Vm/wfOWV3sto658OqhxOtJaSpR8AD9cPPjk" crossorigin="anonymous"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
     {# all color directives should be put in this block and varied light/dark #}
@@ -261,7 +261,7 @@
            msgs_recvd.add(data.id_token);
          }
        });
-       var post_tmpl = jinja.compile($('#render_post').html(), {runtime: true});
+       var post_tmpl = nunjucks.compile($('#render_post').html());
        let active_votes = {};
        socket.on('new_post', function (data) {
          console.log('new post:', data);
@@ -318,7 +318,7 @@
        socket.on('error', socket_err);
        socket.on('connect_timeout', socket_err);
 
-       var chat_tmpl = jinja.compile($('#render_chatmsg').html(), {runtime: true});
+       var chat_tmpl = nunjucks.compile($('#render_chatmsg').html());
        /* Adds a message to the chatbox, rendering it. Called
           for every message that comes in over the wire. */
        function add_chat_msg (msg) {
