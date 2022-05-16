@@ -29,7 +29,7 @@
             <script nonce="{{ get_script_nonce() }}" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='moment.min.js') }}" integrity="sha384-meAyhHvmIHRDgCRCuiknGm4rw6gVWtahMXXtKkbvrMZnQClqzbK/tJTlt+QnqE+l" crossorigin="anonymous"></script>
-            <script nonce="{{ get_script_nonce() }}" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js" integrity="sha256-sdmLD9jD1PIzq3KOQPNSGZYxjv76rds79Mnyk5JNp1M=" crossorigin="anonymous"></script>
+            <script nonce="{{ get_script_nonce() }}" src="https://cdn.socket.io/4.5.0/socket.io.min.js" integrity="sha384-7EyYLQZgWBi67fBtVxw60/OWl1kjsfrPFcaU0pp0nAh+i8FD068QogUvg85Ewy1k" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" type="text/javascript">
              var settings_url = '{{ url_for('change_settings') }}';
              var in_dark_mode = {{ 'true' if get_dark_mode() else 'false' }};

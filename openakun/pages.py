@@ -9,7 +9,6 @@ from flask_login import (LoginManager, login_user, current_user, logout_user,
                          login_required)
 from werkzeug import Response
 from werkzeug.middleware.proxy_fix import ProxyFix
-from jinja2 import Markup
 from flask_socketio import SocketIO
 import sentry_sdk
 from sentry_sdk import push_scope, capture_message, capture_exception
@@ -85,7 +84,7 @@ app.jinja_env.globals['models'] = models
 
 @jinja_global
 def include_raw(filename):
-    return Markup(app.jinja_loader.get_source(app.jinja_env, filename)[0])
+    return app.jinja_loader.get_source(app.jinja_env, filename)[0]
 
 db_engine = None
 Session = None
