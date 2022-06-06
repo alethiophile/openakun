@@ -36,6 +36,8 @@
  - [X] Server-side render for closed votes
  - [ ] allow closing votes (by author only)
    - this can be a post endpoint maybe? doesn't matter
+ - [ ] timer for closing votes automatically
+   - store close time on vote_config
  - [ ] differentiate closed votes in style
  - [ ] implement hidden totals on client side
  - [ ] make votes reorder by total (if not hidden)
@@ -123,8 +125,8 @@ function, which takes trusted arguments (!). It does the following setup tasks:
 2. adds the option_id of every initial option to the corresponding
    "vote_options:{vote_id}" set
 3. adds the vote configuration options to a dictionary "vote_config:{vote_id}".
-   This will contain the Vote attributes multivote, writein_allowed, and
-   votes_hidden.
+   This will contain the Vote attributes multivote, writein_allowed,
+   votes_hidden and close_time.
 
 New options can be created by users by sending the 'new_vote_entry' message over
 the channel. The new_vote_entry message contains: { 'channel': channel_id,
