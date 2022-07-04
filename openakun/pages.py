@@ -156,7 +156,7 @@ def csrf_check(view: Callable) -> Callable:
     @wraps(view)
     def csrf_wrapper(*args, **kwargs):
         if request.method == 'POST':
-            data = request.json
+            data = request.get_json(silent=True)
             tok = (data.get('_csrf_token', '') if data else
                    request.form.get('_csrf_token', ''))
             # constant-time compare operation
