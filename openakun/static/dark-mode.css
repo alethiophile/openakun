@@ -1,0 +1,13 @@
+:root {
+  --vote-selected-text-color: #eee;
+  --vote-selected-bg-color: #507bff;
+  --vote-delete-bg-color: #ff5555;
+  --chatmsg-hover-bg-color: #555;
+  --chatmsg-date-text-color: #888;
+  --post-date-text-color: #888;
+  --chapter-link-text-color: #507bff;
+  --chapter-link-border-color: #507bff;
+  --chapter-link-hover-text-color: #fff;
+  --chapter-link-hover-bg-color: #507bff;
+  --author-link-text-color: #8888ff;
+}

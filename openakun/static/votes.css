@@ -20,6 +20,14 @@ div.vote-entry {
   display: flex;
   cursor: pointer;
 }
+div.vote-entry:hover {
+  color: var(--vote-selected-text-color);
+  background-color: var(--vote-selected-bg-color);
+}
+div.vote-entry.voted-for {
+  color: var(--vote-selected-text-color);
+  background-color: var(--vote-selected-bg-color);
+}
 .vote-text {
   flex: auto;
   padding: .5em;
@@ -44,6 +52,9 @@ div.vote-editing .delete-vote {
   display: flex;
   align-items: center;
   cursor: pointer;
+}
+div.delete-vote:hover {
+  background-color: var(--vote-delete-bg-color);
 }
 div.vote-count {
   padding: .5em;

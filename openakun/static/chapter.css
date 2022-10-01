@@ -1,0 +1,111 @@
+.chatmsg:hover {
+  background-color: var(--chatmsg-hover-bg-color);
+}
+.chat_date {
+  color: var(--chatmsg-date-text-color);
+}
+.post_date {
+  color: var(--post-date-text-color);
+}
+.nextchapter_link {
+  color: var(--chapter-link-text-color);
+  border: 1px solid var(--chapter-link-border-color);
+}
+.nextchapter_link:hover {
+  color: var(--chapter-link-hover-text-color);
+  background-color: var(--chapter-link-hover-bg-color);
+}
+.story-author a {
+  color: var(--author-link-text-color);
+}
+#quill-editor {
+  min-height: 5rem;
+  overflow-y: auto;
+}
+.chat {
+  position: absolute;
+  width: 95%;
+  bottom: 0;
+  height: 100%;
+}
+#chat-messages {
+  overflow-y: auto;
+  width: 100%;
+  flex: auto;
+  margin-bottom: 20px;
+}
+#chat-type {
+  width: 15%;
+  display: block;
+  box-sizing: padding-box;
+  overflow: hidden;
+  flex: auto;
+}
+#chat-send {
+  flex: none;
+}
+.chat-controls {
+  width: 100%;
+  display: flex;
+  padding-right: 10px;
+}
+.chatmsg {
+  padding: 5px;
+}
+.chat_head {
+  display: flex;
+}
+.chat_sender {
+  font-size: small;
+  font-weight: bold;
+  margin-right: .5rem;
+}
+.chat_date {
+  font-size: small;
+}
+#chapter_section {
+  display: flex;
+}
+#chaptertitle_inp {
+  visibility: hidden;
+  flex: auto;
+}
+.post {
+  margin-bottom: 1rem;
+}
+.post_date {
+  margin-top: -.5rem;
+  text-align: right;
+  font-size: small;
+}
+#story_actions {
+  display: flex;
+}
+#story_actions div {
+  flex: auto;
+  text-align: center;
+}
+.nextchapter_link {
+  display: block;
+  width: 100%;
+  padding: 2rem 0;
+  margin: 2rem auto 2rem auto;
+  text-align: center;
+}
+.nextchapter_link:hover {
+  text-decoration: none;
+}
+.story-title {
+  text-align: center;
+}
+.story-author {
+  text-align: center;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+textarea {
+  resize: none;
+}
+label.radio-inline {
+  margin-right: 1em;
+}
