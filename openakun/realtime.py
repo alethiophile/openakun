@@ -126,6 +126,10 @@ def handle_chat(data) -> None:
         return
 
     assert pages.redis_conn is not None
+    # ensure we haven't seen this message before
+
+    # this uses a sorted set where the sort value is the timestamp, allowing us
+    # to quickly drop old data
     token = data['id_token']
     if pages.redis_conn.zscore('messages_seen', token) is not None:
         return

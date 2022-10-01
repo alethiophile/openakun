@@ -1,3 +1,4 @@
+/* global $, ExpandingTextarea */
 /* 
  This handles a vote, either in edit or interact mode. The JS object takes
  control of the DOM under the provided element `elem`; no other object should
@@ -118,8 +119,9 @@ var DisplayVote = (function (args) {
           if (!vote_active) {
             return;
           }
-          this.info.count = count;
+          this.info.vote_count = count;
           $vel.find('.vote-count').text(count);
+          parent_obj.reorder_votes();
         },
         set_voted: function (val) {
           this.voted_for = val;
@@ -136,9 +138,9 @@ var DisplayVote = (function (args) {
           if (this.voted_for) {
             // unvote
             this.set_voted(false);
-            msg = { channel: parent_obj.channel_id,
-                    vote: parent_obj._vote.db_id,
-                    option: this.info.db_id };
+            let msg = { channel: parent_obj.channel_id,
+                        vote: parent_obj._vote.db_id,
+                        option: this.info.db_id };
             parent_obj.socket.emit('remove_vote', msg);
           } else {
             // add vote
@@ -146,9 +148,9 @@ var DisplayVote = (function (args) {
               $el.find('.real-vote').removeClass('voted-for');
             }
             this.set_voted(true);
-            msg = { channel: parent_obj.channel_id,
-                    vote: parent_obj._vote.db_id,
-                    option: this.info.db_id };
+            let msg = { channel: parent_obj.channel_id,
+                        vote: parent_obj._vote.db_id,
+                        option: this.info.db_id };
             parent_obj.socket.emit('add_vote', msg);
           }
         },
@@ -174,6 +176,9 @@ var DisplayVote = (function (args) {
       function make_vote_el (vd) {
         let $new_entry = $('<div class="vote-entry real-vote"><div class="vote-text"></div></div>');
         $new_entry.attr('data-index', ind);
+        if (vd.db_id !== undefined) {
+          $new_entry.attr('data-dbid', vd.db_id);
+        }
         $new_entry.append(`<div class="vote-count">${vd.vote_count}</div>`)
         $new_entry.append('<div class="delete-vote" title="Delete entry">✘</div>');
         $new_entry.find('.vote-text').text(vd.text);
@@ -224,6 +229,18 @@ var DisplayVote = (function (args) {
       });
       return rv;
     },
+
+    reorder_votes: function () {
+      this._vote.votes.sort((a, b) => b.vote_count - a.vote_count);
+      let $ent = $el.find('.vote-entries');
+      let ta = Array.from(this._vote.votes).reverse();
+      for (let v of ta) {
+        let $e = $ent.find(`[data-dbid="${v.db_id}"]`);
+        $e.detach();
+        $ent.prepend($e);
+      }
+      this._reindex_dom();
+    },
   };
 
   // set up vote
@@ -244,7 +261,7 @@ var DisplayVote = (function (args) {
       vq.text(vote_obj.question);
     }
     rv.append(vq);
-    ves = $('<div class="vote-entries"></div>');
+    let ves = $('<div class="vote-entries"></div>');
     rv.append(ves);
     ves.append('<div class="vote-entry new-vote"><div class="vote-text">+ Add new option</div></div>');
     return rv;

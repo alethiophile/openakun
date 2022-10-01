@@ -1,8 +1,8 @@
-div.vote-text:hover {
+div.vote-entry:hover {
   color: #eee;
   background-color: #007bff;
 }
-.voted-for div.vote-text {
+div.vote-entry.voted-for {
   color: #eee;
   background-color: #007bff;
 }

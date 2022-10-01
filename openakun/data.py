@@ -244,6 +244,8 @@ class Post:
 
     @text.validator
     def _cleck_clean_html(self, attrib, val):
+        if val is None:
+            return
         html = ChapterHTMLText(val)
         if html.clean_html != html.dirty_html:
             raise BadHTMLError(good_html=html.clean_html,

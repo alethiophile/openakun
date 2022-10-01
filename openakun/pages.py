@@ -420,13 +420,13 @@ def new_post() -> Response:
         'type': p.post_type.name,
         'date_millis': p.posted_date.timestamp() * 1000
     }
+    s.commit()
     if p.post_type == models.PostType.Text:
         browser_post_msg['text'] = p.text
     elif p.post_type == models.PostType.Vote:
         vote_info = Vote.from_model(vote_model)
         browser_post_msg['vote_data'] = vote_info.to_dict()
         realtime.add_active_vote(vote_info, c.story.channel_id)
-    s.commit()
     # emit the post after committing the session, so that clients don't see a
     # chapter that failed DB write
     socketio.emit('new_post', browser_post_msg, room=str(channel_id))

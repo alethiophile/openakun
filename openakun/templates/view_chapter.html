@@ -5,6 +5,9 @@
     {% if chapter.story.author == current_user %}
         <link href="https://cdn.quilljs.com/1.3.2/quill.snow.css" rel="stylesheet">
         <script nonce="{{ get_script_nonce() }}" src="https://cdn.quilljs.com/1.3.2/quill.js"></script>
+        <script nonce="{{ get_script_nonce() }}">
+         var is_author = true;
+        </script>
     {% endif %}
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='nunjucks.min.js') }}" integrity="sha384-XkUA224v0wKRJiWS8sAC+XghpZFy4Vm/wfOWV3sto658OqhxOtJaSpR8AD9cPPjk" crossorigin="anonymous"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
@@ -174,7 +177,7 @@
          var rd = m.format("MMM Do, YYYY h:mm A");
          $(this).html(rd);
        });
-       if (typeof Quill !== 'undefined') {
+       if (is_author !== undefined) {
          var quill = new Quill('#quill-editor', {
            theme: 'snow',
          });
@@ -222,7 +225,7 @@
              },
            });
          });
-         $('input:radio[name=post_type]').click(function () {
+         function show_correct_editor() {
            let val = $('input:radio[name=post_type]:checked').val();
            if (val === 'text') {
              $('#text-editor').show();
@@ -233,6 +236,10 @@
            } else if (val === 'writein') {
              
            }
+         }
+         show_correct_editor();
+         $('input:radio[name=post_type]').click(function () {
+           show_correct_editor();
          });
        }
 

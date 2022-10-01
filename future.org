@@ -45,6 +45,7 @@
  - [X] allow adding writeins
  - [ ] allow setting vote config on creation time
  - [ ] handle voted-for for server-side-rendered votes
+ - [ ] reorder vote options as vote totals are updated
 
 The vote subsystem has several entities: channel (bound to story), vote and
 option. The channel is the basis of authentication: permission to chat in a
