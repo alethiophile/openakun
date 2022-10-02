@@ -149,6 +149,7 @@ class Vote:
     writein_allowed: bool
     votes_hidden: bool
     votes: List[VoteEntry]
+    close_time: Optional[datetime] = None
     db_id: Optional[int] = None
     active: Optional[bool] = None
 

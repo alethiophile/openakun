@@ -29,6 +29,12 @@ def get_channel(channel_id):
                filter(models.Channel.id == channel_id).one())
     return channel
 
+def get_story(channel_id):
+    s = pages.db_connect()
+    story = (s.query(models.Story).
+             filter(models.Story.channel_id == channel_id).one())
+    return story
+
 # user_id can be string ID or 'anon'
 def check_channel_auth(channel_id, user_id):
     auth_hkey = '{}:{}'.format(user_id, channel_id)
@@ -361,7 +367,6 @@ def handle_add_vote(data) -> None:
         if m.dest is None:
             m.dest = channel_id
         m.send()
-        # emit('option_vote_total', m, room=channel_id)
 
 @socketio.on('remove_vote')
 @with_channel_auth()
@@ -449,8 +454,78 @@ def request_my_votes(data) -> None:
     for o in opts:
         o = o.decode()
         opt_key = f'option_votes:{o}'
-        print(f"{opt_key=}")
+        # print(f"{opt_key=}")
         if pages.redis_conn.sismember(opt_key, uid):
             emit('user_vote',
                  {'vote': vote_id, 'option': o, 'value': True },
                  room=request.sid)
+
+# To close a vote, the following needs to be done:
+#
+#  - the vote config in Postgres (on the vote_info row) updated from the Redis
+#    vote_config key, and that key deleted
+#  - the killed options updated from the options_killed hash, and any options
+#    on the vote removed from that hash
+#  - the user_votes updated from option_votes, and all option_votes keys for
+#    options on the vote deleted
+#  - the vote_options key deleted (all this info should already be in postgres)
+#  - the vote removed from the channel_votes set
+#  - the time_closed set on the vote_info row
+#  - the vote_closed event emitted to the frontend
+def close_vote(channel_id: int, vote_id: int) -> None:
+    """This function trusts its input: caller must verify that the given vote is
+    open on the given channel.
+
+    """
+    pass
+
+# This can just call add_active_vote again, unset time_closed on the vote
+# entry, and emit an event to the fronte
+def open_vote(channel_id: int, vote_id: int) -> None:
+    pass
+
+@socketio.on('set_vote_active')
+def set_vote_active(data) -> None:
+    channel_id = data['channel']
+    story = get_story(channel_id)
+
+    # TODO do we want to think about multiple authors?
+    if story.author != current_user:
+        return
+
+    vote_id = data['vote']
+    set_active = data['active']
+    now_active = vote_is_active(channel_id, vote_id)
+
+    if now_active == set_active:
+        return
+
+    if not set_active:
+        close_vote(channel_id, vote_id)
+    else:
+        open_vote(channel_id, vote_id)
+
+@socketio.on('set_option_killed')
+def set_option_killed(data) -> None:
+    channel_id = data['channel']
+    story = get_story(channel_id)
+
+    if story.author != current_user:
+        return
+
+    vote_id = data['vote']
+    option_id = data['option']
+    killed = data['killed']
+    kill_string = data['message']
+
+@socketio.on('set_vote_options')
+def set_vote_options(data) -> None:
+    # TODO factor out this authentication code
+    channel_id = data['channel']
+    story = get_story(channel_id)
+
+    if story.author != current_user:
+        return
+
+    # possible keys are ['multivote', 'writein_allowed', 'votes_hidden',
+    # 'close_time']
