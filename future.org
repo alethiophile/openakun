@@ -157,6 +157,14 @@ handler does the following:
 Submitting a new vote is assumed to include voting for it; if a user does not
 want this, they can unvote it.
 
+When a vote is open, it maintains all its associated state in the Redis DB. When
+closed, it has no presence in Redis, but all the same information is available
+in Postgres. An open vote can be closed, or a closed vote opened, at any time;
+this results in Redis data being copied to Postgres, or vice versa. Only the
+author can do this. A vote may also have a close_time set for automatic closure;
+if so, then the time-to-close is displayed in the frontend, and at the given
+time the server will automatically close the vote (using Celery).
+
 ** TODO Figure out E-mail
  - How to test this?
  - Make it an optional item; if you want you can run an instance without using
@@ -260,6 +268,15 @@ want this, they can unvote it.
    - Need an "urgent" flag on the log
    - [ ] log through native event log
    - [X] log through Sentry
+** TODO add tags
+ - no idea here yet
+** TODO real user account stuff
+ - [ ] User alerts
+ - [ ] Following individual stories
+ - [ ] Following authors
+ - [ ] Creating lists
+ - [ ] Private messages
+ - [ ] Profile info (?)
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)

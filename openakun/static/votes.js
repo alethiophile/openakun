@@ -230,6 +230,10 @@ var DisplayVote = (function (args) {
       return rv;
     },
 
+    // Reorder the vote entries, both in the internal representation
+    // and the DOM, in descending order of vote count. Called every
+    // time the vote updates for shown votes, and after the vote
+    // closes and totals are revealed for hidden votes.
     reorder_votes: function () {
       this._vote.votes.sort((a, b) => b.vote_count - a.vote_count);
       let $ent = $el.find('.vote-entries');

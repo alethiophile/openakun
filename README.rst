@@ -17,3 +17,4 @@ openakun is now testable, though development is very incomplete. Steps to run:
    the default Redis, you must also set ``redis_url``.
 7. Initialize the database: ``openakun_initdb``
 8. Run the development server: ``openakun_server``
+9. Run the Celery worker: ``celery -A openakun.tasks worker --loglevel=INFO -B``

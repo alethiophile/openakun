@@ -68,6 +68,10 @@ $(function () {
         
       }
     });
+    // we call this at the start to handle the case where the user
+    // reloads the page after switching editors; in this case the
+    // browser will save the radio button position, so we want to show
+    // the corresponding editor
     show_correct_editor();
     $('input:radio[name=post_type]').click(function () {
       show_correct_editor();
