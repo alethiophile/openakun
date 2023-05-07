@@ -203,6 +203,12 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
     vote.active = True
 
+    vote_config = get_vote_config(vote.db_id)
+    vote.multivote = vote_config['multivote']
+    vote.writein_allowed = vote_config['writein_allowed']
+    vote.votes_hidden = vote_config['votes_hidden']
+    vote.close_time = vote_config.get('close_time')
+
     for v in vote.votes:
         option_key = f"option_votes:{v.db_id}"
         v.vote_count = pages.redis_conn.scard(option_key)
@@ -219,7 +225,7 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
     return vote
 
-def get_vote_config(vote_id: int) -> Dict[str, bool]:
+def get_vote_config(vote_id: int) -> Dict[str, Any]:
     opts_key = f"vote_config:{vote_id}"
     rv = pages.redis_conn.get(opts_key)
     assert rv is not None
