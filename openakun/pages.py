@@ -13,6 +13,7 @@ from flask_socketio import SocketIO
 import sentry_sdk
 from sentry_sdk import push_scope, capture_message, capture_exception
 from sentry_sdk.integrations.flask import FlaskIntegration
+from sqlalchemy import inspect
 
 import itsdangerous, redis
 from passlib.context import CryptContext
@@ -466,4 +467,8 @@ def init_db(silent: bool = False) -> None:
 @click.option('--port', '-p', type=int, default=None,
               help="Port to listen on (default 5000)")
 def do_run(host: str, port: int) -> None:
+    db_setup()
+    assert db_engine is not None
+    if not inspect(db_engine).has_table(db_engine, 'user_with_role'):
+        init_db()
     socketio.run(app, host=host, port=port)

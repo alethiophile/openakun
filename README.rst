@@ -18,3 +18,17 @@ openakun is now testable, though development is very incomplete. Steps to run:
 7. Initialize the database: ``openakun_initdb``
 8. Run the development server: ``openakun_server``
 9. Run the Celery worker: ``celery -A openakun.tasks worker --loglevel=INFO -B``
+
+Using Docker for development:
+
+openakun now includes Docker config for development. To run using Docker:
+
+1. Build the image: ``docker compose -f docker_compose.dev.yml build``
+2. Ensure that your ``openakun.cfg`` file in the dev directory refers to the
+   proper hosts. The Postgres URL should be
+   ``postgresql://postgres:password@postgres/postgres``. The Redis URL should be
+   ``redis://redis``.
+3. Run the image: ``docker compose -f docker_compose.dev.yml up``
+
+This exposes the app on port 4430. Currently the Docker configuration is only
+suitable for development.

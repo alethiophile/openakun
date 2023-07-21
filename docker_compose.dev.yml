@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+      target: dev
+    ports:
+      - "4430:5000"
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - type: bind
+        source: ./
+        target: /app
+  redis:
+    image: "redis:alpine"
+  postgres:
+    image: "postgres:15-alpine"
+    volumes:
+      - type: volume
+        source: db-data
+        target: /data
+    environment:
+      POSTGRES_PASSWORD: password
+      PGDATA: /data/pgdata
+volumes:
+  db-data:
