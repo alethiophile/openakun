@@ -45,4 +45,4 @@ COPY --from=builder --link /opt/poetry /opt/poetry
 ENV PATH="/venv/bin:$PATH" \
     VIRTUAL_ENV=/venv
 RUN /opt/poetry/bin/poetry install
-CMD openakun_server --host 0.0.0.0
+CMD openakun_server --host 0.0.0.0 --debug --devel

@@ -88,13 +88,18 @@ def init_db(silent: bool = False) -> None:
               help="Hostname to bind to (default 127.0.0.1)")
 @click.option('--port', '-p', type=int, default=None,
               help="Port to listen on (default 5000)")
-def do_run(host: str, port: int) -> None:
+@click.option('--debug/--no-debug', type=bool, default=False,
+              help="Debug mode")
+@click.option('--devel/--no-devel', type=bool, default=False,
+              help="Use development server")
+def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
     config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
     config = get_config(config_fn)
     db_setup(config)
     assert db.db_engine is not None
     # TODO figure out the real way to ensure DB versioning here, alembic?
-    if not inspect(db.db_engine).has_table(db.db_engine, 'user_with_role'):
+    if not inspect(db.db_engine).has_table('user_with_role'):
         init_db()
     app = create_app(config)
-    realtime.socketio.run(app, host=host, port=port)
+    realtime.socketio.run(app, host=host, port=port, debug=debug,
+                          allow_unsafe_werkzeug=devel)

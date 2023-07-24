@@ -10,8 +10,8 @@ python = "^3.8"
 passlib = "^1.7.2"
 fastpbkdf2 = "^0.2"
 alembic = "^1.4.3"
-sqlalchemy = "^1.3.19"
-psycopg2 = "^2.8.6"
+sqlalchemy = "^2.0.19"
+psycopg2 = "^2.9.6"
 bleach = "^3.2.1"
 eventlet = "^0.33.0"
 redis = "^3.5.3"
@@ -19,18 +19,18 @@ click = "^8.1.3"
 attrs = "^20.2.0"
 celery = {extras = ["redis"], version = "^5.2.0"}
 sentry-sdk = {extras = ["flask"], version = "^0.19.0"}
-Flask = "^2.1.2"
-Flask-SocketIO = "^5.1.2"
-Flask-Login = "^0.6.1"
-
-[tool.poetry.dev-dependencies]
-flake8 = "^3.8.3"
-mypy = "^0.782"
-sqlalchemy-stubs = "^0.3"
+flask = "^2.3.2"
+flask-socketio = "^5.3.4"
+flask-login = "^0.6.2"
 
 [tool.poetry.scripts]
 openakun_initdb = 'openakun.app:init_db'
 openakun_server = 'openakun.app:do_run'
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.4.1"
+flake8 = "^3.8.3"
+sqlalchemy-stubs = "^0.4"
 
 [build-system]
 requires = ["poetry>=0.12"]
