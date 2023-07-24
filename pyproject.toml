@@ -29,8 +29,8 @@ mypy = "^0.782"
 sqlalchemy-stubs = "^0.3"
 
 [tool.poetry.scripts]
-openakun_initdb = 'openakun.pages:init_db'
-openakun_server = 'openakun.pages:do_run'
+openakun_initdb = 'openakun.app:init_db'
+openakun_server = 'openakun.app:do_run'
 
 [build-system]
 requires = ["poetry>=0.12"]

@@ -28,7 +28,7 @@
     <script nonce="{{ get_script_nonce() }}">
      var chapter_id = {{ chapter.id }};
      var channel_id = '{{ chapter.story.channel_id }}';
-     var post_url = '{{ url_for('new_post') }}';
+     var post_url = '{{ url_for('questing.new_post') }}';
      var csrf_token = '{{ session['_csrf_token'] }}';
      var anon_username = 'anon';
      var vote_data_list = {
@@ -48,7 +48,7 @@
                 {% if chapter.story.chapters|length > 1 %}
                     <span class="dropdown-header">Contents</span>
                     {% for i in chapter.story.chapters %}
-                        <a class="dropdown-item" href="{{ url_for('view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}">{{ i.title }}</a>
+                        <a class="dropdown-item" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}">{{ i.title }}</a>
                     {% endfor %}
                 {% endif %}
                 <span class="dropdown-header">Story actions</span>
@@ -60,7 +60,7 @@
 {% block content %}
   <h1 class="story-title">{{ chapter.story.title }}</h1>
   <div class="story-author">
-    <a href="{{ url_for('user_profile', user_id=chapter.story.author.id) }}">{{ chapter.story.author.name }}</a>
+    <a href="{{ url_for('questing.user_profile', user_id=chapter.story.author.id) }}">{{ chapter.story.author.name }}</a>
   </div>
   {% if chapter == chapter.story.chapters[0] %}
     <div class="description">
@@ -79,7 +79,7 @@
   </div>
   {% if chapter != chapter.story.chapters[-1] %}
     {% set next_chapter = chapter.story.chapters[chapter.story.chapters.index(chapter)+1] %}
-    <a class="nextchapter_link" href="{{ url_for('view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}">Next: {{ next_chapter.title }}</a>
+    <a class="nextchapter_link" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}">Next: {{ next_chapter.title }}</a>
   {% endif %}
   {% if chapter.story.author == current_user and chapter == chapter.story.chapters[-1] %}
     <h5 class="mb-3">Make a new post</h5>

@@ -2,7 +2,7 @@
 {% block title %}Sign up{% endblock %}
 {% block content %}
     <h2>Sign up</h2>
-    <form action="{{ url_for('register') }}" method="POST">
+    <form action="{{ url_for('questing.register') }}" method="POST">
         Username: <input type="text" name="user"><br>
         Email: <input type="text" name="email"><br>
         Password: <input type="password" name="pass1"><br>

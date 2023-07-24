@@ -31,7 +31,7 @@
             <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='moment.min.js') }}" integrity="sha384-2xoILS8hBHw+Atyv/qJLEdk8dFdW1hbGjfeQ3G0GU3pGNPlqck0chRqjMTZ5blGf" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" src="https://cdn.socket.io/4.5.0/socket.io.min.js" integrity="sha384-7EyYLQZgWBi67fBtVxw60/OWl1kjsfrPFcaU0pp0nAh+i8FD068QogUvg85Ewy1k" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" type="text/javascript">
-             var settings_url = '{{ url_for('change_settings') }}';
+             var settings_url = '{{ url_for('questing.change_settings') }}';
              var in_dark_mode = {{ 'true' if get_dark_mode() else 'false' }};
              $(function () {
                $('#logout_link').click(function () {
@@ -54,15 +54,15 @@
     </head>
     <body>
         <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light" id="navbar_top">
-            <a class="navbar-brand" href="{{ url_for('main') }}">openakun</a>
+            <a class="navbar-brand" href="{{ url_for('questing.main') }}">openakun</a>
             <div class="navbar-nav">
                 <div class="dropdown">
                     <a class="btn nav-link dropdown-toggle" id="mainmenu-link" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Menu</a>
                     <div class="dropdown-menu" aria-labelledby="mainmenu-link">
-                        <a class="dropdown-item" href="{{ url_for('main') }}">Home</a>
+                        <a class="dropdown-item" href="{{ url_for('questing.main') }}">Home</a>
                         <a class="dropdown-item todo" href="#">Tags</a>
                         <a class="dropdown-item todo" href="#">About</a>
-                        {% if not current_user.is_anonymous %}<a class="dropdown-item" href="{{ url_for('post_story') }}">Post a story</a>{% endif %}
+                        {% if not current_user.is_anonymous %}<a class="dropdown-item" href="{{ url_for('questing.post_story') }}">Post a story</a>{% endif %}
                         <a class="dropdown-item" id="change_color_mode" href="#">Use {% if get_dark_mode() %}light{% else %}dark{% endif %} mode</a>
                         {% block inside_mainmenu %}{% endblock %}
                     </div>
@@ -72,11 +72,11 @@
             <div class="navbar-nav mr-auto"></div>
             <div class="navbar-nav">
                 {% if current_user.is_anonymous %}
-                    <a class="nav-item nav-link" href="{{ url_for('login', next=request.path) }}">Log in</a>
+                    <a class="nav-item nav-link" href="{{ url_for('questing.login', next=request.path) }}">Log in</a>
                 {% else %}
                     <span class="navbar-text mr-lg-3">Welcome, {{ current_user.name }}</span>
-                    <a class="nav-item nav-link mr-lg-3" href="{{ url_for('user_profile', user_id=current_user.id) }}">Profile</a>
-                    <form action="{{ url_for('logout') }}" method="POST" id="logout_form"><input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
+                    <a class="nav-item nav-link mr-lg-3" href="{{ url_for('questing.user_profile', user_id=current_user.id) }}">Profile</a>
+                    <form action="{{ url_for('questing.logout') }}" method="POST" id="logout_form"><input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
                         <a class="nav-item nav-link" href="#" id="logout_link">Log out</a>
                     </form>
                 {% endif %}

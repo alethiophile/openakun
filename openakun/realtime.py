@@ -2,35 +2,29 @@
 
 from __future__ import annotations
 
-from . import pages
-from .pages import models, socketio
+from . import models
+from .general import db, db_connect, db_setup
 from .data import ChatMessage, Vote, VoteEntry, Message
-from flask_socketio import join_room, emit
+from flask_socketio import join_room, emit, SocketIO
 from flask_login import current_user
 from flask import request
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone
 import hashlib, json
-from sentry_sdk import push_scope, capture_exception
 
 from typing import List, Dict, Optional, Any
 
-if pages.using_sentry:
-    @socketio.on_error_default
-    def sentry_report_socketio(e):
-        with push_scope() as scope:
-            scope.set_extra('event', request.event)
-            capture_exception()
+socketio = SocketIO()
 
 def get_channel(channel_id):
-    s = pages.db_connect()
+    s = db_connect()
     channel = (s.query(models.Channel).
                filter(models.Channel.id == channel_id).one())
     return channel
 
 def get_story(channel_id):
-    s = pages.db_connect()
+    s = db_connect()
     story = (s.query(models.Story).
              filter(models.Story.channel_id == channel_id).one())
     return story
@@ -38,14 +32,14 @@ def get_story(channel_id):
 # user_id can be string ID or 'anon'
 def check_channel_auth(channel_id, user_id):
     auth_hkey = '{}:{}'.format(user_id, channel_id)
-    cv = pages.redis_conn.hget('channel_auth', auth_hkey)
+    cv = db.redis_conn.hget('channel_auth', auth_hkey)
     if cv is None:
         c = get_channel(channel_id)
         if c.private:
             cv = '0'
         else:
             cv = '1'
-        pages.redis_conn.hset('channel_auth', auth_hkey, cv)
+        db.redis_conn.hset('channel_auth', auth_hkey, cv)
     else:
         cv = cv.decode()
     return cv == '1'
@@ -64,7 +58,7 @@ def with_channel_auth(err_val=None):
 @socketio.on('connect')
 def handle_connect():
     print("Got connection")
-    pages.db_setup()
+    db_setup()
 
 @socketio.on('join')
 @with_channel_auth({ 'success': False, 'error': 'Channel is private' })
@@ -90,7 +84,7 @@ def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
 def register_ip(addr):
     # TODO make this use Redis and a periodic sweep, like chat messages
     hashval = hashlib.sha256(addr.encode()).hexdigest()
-    s = pages.db_connect()
+    s = db_connect()
     q_num = (s.query(models.AddressIdentifier).
              filter(models.AddressIdentifier.hash == hashval).count())
     if (q_num == 0):
@@ -102,13 +96,13 @@ def register_ip(addr):
 message_cache_len = 60
 
 def get_back_messages(cid: int) -> List[ChatMessage]:
-    assert pages.redis_conn is not None
+    assert db.redis_conn is not None
     rkey = f"channel_messages:{cid}"
     msgs = [ChatMessage.from_dict(json.loads(i.decode())) for i in
-            pages.redis_conn.lrange(rkey, - message_cache_len, -1)]
+            db.redis_conn.lrange(rkey, - message_cache_len, -1)]
     redis_msg_count = len(msgs)
     if redis_msg_count < message_cache_len:
-        s = pages.db_connect()
+        s = db_connect()
         rv = (s.query(models.ChatMessage).
               filter(models.ChatMessage.channel_id == cid).
               order_by(models.ChatMessage.date.desc()).
@@ -131,17 +125,17 @@ def handle_chat(data) -> None:
     if len(data['msg']) == 0:
         return
 
-    assert pages.redis_conn is not None
+    assert db.redis_conn is not None
     # ensure we haven't seen this message before
 
     # this uses a sorted set where the sort value is the timestamp, allowing us
     # to quickly drop old data
     token = data['id_token']
-    if pages.redis_conn.zscore('messages_seen', token) is not None:
+    if db.redis_conn.zscore('messages_seen', token) is not None:
         return
     c_ts = datetime.now(tz=timezone.utc)
     us_now = c_ts.timestamp() * 1000000
-    pages.redis_conn.zadd('messages_seen', { token: us_now })
+    db.redis_conn.zadd('messages_seen', { token: us_now })
 
     channel_id = data['channel']
     if current_user.is_anonymous:
@@ -158,9 +152,9 @@ def handle_chat(data) -> None:
 
     rkey = f"channel_messages:{channel_id}"
     val = json.dumps(msg.to_dict())
-    pages.redis_conn.rpush(rkey, val)
+    db.redis_conn.rpush(rkey, val)
 
-    pages.redis_conn.sadd('all_channels', rkey)
+    db.redis_conn.sadd('all_channels', rkey)
 
     mo = msg.to_browser_message()
     emit('chat_msg', mo, room=channel_id)
@@ -174,21 +168,21 @@ def add_active_vote(vote: Vote, channel_id: int) -> None:
     assert vote.db_id is not None
 
     channel_key = f"channel_votes:{channel_id}"
-    pages.redis_conn.sadd(channel_key, vote.db_id)
+    db.redis_conn.sadd(channel_key, vote.db_id)
 
     vote_key = f"vote_options:{vote.db_id}"
     for v in vote.votes:
         assert v.db_id is not None
-        pages.redis_conn.sadd(vote_key, v.db_id)
+        db.redis_conn.sadd(vote_key, v.db_id)
 
     vote_opts = { k: v for k, v in vote.to_dict().items() if k in
                   ['multivote', 'writein_allowed', 'votes_hidden'] }
     opts_key = f"vote_config:{vote.db_id}"
-    pages.redis_conn.set(opts_key, json.dumps(vote_opts))
+    db.redis_conn.set(opts_key, json.dumps(vote_opts))
 
 def vote_is_active(channel_id: int, vote_id: int) -> bool:
     channel_key = f"channel_votes:{channel_id}"
-    return pages.redis_conn.sismember(channel_key, vote_id)
+    return db.redis_conn.sismember(channel_key, vote_id)
 
 def populate_vote(channel_id: int, vote: Vote) -> Vote:
     """Takes a vote, populates its options with the killed/killed_text/vote_count
@@ -211,8 +205,8 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
     for v in vote.votes:
         option_key = f"option_votes:{v.db_id}"
-        v.vote_count = pages.redis_conn.scard(option_key)
-        ks = pages.redis_conn.hget("options_killed", v.db_id)
+        v.vote_count = db.redis_conn.scard(option_key)
+        ks = db.redis_conn.hget("options_killed", v.db_id)
         if ks is None:
             v.killed = False
             v.killed_text = None
@@ -227,7 +221,7 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
 def get_vote_config(vote_id: int) -> Dict[str, Any]:
     opts_key = f"vote_config:{vote_id}"
-    rv = pages.redis_conn.get(opts_key)
+    rv = db.redis_conn.get(opts_key)
     assert rv is not None
     return json.loads(rv)
 
@@ -243,17 +237,17 @@ def verify_valid_option(channel_id: int, vote_id: int,
     # no race conditions should apply here; channel_votes and vote_options are
     # write-once quantities, while options_killed is only read as a oneshot
     channel_key = f"channel_votes:{channel_id}"
-    if not pages.redis_conn.sismember(channel_key, str(vote_id)):
+    if not db.redis_conn.sismember(channel_key, str(vote_id)):
         return False
 
     if option_id is None:
         return True
 
     vote_key = f"vote_options:{vote_id}"
-    if not pages.redis_conn.sismember(vote_key, str(option_id)):
+    if not db.redis_conn.sismember(vote_key, str(option_id)):
         return False
 
-    if pages.redis_conn.hexists("options_killed", str(option_id)):
+    if db.redis_conn.hexists("options_killed", str(option_id)):
         return False
 
     return True
@@ -307,11 +301,11 @@ def do_add_vote(vote_id: int, option_id: int,
     rv = []
 
     option_key = f"option_votes:{option_id}"
-    res = pages.redis_conn.sadd(option_key, uid)
+    res = db.redis_conn.sadd(option_key, uid)
 
     if not opts['multivote']:
         uv_key = f"user_votes:{vote_id}:{uid}"
-        old_vote_bytes = pages.redis_conn.getset(uv_key, option_id)
+        old_vote_bytes = db.redis_conn.getset(uv_key, option_id)
         old_option_id = (None if old_vote_bytes is None else
                          int(old_vote_bytes.decode()))
         if old_option_id == option_id:
@@ -333,7 +327,7 @@ def do_add_vote(vote_id: int, option_id: int,
     if not opts['multivote']:
         if old_option_id is not None:
             old_option_key = f"option_votes:{old_option_id}"
-            unvote_res = pages.redis_conn.srem(old_option_key, uid)
+            unvote_res = db.redis_conn.srem(old_option_key, uid)
             rv.append(Message(
                 message_type='user_vote',
                 data={ 'vote': vote_id, 'option': old_option_id,
@@ -342,12 +336,12 @@ def do_add_vote(vote_id: int, option_id: int,
 
     if not opts['votes_hidden']:
         if res > 0:
-            t = pages.redis_conn.scard(option_key)
+            t = db.redis_conn.scard(option_key)
             msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
             rv.append(Message(message_type='option_vote_total', data=msg))
 
         if unvote_res > 0:
-            t = pages.redis_conn.scard(old_option_key)
+            t = db.redis_conn.scard(old_option_key)
             msg = { 'vote': vote_id, 'option': old_option_id, 'vote_total': t }
             rv.append(Message(message_type='option_vote_total', data=msg))
 
@@ -388,7 +382,7 @@ def handle_remove_vote(data) -> None:
     uid = get_user_identifier()
 
     option_key = f"option_votes:{option_id}"
-    res = pages.redis_conn.srem(option_key, uid)
+    res = db.redis_conn.srem(option_key, uid)
 
     if res == 0:
         return None
@@ -399,10 +393,10 @@ def handle_remove_vote(data) -> None:
 
     if not opts['multivote']:
         uv_key = f"user_votes:{vote_id}:{uid}"
-        pages.redis_conn.delete(uv_key)
+        db.redis_conn.delete(uv_key)
 
     if not opts['votes_hidden'] and res > 0:
-        t = pages.redis_conn.scard(option_key)
+        t = db.redis_conn.scard(option_key)
         msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
         emit('option_vote_total', msg, room=channel_id)
 
@@ -429,14 +423,14 @@ def handle_new_vote_entry(data) -> None:
 
     m = option.create_model()
     m.vote_id = vote_id
-    s = pages.db_connect()
+    s = db_connect()
     s.add(m)
     s.commit()
 
     # this picks up the db_id just set by Postgres
     option = VoteEntry.from_model(m)
     vote_key = f"vote_options:{vote_id}"
-    pages.redis_conn.sadd(vote_key, option.db_id)
+    db.redis_conn.sadd(vote_key, option.db_id)
 
     uid = get_user_identifier()
     total_msgs = do_add_vote(vote_id, option.db_id, uid)
@@ -453,7 +447,7 @@ def request_my_votes(data) -> None:
     vote_id = data['vote']
 
     vote_key = f'vote_options:{vote_id}'
-    opts = pages.redis_conn.smembers(vote_key)
+    opts = db.redis_conn.smembers(vote_key)
 
     uid = get_user_identifier()
 
@@ -461,7 +455,7 @@ def request_my_votes(data) -> None:
         o = o.decode()
         opt_key = f'option_votes:{o}'
         # print(f"{opt_key=}")
-        if pages.redis_conn.sismember(opt_key, uid):
+        if db.redis_conn.sismember(opt_key, uid):
             emit('user_vote',
                  {'vote': vote_id, 'option': o, 'value': True },
                  room=request.sid)

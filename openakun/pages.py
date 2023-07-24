@@ -1,171 +1,41 @@
 #!python
 
-from . import models
+from . import models, realtime
 from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
+from .general import csrf_check, make_csrf, login_mgr, db_connect
 
-from flask import (Flask, render_template, request, redirect, url_for, g,
-                   flash, abort, jsonify, session)
-from flask_login import (LoginManager, login_user, current_user, logout_user,
-                         login_required)
+from flask import (render_template, request, redirect, url_for, flash, abort,
+                   jsonify, session, current_app, Blueprint)
+from flask_login import login_user, current_user, logout_user, login_required
 from werkzeug import Response
-from werkzeug.middleware.proxy_fix import ProxyFix
-from flask_socketio import SocketIO
-import sentry_sdk
 from sentry_sdk import push_scope, capture_message, capture_exception
-from sentry_sdk.integrations.flask import FlaskIntegration
-from sqlalchemy import inspect
 
-import itsdangerous, redis
+import itsdangerous
 from passlib.context import CryptContext
 
-import configparser, os, secrets, re, click, json
+import json
 from datetime import datetime, timezone
-from functools import wraps
-from base64 import b64encode
 
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
-pwd_context = CryptContext(
-    schemes=['pbkdf2_sha256'],
-    deprecated='auto',
-)
-
-config = configparser.ConfigParser()
-if os.environ.get('OPENAKUN_TESTING') == '1':
-    config.read_dict(os.openakun_test_config)  # this is a terrible hack
-else:
-    config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
-    rv = config.read(config_fn)
-    if len(rv) == 0:
-        raise RuntimeError("Couldn't find config file")
-
-using_sentry = False
-if 'sentry_dsn' in config['openakun']:
-    using_sentry = True
-    sentry_sdk.init(
-        dsn=config['openakun']['sentry_dsn'],
-        send_default_pii=True,
-        integrations=[FlaskIntegration()]
+def make_hasher():
+    pwd_context = CryptContext(
+        schemes=['pbkdf2_sha256'],
+        deprecated='auto',
     )
+    return pwd_context
 
-login_mgr = LoginManager()
-app = Flask('openakun')
+# if os.environ.get('OPENAKUN_TESTING') == '1':
+#     config.read_dict(os.openakun_test_config)  # this is a terrible hack
+# else:
+#     config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
 
-class ConfigError(Exception):
-    pass
+questing = Blueprint('questing', __name__)
 
-if ('secret_key' not in config['openakun'] or
-    len(config['openakun']['secret_key']) == 0):  # noqa: E129
-    raise ConfigError("Secret key not provided")
-
-app.config['SECRET_KEY'] = config['openakun']['secret_key']
-login_mgr.init_app(app)
-login_mgr.login_view = 'login'
-socketio = SocketIO(app,
-                    logger=app.config['DEBUG'],
-                    engineio_logger=app.config['DEBUG'])
-
-# to make the proxy_fix apply to the socketio as well, this has to be done
-# after the socketio is constructed
-if config.getboolean('openakun', 'proxy_fix', fallback=False):
-    print("adding ProxyFix")
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-
-app.jinja_env.add_extension('jinja2.ext.do')
-
-# Import needs to be here, since it imports variables from pages.py itself.
-# Importing alone has all the side effects needed.
-from . import realtime  # noqa
-
-def jinja_global(f):
-    app.jinja_env.globals[f.__name__] = f
-    return f
-
-app.jinja_env.globals['models'] = models
-
-@jinja_global
+@questing.app_template_global()
 def include_raw(filename):
-    return app.jinja_loader.get_source(app.jinja_env, filename)[0]
-
-db_engine = None
-Session = None
-redis_conn = None
-
-redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?"
-                          r"(:(?P<port>\d+))?"
-                          r"(/(?P<db>\d+))?$")
-
-def parse_redis_url(url):
-    o = redis_url_re.match(url)
-    if o is None:
-        raise ConfigError("Couldn't parse Redis url '{}'".format(url))
-    rv = {}
-    rv['host'] = o.group('hostname') or '127.0.0.1'
-    rv['port'] = int(o.group('port') or '6379')
-    rv['db'] = int(o.group('db') or '0')
-    return rv
-
-@app.before_first_request
-def db_setup() -> None:
-    global db_engine, Session, redis_conn
-    if db_engine is None:
-        db_engine = models.create_engine(config['openakun']['database_url'],
-                                         echo=config.getboolean('openakun',
-                                                                'echo_sql'))
-        Session = models.sessionmaker(bind=db_engine)
-    if redis_conn is None:
-        redis_info = parse_redis_url(config['openakun']['redis_url'])
-        redis_conn = redis.StrictRedis(**redis_info)
-
-@app.before_request
-def make_csrf(force: bool = False) -> None:
-    if force or '_csrf_token' not in session:
-        session['_csrf_token'] = secrets.token_urlsafe()
-
-@jinja_global
-def get_script_nonce() -> str:
-    if not hasattr(g, 'script_nonce'):
-        # this has to be real base64, per the spec, not urlencoded; thus
-        # token_urlsafe won't work
-        g.script_nonce = b64encode(secrets.token_bytes()).decode()
-    return g.script_nonce
-
-@app.after_request
-def add_csp(resp: Response) -> Response:
-    nv = get_script_nonce()
-    report_only = config['openakun']['csp_level'] == 'report'
-    header_name = ('Content-Security-Policy-Report-Only' if report_only else
-                   'Content-Security-Policy')
-    hval = f"script-src 'nonce-{nv}' 'unsafe-eval'"
-    # TODO report even in enforcing mode
-    if report_only:
-        hval += f"; report-uri {url_for('csp_report')}"
-    resp.headers[header_name] = hval
-    return resp
-
-@app.route('/csp_violation_report', methods=['POST'])
-def csp_report() -> str:
-    # TODO log this
-    print(request.data)
-    if using_sentry:
-        with push_scope() as scope:
-            scope.set_extra('request', request.get_json())
-            capture_message("CSP violation")
-    return ''
-
-def csrf_check(view: Callable) -> Callable:
-    @wraps(view)
-    def csrf_wrapper(*args, **kwargs):
-        if request.method == 'POST':
-            data = request.get_json(silent=True)
-            tok = (data.get('_csrf_token', '') if data else
-                   request.form.get('_csrf_token', ''))
-            # constant-time compare operation
-            if not secrets.compare_digest(tok,
-                                          session['_csrf_token']):
-                abort(400)
-        return view(*args, **kwargs)
-    return csrf_wrapper
+    return (current_app.jinja_loader.
+            get_source(current_app.jinja_env, filename)[0])
 
 @login_mgr.user_loader
 def load_user(user_id: int) -> Optional[models.User]:
@@ -173,52 +43,49 @@ def load_user(user_id: int) -> Optional[models.User]:
     return (s.query(models.User).
             filter(models.User.id == int(user_id)).one_or_none())
 
-def db_connect():
-    if not hasattr(g, 'db_session'):
-        g.db_session = Session()
-    return g.db_session
-
 def get_signer():
-    return itsdangerous.TimestampSigner(app.config['SECRET_KEY'])
+    return itsdangerous.TimestampSigner(current_app.config['SECRET_KEY'])
 
-@app.route('/')
+@questing.route('/')
 def main():
     s = db_connect()
     stories = s.query(models.Story).limit(10).all()
     return render_template("main.html", stories=stories)
 
-@app.route('/login', methods=['GET', 'POST'])
+@questing.route('/login', methods=['GET', 'POST'])
 @csrf_check
 def login() -> Union[str, Response]:
     if request.method == 'POST':
         s = db_connect()
+        hasher = make_hasher()
         user = (s.query(models.User).
                 filter(models.User.name == request.form['user']).one_or_none())
-        if user is not None and pwd_context.verify(request.form['pass'],
-                                                   user.password_hash):
+        if user is not None and hasher.verify(request.form['pass'],
+                                              user.password_hash):
             login_user(user)
             make_csrf(force=True)
-            next_url = request.form.get('next', url_for('main'))
+            next_url = request.form.get('next', url_for('questing.main'))
             return redirect(next_url)
         else:
             flash("Login failed")
-            return redirect(url_for('login'))
+            return redirect(url_for('questing.login'))
     else:
         return render_template("login.html")
 
-@app.route('/logout', methods=['POST'])
+@questing.route('/logout', methods=['POST'])
 @csrf_check
 def logout() -> Response:
     if not current_user.is_anonymous:
         logout_user()
         make_csrf(force=True)
-    return redirect(url_for('main'))
+    return redirect(url_for('questing.main'))
 
 def create_user(name: str, email: str, password: str) -> models.User:
+    hasher = make_hasher()
     return models.User(
         name=name,
         email=email,
-        password_hash=pwd_context.hash(password),
+        password_hash=hasher.hash(password),
         joined_date=datetime.now(tz=timezone.utc)
     )
 
@@ -229,23 +96,23 @@ def add_user(name: str, email: str, password: str) -> models.User:
     s.commit()
     return u
 
-@app.route('/signup', methods=['GET', 'POST'])
+@questing.route('/signup', methods=['GET', 'POST'])
 @csrf_check
 def register() -> Union[str, Response]:
     if request.method == 'POST':
         s = db_connect()
         if request.form['pass1'] != request.form['pass2']:
             flash("Passwords did not match")
-            return redirect(url_for('register'))
+            return redirect(url_for('questing.register'))
         tu = (s.query(models.User).
               filter(models.User.name == request.form['user']).one_or_none())
         if tu is not None:
             flash("Username not available")
-            return redirect(url_for('register'))
+            return redirect(url_for('questing.register'))
         u = add_user(request.form['user'], request.form['email'],
                      request.form['pass1'])
         login_user(u)
-        return redirect(url_for('main'))
+        return redirect(url_for('questing.main'))
     else:
         return render_template("signup.html")
 
@@ -262,7 +129,7 @@ def add_story(title: str, desc: str, author: models.User) -> models.Story:
     s.commit()
     return ns
 
-@app.route('/new_story', methods=['GET', 'POST'])
+@questing.route('/new_story', methods=['GET', 'POST'])
 @login_required
 @csrf_check
 def post_story() -> Union[str, Response]:
@@ -271,25 +138,25 @@ def post_story() -> Union[str, Response]:
             ns = add_story(request.form['title'], request.form['description'],
                            current_user)
         except BadHTMLError as e:
-            if using_sentry:
+            if current_app.config['using_sentry']:
                 with push_scope() as scope:
                     scope.set_extra('good_html', e.good_html)
                     scope.set_extra('bad_html', e.bad_html)
                     capture_message('HTML sanitization violation '
                                     '(description)')
             abort(400)
-        return redirect(url_for('view_story', story_id=ns.id))
+        return redirect(url_for('questing.view_story', story_id=ns.id))
     else:
         return render_template("post_story.html")
 
-@app.route('/story/<int:story_id>')
+@questing.route('/story/<int:story_id>')
 def view_story(story_id) -> Response:
     s = db_connect()
     story = s.query(models.Story).filter(models.Story.id == story_id).one()
-    return redirect(url_for('view_chapter', story_id=story.id,
+    return redirect(url_for('questing.view_chapter', story_id=story.id,
                             chapter_id=story.chapters[0].id))
 
-@jinja_global
+@questing.app_template_global()
 def prepare_post(p: models.Post) -> None:
     if getattr(p, 'prepared', False):
         return
@@ -308,7 +175,7 @@ def prepare_post(p: models.Post) -> None:
                          f'data-id="{p.vote_info.id}">'
                          '</div>')
 
-@app.route('/story/<int:story_id>/<int:chapter_id>')
+@questing.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id: int, chapter_id: int) -> str:
     s = db_connect()
     chapter = (s.query(models.Chapter).
@@ -325,7 +192,8 @@ def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
     if ptype == models.PostType.Text:
         assert text is not None
         text_clean = ChapterHTMLText(text)
-        if text_clean.clean_html != text_clean.dirty_html and using_sentry:
+        if text_clean.clean_html != text_clean.dirty_html and \
+           current_app.config['using_sentry']:
             with push_scope() as scope:
                 scope.set_extra('bad_html', text_clean.dirty_html)
                 scope.set_extra('good_html', text_clean.clean_html)
@@ -372,7 +240,7 @@ def create_chapter(story: models.Story, title: str,
     s.commit()
     return nc
 
-@app.route('/new_post', methods=['POST'])
+@questing.route('/new_post', methods=['POST'])
 @csrf_check
 def new_post() -> Response:
     s = db_connect()
@@ -404,7 +272,7 @@ def new_post() -> Response:
     try:
         post_info = Post(text=pt, post_type=ptype)
     except BadHTMLError as e:
-        if using_sentry:
+        if current_app.config['using_sentry']:
             capture_exception(e)
         abort(400)
     p = post_info.create_model()
@@ -430,11 +298,11 @@ def new_post() -> Response:
         realtime.add_active_vote(vote_info, c.story.channel_id)
     # emit the post after committing the session, so that clients don't see a
     # chapter that failed DB write
-    socketio.emit('new_post', browser_post_msg, room=str(channel_id))
-    return jsonify({ 'new_url': url_for('view_chapter', story_id=p.story.id,
+    realtime.socketio.emit('new_post', browser_post_msg, room=str(channel_id))
+    return jsonify({ 'new_url': url_for('questing.view_chapter', story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 
-@app.route('/user/<int:user_id>')
+@questing.route('/user/<int:user_id>')
 def user_profile(user_id: int) -> str:
     s = db_connect()
     u = (s.query(models.User).filter(models.User.id == user_id).one_or_none())
@@ -443,32 +311,12 @@ def user_profile(user_id: int) -> str:
     sl = (s.query(models.Story).filter(models.Story.author == u).all())
     return render_template("user_profile.html", user=u, stories=sl)
 
-@jinja_global
+@questing.app_template_global()
 def get_dark_mode() -> bool:
     return session.get('dark_mode', False)
 
-@app.route('/settings', methods=['POST'])
+@questing.route('/settings', methods=['POST'])
 def change_settings() -> str:
     dark_mode = int(request.form.get('dark_mode', 0))
     session['dark_mode'] = bool(dark_mode)
     return ''
-
-def init_db(silent: bool = False) -> None:
-    db_setup()
-    assert db_engine is not None
-    if not silent:
-        print("Initializing DB in {}".format(db_engine.url))
-    models.init_db(db_engine,
-                   config.getboolean('openakun', 'use_alembic', fallback=True))
-
-@click.command()
-@click.option('--host', '-h', type=str, default=None,
-              help="Hostname to bind to (default 127.0.0.1)")
-@click.option('--port', '-p', type=int, default=None,
-              help="Port to listen on (default 5000)")
-def do_run(host: str, port: int) -> None:
-    db_setup()
-    assert db_engine is not None
-    if not inspect(db_engine).has_table(db_engine, 'user_with_role'):
-        init_db()
-    socketio.run(app, host=host, port=port)

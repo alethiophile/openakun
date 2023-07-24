@@ -7,7 +7,7 @@
         <div class="media mb-3">
             <img class="mr-3" src="https://via.placeholder.com/200x200">
             <div class="media-body">
-                <h4><a href="{{ url_for('view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
+                <h4><a href="{{ url_for('questing.view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
                 <div>
                     {{ s.description | safe }}
                 </div>
