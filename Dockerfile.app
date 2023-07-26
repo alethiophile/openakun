@@ -12,7 +12,7 @@ WORKDIR /app
 FROM base AS builder
 
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get -y install curl gcc libpq-dev
+    apt-get -y install curl gcc libpq-dev git
 RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.2.2
 
 RUN python -m venv /venv
