@@ -119,6 +119,8 @@ class VoteEntry:
     vote_count: Optional[int] = None
     killed_text: Optional[str] = None
     db_id: Optional[int] = None
+    # this is a contextual member used only when it's clear which user is meant
+    user_voted: Optional[bool] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> VoteEntry:

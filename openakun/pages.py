@@ -157,7 +157,7 @@ def view_story(story_id) -> Response:
                             chapter_id=story.chapters[0].id))
 
 @questing.app_template_global()
-def prepare_post(p: models.Post) -> None:
+def prepare_post(p: models.Post, user_votes: bool = True) -> None:
     if getattr(p, 'prepared', False):
         return
     p.prepared = True
@@ -170,10 +170,11 @@ def prepare_post(p: models.Post) -> None:
         channel_id = p.story.channel_id
         v = Vote.from_model(p.vote_info)
         realtime.populate_vote(channel_id, v)
-        p.vote_info_json = json.dumps(v.to_dict())
-        p.render_text = (f'<div class="vote-from-server" '
-                         f'data-id="{p.vote_info.id}">'
-                         '</div>')
+        if user_votes:
+            uv = realtime.get_user_votes(p.vote_info.id)
+            for o in v.votes:
+                o.user_voted = o.db_id in uv
+        p.vote = v
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id: int, chapter_id: int) -> str:

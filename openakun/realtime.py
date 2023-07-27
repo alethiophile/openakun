@@ -7,13 +7,13 @@ from .general import db, db_connect, db_setup
 from .data import ChatMessage, Vote, VoteEntry, Message
 from flask_socketio import join_room, emit, SocketIO
 from flask_login import current_user
-from flask import request
+from flask import request, render_template
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone
 import hashlib, json
 
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 
 socketio = SocketIO()
 
@@ -334,18 +334,16 @@ def do_add_vote(vote_id: int, option_id: int,
                        'value': False },
                 dest=request.sid))
 
-    if not opts['votes_hidden']:
-        if res > 0:
-            t = db.redis_conn.scard(option_key)
-            msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
-            rv.append(Message(message_type='option_vote_total', data=msg))
-
-        if unvote_res > 0:
-            t = db.redis_conn.scard(old_option_key)
-            msg = { 'vote': vote_id, 'option': old_option_id, 'vote_total': t }
-            rv.append(Message(message_type='option_vote_total', data=msg))
-
     return rv
+
+def send_vote_html(channel_id: int, vote_id: int):
+    s = db_connect()
+    m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
+    v = Vote.from_model(m)
+    populate_vote(channel_id, v)
+    html = render_template('render_vote.html', vote=v)
+    msg = { 'vote': v.db_id, 'html': html }
+    emit('rendered_vote', msg, room=str(channel_id))
 
 @socketio.on('add_vote')
 @with_channel_auth()
@@ -367,6 +365,7 @@ def handle_add_vote(data) -> None:
         if m.dest is None:
             m.dest = channel_id
         m.send()
+    send_vote_html(int(channel_id), int(vote_id))
 
 @socketio.on('remove_vote')
 @with_channel_auth()
@@ -395,10 +394,7 @@ def handle_remove_vote(data) -> None:
         uv_key = f"user_votes:{vote_id}:{uid}"
         db.redis_conn.delete(uv_key)
 
-    if not opts['votes_hidden'] and res > 0:
-        t = db.redis_conn.scard(option_key)
-        msg = { 'vote': vote_id, 'option': option_id, 'vote_total': t }
-        emit('option_vote_total', msg, room=channel_id)
+    send_vote_html(int(channel_id), int(vote_id))
 
 @socketio.on('new_vote_entry')
 @with_channel_auth()
@@ -435,30 +431,37 @@ def handle_new_vote_entry(data) -> None:
     uid = get_user_identifier()
     total_msgs = do_add_vote(vote_id, option.db_id, uid)
 
-    new_entry_message = { 'vote': vote_id, 'vote_info': option.to_dict() }
-    emit('vote_entry_added', new_entry_message, room=channel_id)
     for m in total_msgs:
         if m.dest is None:
             m.dest = channel_id
         m.send()
+    send_vote_html(int(channel_id), int(vote_id))
+
+def get_user_votes(vote_id: Union[int, str], user_id: str = None) -> set[int]:
+    """Takes a vote ID and a user identifier, which is either a string with
+    "user:<userid>", or a hex IP hash. Returns a set of option IDs."""
+    if user_id is None:
+        user_id = get_user_identifier()
+    vote_key = f'vote_options:{vote_id}'
+
+    opts = db.redis_conn.smembers(vote_key)
+
+    rv = set()
+    for o in opts:
+        o = o.decode()
+        opt_key = f'option_votes:{o}'
+        if db.redis_conn.sismember(opt_key, user_id):
+            rv.add(int(o))
+
+    return rv
 
 @socketio.on('get_my_votes')
 def request_my_votes(data) -> None:
     vote_id = data['vote']
 
-    vote_key = f'vote_options:{vote_id}'
-    opts = db.redis_conn.smembers(vote_key)
-
-    uid = get_user_identifier()
-
-    for o in opts:
-        o = o.decode()
-        opt_key = f'option_votes:{o}'
-        # print(f"{opt_key=}")
-        if db.redis_conn.sismember(opt_key, uid):
-            emit('user_vote',
-                 {'vote': vote_id, 'option': o, 'value': True },
-                 room=request.sid)
+    votes = get_user_votes(vote_id)
+    for v in votes:
+        emit('user_vote', { 'vote': vote_id, 'option': v, 'value': True })
 
 # To close a vote, the following needs to be done:
 #

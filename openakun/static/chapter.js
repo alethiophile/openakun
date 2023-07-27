@@ -1,5 +1,5 @@
 /* global $, moment, is_author, chapter_id, csrf_token, Quill,
-   fix_quill_html, post_url, DisplayVote, channel_id, vote_data_list,
+   fix_quill_html, post_url, DisplayVote, channel_id, Alpine,
    nunjucks, anon_username, make_random_token, ExpandingTextarea,
    io */
 $(function () {
@@ -79,19 +79,12 @@ $(function () {
   }
 
   var socket = io();
+  window._socketio_socket = socket;
   var msgs_recvd = new Set();
   socket.on('connect', function () {
     console.log('joining room');
     socket.emit('join', { channel: channel_id }, function (res) {
       console.log("join result", res)
-      $('.vote-from-server').each(function () {
-        let vi = $(this).attr('data-id');
-        let vd = vote_data_list[vi];
-        console.log("vote-from-server handling", vd);
-        if (vd.active) {
-          socket.emit('get_my_votes', { vote: vd.db_id });
-        }
-      });
       socket.emit('backlog', { channel: channel_id });
     });
   });
@@ -128,20 +121,14 @@ $(function () {
       active_votes[data.vote_data.db_id] = dv;
     }
   });
-  socket.on('option_vote_total', function (data) {
+  socket.on('rendered_vote', function (data) {
     let vote_id = data.vote;
-    let dv = active_votes[vote_id];
-    dv.get_vote_dbid(data.option).set_count(data.vote_total);
-  });
-  socket.on('vote_entry_added', function (data) {
-    let vote_id = data.vote;
-    let dv = active_votes[vote_id];
-    dv.add_new_vote(data.vote_info);
+    let el = $(`div.vote[db-id='${vote_id}']`)[0];
+    Alpine.morph(el, data.html);
   });
   socket.on('user_vote', function (data) {
-    let vote_id = data.vote;
-    let dv = active_votes[vote_id];
-    dv.get_vote_dbid(data.option).set_voted(data.value);
+    let ev = new CustomEvent("user-vote", { detail: data });
+    window.dispatchEvent(ev);
   });
   socket.on('disconnect', function (reason) {
     console.log('disconnected', reason);
@@ -234,23 +221,41 @@ $(function () {
     });
   }
 
-  $('.vote-from-server').each(function () {
-    let vi = $(this).attr('data-id');
-    let vd = vote_data_list[vi];
-    let dv = DisplayVote({
-      elem: $(this),
-      edit: false,
-      vote: vd,
-      active: vd.active,
-      socket: socket,
-      channel_id: channel_id
-    });
-    if (vd.active) {
-      active_votes[vd.db_id] = dv;
-    }
-    console.log("vote-from-server handling", vd);
-    if (vd.active) {
-      socket.emit('get_my_votes', { vote: vd.db_id });
-    }
-  });
+});
+
+document.addEventListener('alpine:init', () => {
+  Alpine.data('active_vote', () => ({
+    init() {
+      // The server sets the .voted-for class on all the votes the
+      // user voted for; this saves those to the user_votes key so
+      // Alpine can manage them
+      let t = this;
+      this.vote_id = $(this.$el).attr('db-id');
+      $(this.$el).find('.voted-for').each(function () {
+        t.user_votes[$(this).attr('db-id')] = true;
+      });
+    },
+
+    user_votes: {},
+
+    toggle_vote: function (id) {
+      let msg = { channel: channel_id,
+                  vote: this.vote_id,
+                  option: id };
+      let socket = window._socketio_socket;
+      if (this.user_votes[id]) {
+        socket.emit('remove_vote', msg);
+      }
+      else {
+        socket.emit('add_vote', msg);
+      }
+    },
+
+    handle_vote: function (data) {
+      if (data.vote != this.vote_id) {
+        return;
+      }
+      this.user_votes[data.option] = data.value;
+    },
+  }));
 });

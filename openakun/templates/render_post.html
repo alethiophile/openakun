@@ -1,5 +1,5 @@
 {# Rendered by both server-side and jinja.js. Make sure to maintain compatibility. #}
 <div class="post">
-    {{ p.render_text | safe }}
-    <div class="post_date{% if server %} rerender-date" data-dateval="{{ p.date_millis }}"{% else %}"{% endif %}>{{ p.rendered_date }}</div>
+  {% if p.post_type == models.PostType.Text %}{{ p.render_text | safe }}{% else %}{% set vote = p.vote %}{% include 'render_vote.html' %}{% endif %}
+  <div class="post_date{% if server %} rerender-date" data-dateval="{{ p.date_millis }}"{% else %}"{% endif %}>{{ p.rendered_date }}</div>
 </div>

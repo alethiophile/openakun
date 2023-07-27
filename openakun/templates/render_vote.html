@@ -1,0 +1,11 @@
+<div class="vote" x-data="active_vote" db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
+  <div class="vote-question">{{ vote.question }}</div>
+  <div class="vote-entries">
+    {% for ve in vote.votes %}
+      <div class="vote-entry real-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}"
+           :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
+           @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div><div class="vote-count">{{ ve.vote_count }}</div></div>
+    {% endfor %}
+  </div>
+  <div class="vote-entry new-vote"><div class="vote-text">+ Add new option</div></div>
+</div>
