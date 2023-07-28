@@ -1,11 +1,16 @@
 <div class="vote" x-data="active_vote" db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
   <div class="vote-question">{{ vote.question }}</div>
   <div class="vote-entries">
-    {% for ve in vote.votes %}
-      <div class="vote-entry real-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}"
+    {%- for ve in vote.votes|sort(attribute='vote_count', reverse=True) -%}
+      <div class="vote-entry{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}"
            :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
-           @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div><div class="vote-count">{{ ve.vote_count }}</div></div>
-    {% endfor %}
+           @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
+        <div class="vote-count">{{ ve.vote_count }}</div>
+        <div x-show="admin" class="delete-vote" title="Delete entry">✘</div></div>
+    {%- endfor -%}
+    <div class="vote-entry" x-show="editing">
+      <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)"></textarea><button @click="submit_new()">Submit</button>
+    </div>
   </div>
-  <div class="vote-entry new-vote"><div class="vote-text">+ Add new option</div></div>
+  <div x-show="!editing" class="vote-entry new-vote" @click="new_opt()"><div class="vote-text">+ Add new option</div></div>
 </div>

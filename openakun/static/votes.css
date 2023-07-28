@@ -32,12 +32,6 @@ div.vote-entry.voted-for {
   flex: auto;
   padding: .5em;
 }
-.delete-vote {
-  display: none;
-}
-.vote-entry.new-vote {
-  display: none;
-}
 div.vote-editing .vote-entry.new-vote {
   display: flex;
 }
@@ -47,7 +41,7 @@ div.can-add-votes .vote-entry.new-vote {
 div.vote-editing .vote-entry {
   cursor: default;
 }
-div.vote-editing .delete-vote {
+.delete-vote {
   padding: .5em;
   display: flex;
   align-items: center;

@@ -1,3 +1,4 @@
+/* global $ */
 // this is written as an object, but there isn't much you can do with the return
 // value (other than set before_resize and after_resize dynamically); all the
 // work is done in the closure event handlers
@@ -14,6 +15,9 @@ var ExpandingTextarea = (function (args) {
   let el;
   if (args.elem !== undefined) {
     el = args.elem;
+    if (!(el instanceof $)) {
+      el = $(el);
+    }
   } else {
     el = $('#' + args.id);
   }

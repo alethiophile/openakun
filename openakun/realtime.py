@@ -417,6 +417,10 @@ def handle_new_vote_entry(data) -> None:
     option.vote_count = 1
     option.db_id = None
 
+    option.text = option.text.strip()
+    if not option.text:
+        return None
+
     m = option.create_model()
     m.vote_id = vote_id
     s = db_connect()

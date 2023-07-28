@@ -234,9 +234,12 @@ document.addEventListener('alpine:init', () => {
       $(this.$el).find('.voted-for').each(function () {
         t.user_votes[$(this).attr('db-id')] = true;
       });
+      this.admin = $(this.$el).attr('admin') == '1';
     },
 
     user_votes: {},
+    editing: false,
+    admin: false,
 
     toggle_vote: function (id) {
       let msg = { channel: channel_id,
@@ -256,6 +259,28 @@ document.addEventListener('alpine:init', () => {
         return;
       }
       this.user_votes[data.option] = data.value;
+    },
+
+    new_opt: function () {
+      this.editing = true;
+
+      ExpandingTextarea({ elem: this.$refs.edit, pixel_height: 28 });
+    },
+
+    submit_new: function (ev) {
+      if (ev && ev.shiftKey) {
+        return;
+      }
+      if (ev) { ev.preventDefault(); }
+      let vt = this.$refs.edit.value;
+      let msg = { channel: channel_id,
+                  vote: this.vote_id,
+                  vote_info: { text: vt } };
+      let socket = window._socketio_socket;
+      socket.emit('new_vote_entry', msg);
+
+      this.$refs.edit.value = '';
+      this.editing = false;
     },
   }));
 });
