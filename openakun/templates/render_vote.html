@@ -8,9 +8,7 @@
         <div class="vote-count">{{ ve.vote_count }}</div>
         <div x-show="admin" class="delete-vote" title="Delete entry">✘</div></div>
     {%- endfor -%}
-    <div class="vote-entry" x-show="editing">
-      <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)"></textarea><button @click="submit_new()">Submit</button>
-    </div>
   </div>
-  <div x-show="!editing" class="vote-entry new-vote" @click="new_opt()"><div class="vote-text">+ Add new option</div></div>
+  <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
+  <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
 </div>

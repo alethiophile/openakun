@@ -1,5 +1,5 @@
 #vote-editor {
-  margin: 1em 0;
+  margin: 1em;
 }
 .vote {
   font-size: large;
@@ -61,4 +61,11 @@ div.vote-editing div.vote-count {
 div.new-vote {
   padding: .5em;
   cursor: pointer;
+}
+.submit-row {
+  text-align: right;
+  margin-top: 2px;
+}
+.vote-entries {
+  margin-bottom: 5px;
 }

@@ -8,7 +8,7 @@ $(function () {
     var rd = m.format("MMM Do, YYYY h:mm A");
     $(this).html(rd);
   });
-  if (is_author !== undefined) {
+  if (is_author) {
     var quill = new Quill('#quill-editor', {
       theme: 'snow',
     });
@@ -234,7 +234,8 @@ document.addEventListener('alpine:init', () => {
       $(this.$el).find('.voted-for').each(function () {
         t.user_votes[$(this).attr('db-id')] = true;
       });
-      this.admin = $(this.$el).attr('admin') == '1';
+      this.admin = is_author == true;
+      ExpandingTextarea({ elem: this.$refs.edit, pixel_height: 28 });
     },
 
     user_votes: {},
@@ -259,12 +260,6 @@ document.addEventListener('alpine:init', () => {
         return;
       }
       this.user_votes[data.option] = data.value;
-    },
-
-    new_opt: function () {
-      this.editing = true;
-
-      ExpandingTextarea({ elem: this.$refs.edit, pixel_height: 28 });
     },
 
     submit_new: function (ev) {
