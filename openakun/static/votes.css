@@ -32,6 +32,11 @@ div.vote-entry.voted-for {
   flex: auto;
   padding: .5em;
 }
+.killed-vote {
+  color: #888;
+  text-decoration: line-through;
+  font-size: smaller;
+}
 div.vote-editing .vote-entry.new-vote {
   display: flex;
 }

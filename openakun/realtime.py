@@ -226,12 +226,14 @@ def get_vote_config(vote_id: int) -> Dict[str, Any]:
     return json.loads(rv)
 
 def verify_valid_option(channel_id: int, vote_id: int,
-                        option_id: Optional[int]) -> bool:
+                        option_id: Optional[int],
+                        allow_killed: bool = False) -> bool:
     """This function verifies that 1. the given vote belongs to the given channel,
     2. the given option belongs to the given vote, 3. the given option has not
     been killed.
 
-    If option_id is None, skips the latter two steps and only checks 1.
+    If option_id is None, skips the latter two steps and only checks 1. If
+    allow_killed is true, ignore the kill status.
 
     """
     # no race conditions should apply here; channel_votes and vote_options are
@@ -247,7 +249,8 @@ def verify_valid_option(channel_id: int, vote_id: int,
     if not db.redis_conn.sismember(vote_key, str(option_id)):
         return False
 
-    if db.redis_conn.hexists("options_killed", str(option_id)):
+    if (db.redis_conn.hexists("options_killed", str(option_id))
+        and not allow_killed):
         return False
 
     return True
@@ -523,7 +526,21 @@ def set_option_killed(data) -> None:
     vote_id = data['vote']
     option_id = data['option']
     killed = data['killed']
-    kill_string = data['message']
+    kill_string = data.get('message', '')
+
+    if not verify_valid_option(channel_id, vote_id, option_id,
+                               allow_killed=True):
+        return
+
+    # Kill status is tracked by the options_killed hash. Keys in the hash are
+    # numeric option IDs. If a key exists in the hash, the option has been
+    # killed. The value may be an empty string, signifying no reason given, or
+    # else a string describing the reason.
+    if not killed:
+        db.redis_conn.hdel("options_killed", str(option_id))
+    else:
+        db.redis_conn.hset("options_killed", str(option_id), kill_string)
+    send_vote_html(int(channel_id), int(vote_id))
 
 @socketio.on('set_vote_options')
 def set_vote_options(data) -> None:

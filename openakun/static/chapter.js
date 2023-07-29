@@ -123,6 +123,7 @@ $(function () {
   });
   socket.on('rendered_vote', function (data) {
     let vote_id = data.vote;
+    console.log("rendered_vote", vote_id);
     let el = $(`div.vote[db-id='${vote_id}']`)[0];
     Alpine.morph(el, data.html);
   });
@@ -277,5 +278,16 @@ document.addEventListener('alpine:init', () => {
       this.$refs.edit.value = '';
       this.editing = false;
     },
+
+    delete_option: function (option_id) {
+      let msg = {
+        channel: channel_id,
+        vote: this.vote_id,
+        option: option_id,
+        killed: true
+      };
+      let socket = window._socketio_socket;
+      socket.emit('set_option_killed', msg);
+    }
   }));
 });
