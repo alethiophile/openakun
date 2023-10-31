@@ -16,8 +16,10 @@ textarea.vote-editor {
   width: 100%;
   margin-bottom: -3px;          /* I don't understand this, but it's necessary somehow? */
 }
-div.vote-entry {
+div.has-vote {
   display: flex;
+}
+div.vote-entry {
   cursor: pointer;
 }
 div.vote-entry:hover {
