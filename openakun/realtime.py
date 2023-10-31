@@ -487,7 +487,46 @@ def close_vote(channel_id: int, vote_id: int) -> None:
     open on the given channel.
 
     """
-    pass
+    s = db_connect()
+    vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
+    ve = Vote.from_model(vm)
+
+    populate_vote(channel_id, ve)
+
+    # these parameters don't matter when the vote is closed but they're
+    # preserved for if it opens again
+    vm.multivote = ve.multivote
+    vm.writein_allowed = ve.writein_allowed
+    vm.votes_hidden = ve.votes_hidden
+
+    # for closed votes, time_closed represents the actual time of closure, so
+    # just set it to the current time
+    vm.time_closed = datetime.now(tz=timezone.utc)
+
+    ed = { i.db_id: i for i in ve.votes }
+    for v in vm.votes:
+        v.killed = ed[v.id].killed
+        v.killed_text = ed[v.id].killed_text
+
+        opt_key = f"option_votes:{v.db_id}"
+        vl = [i.decode() for i in db.redis_conn.smembers(opt_key)]
+        v.votes.clear()
+        for u in vl:
+            if u.startswith('user:'):
+                user_id = int(u[5:])
+                um = models.UserVote(user_id=user_id)
+            else:
+                anon_id = u
+                um = models.UserVote(anon_id=anon_id)
+            v.votes.append(um)
+    s.commit()
+
+    db.redis_conn.delete(f"vote_config:{vote_id}")
+    db.redis_conn.delete(f"vote_options:{vote_id}")
+    for v in vm.votes:
+        db.redis_conn.delete(f"option_votes:{v.id}")
+        db.redis_conn.hdel("options_killed", v.id)
+    db.redis_conn.srem(f"channel_votes:{channel_id}", str(vote_id))
 
 # This can just call add_active_vote again, unset time_closed on the vote
 # entry, and emit an event to the fronte
@@ -496,14 +535,14 @@ def open_vote(channel_id: int, vote_id: int) -> None:
 
 @socketio.on('set_vote_active')
 def set_vote_active(data) -> None:
-    channel_id = data['channel']
+    channel_id = int(data['channel'])
     story = get_story(channel_id)
 
     # TODO do we want to think about multiple authors?
     if story.author != current_user:
         return
 
-    vote_id = data['vote']
+    vote_id = int(data['vote'])
     set_active = data['active']
     now_active = vote_is_active(channel_id, vote_id)
 

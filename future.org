@@ -40,11 +40,13 @@
    - store close time on vote_config
  - [ ] differentiate closed votes in style
  - [ ] implement hidden totals on client side
- - [ ] make votes reorder by total (if not hidden)
- - [ ] allow killing votes
+ - [X] make votes reorder by total (if not hidden)
+ - [-] allow killing votes
+   - [X] kill functionality
+   - [ ] kill reason
  - [X] allow adding writeins
  - [ ] allow setting vote config on creation time
- - [ ] handle voted-for for server-side-rendered votes
+ - [X] handle voted-for for server-side-rendered votes
  - [ ] reorder vote options as vote totals are updated
 
 The vote subsystem has several entities: channel (bound to story), vote and
@@ -243,7 +245,6 @@ time the server will automatically close the vote (using Celery).
 ** DONE Set up Redis for caching
  - Start with caching channel auth, rather than the MAC setup
  - Redis needs to be set with AOF persistence for chat correctness
-*** TODO Consider making Redis optional?
 ** TODO Set up Celery for periodics
  - [X] Add Celery, set up code
  - [X] Use to sweep chats from redis into DB

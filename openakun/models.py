@@ -163,7 +163,7 @@ class VoteEntry(Base):
     killed = Column(Boolean, default=False, nullable=False)
     killed_text = Column(String)
 
-    votes = relationship('UserVote')
+    votes = relationship('UserVote', cascade='all, delete-orphan')
     vote_info = relationship('VoteInfo', uselist=False, back_populates='votes')
 
 class UserVote(Base):
