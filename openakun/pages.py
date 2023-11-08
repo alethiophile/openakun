@@ -157,16 +157,14 @@ def view_story(story_id) -> Response:
                             chapter_id=story.chapters[0].id))
 
 @questing.app_template_global()
-def prepare_post(p: models.Post, user_votes: bool = True) -> None:
+def prepare_post(p: models.Post, user_votes: bool = False) -> None:
     if getattr(p, 'prepared', False):
         return
     p.prepared = True
     p.rendered_date = (p.posted_date.astimezone(timezone.utc).
                        strftime("%b %d, %Y %I:%M %p UTC"))
     p.date_millis = (p.posted_date.timestamp() * 1000)
-    if p.post_type == models.PostType.Text:
-        p.render_text = p.text
-    elif p.post_type == models.PostType.Vote:
+    if p.post_type == models.PostType.Vote:
         channel_id = p.story.channel_id
         v = Vote.from_model(p.vote_info)
         realtime.populate_vote(channel_id, v)
@@ -286,21 +284,17 @@ def new_post() -> Response:
         vote_model.post = p
         s.add(vote_model)
     channel_id = c.story.channel_id
-    browser_post_msg = {
-        'type': p.post_type.name,
-        'date_millis': p.posted_date.timestamp() * 1000
-    }
     s.commit()
-    if p.post_type == models.PostType.Text:
-        browser_post_msg['text'] = p.text
-    elif p.post_type == models.PostType.Vote:
-        vote_info = Vote.from_model(vote_model)
-        browser_post_msg['vote_data'] = vote_info.to_dict()
-        realtime.add_active_vote(vote_info, c.story.channel_id)
     # emit the post after committing the session, so that clients don't see a
     # chapter that failed DB write
-    realtime.socketio.emit('new_post', browser_post_msg, room=str(channel_id))
-    return jsonify({ 'new_url': url_for('questing.view_chapter', story_id=p.story.id,
+    if p.post_type == models.PostType.Vote:
+        vote_info = Vote.from_model(vote_model)
+        realtime.add_active_vote(vote_info, c.story.channel_id)
+    prepare_post(p, user_votes=False)
+    text = render_template('render_post.html', p=p)
+    realtime.socketio.emit('new_post', { 'html': text }, room=str(channel_id))
+    return jsonify({ 'new_url': url_for('questing.view_chapter',
+                                        story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 
 @questing.route('/user/<int:user_id>')

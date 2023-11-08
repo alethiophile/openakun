@@ -25,9 +25,6 @@
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}">
-    <script id="render_post" type="text/x-tmpl-jinja">
-     {{- include_raw('render_post.html') | safe -}}
-    </script>
     <script id="render_chatmsg" type="text/x-tmpl-jinja">
      {{- include_raw('render_chatmsg.html') | safe -}}
     </script>
@@ -69,7 +66,7 @@
   {% endif %}
   <div id="story-content">
     {% for p in chapter.posts %}
-      {% do prepare_post(p) %}
+      {% do prepare_post(p, True) %}
       {% include 'render_post.html' %}
     {% endfor %}
   </div>

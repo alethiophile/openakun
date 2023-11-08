@@ -3,11 +3,6 @@
    nunjucks, anon_username, make_random_token, ExpandingTextarea,
    io */
 $(function () {
-  $('.rerender-date').each(function () {
-    var m = moment($(this).data('dateval'));
-    var rd = m.format("MMM Do, YYYY h:mm A");
-    $(this).html(rd);
-  });
   if (is_author) {
     var quill = new Quill('#quill-editor', {
       theme: 'snow',
@@ -75,8 +70,14 @@ $(function () {
     show_correct_editor();
     $('input:radio[name=post_type]').click(function () {
       show_correct_editor();
+  function fix_dates($el) {
+    $el.find('.server-date').each(function () {
+      var m = moment($(this).data('dateval'));
+      var rd = m.format("MMM Do, YYYY h:mm A");
+      $(this).html(rd);
     });
   }
+  fix_dates($('body'));
 
   var socket = io();
   window._socketio_socket = socket;
@@ -96,30 +97,11 @@ $(function () {
       msgs_recvd.add(data.id_token);
     }
   });
-  var post_tmpl = nunjucks.compile($('#render_post').html());
-  let active_votes = {};
   socket.on('new_post', function (data) {
     console.log('new post:', data);
-    data.rendered_date = moment(data.date_millis).format("MMM Do, YYYY h:mm A");
-    if (data.type == 'Text') {
-      data.render_text = data.text;
-      let $d = $(post_tmpl.render({ p: data }));
-      $('#story-content').append($d);
-    } else if (data.type == 'Vote') {
-      data.render_text = '<div class="rt-vote"></div>';
-      let $d = $(post_tmpl.render({ p: data }));
-      let $vel = $d.find('.rt-vote');
-      $('#story-content').append($d);
-      let dv = DisplayVote({
-        elem: $vel,
-        edit: false,
-        vote: data.vote_data,
-        active: true,
-        socket: socket,
-        channel_id: channel_id
-      });
-      active_votes[data.vote_data.db_id] = dv;
-    }
+    let $html = $(data.html);
+    fix_dates($html);
+    $('#story-content').append($html);
   });
   socket.on('rendered_vote', function (data) {
     let vote_id = data.vote;
