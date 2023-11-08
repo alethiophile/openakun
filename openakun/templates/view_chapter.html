@@ -14,8 +14,9 @@
         </script>
     {% endif %}
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='nunjucks.min.js') }}" integrity="sha384-XkUA224v0wKRJiWS8sAC+XghpZFy4Vm/wfOWV3sto658OqhxOtJaSpR8AD9cPPjk" crossorigin="anonymous"></script>
-    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.x.x/dist/cdn.min.js" integrity="sha384-JbZV0T/jovQmjdA5UHCXZHWj4y8l1f9BttjdK58Bwam7z2qiXBPm3uEW/H+3Wb3i" crossorigin="anonymous"></script>
-    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.12.3/dist/cdn.min.js" integrity="sha384-mPO6U7t0sNHfI1UIWNf5U6FDzprqWgAMKfOGW86JVGCKoU/7HPdy6DwBaWOsi4eV" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.13.2/dist/cdn.min.js" integrity="sha384-A9C2JjKWfJ7GKJhkIhUTpa/jalfF+hzkoiM2YX95YaB6rHh88BIaXcnyesPfR1RP" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.13.2/dist/cdn.min.js" integrity="sha384-Kvcu4IyKbkJlMJBBeqfCSkRXDtb8JKDSqVp7CKslnzV7xN2n28tZQx2ty0Wcf0qh" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.2/dist/cdn.min.js" integrity="sha384-tdcclI3qSCW7QMlm1wTf5aYctcwpxNqszsU+BJCA7HfXmWAxuNPBqWmJrnmZ4er7" crossorigin="anonymous"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
     {% if get_dark_mode() %}
@@ -75,22 +76,41 @@
     <a class="nextchapter_link" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}">Next: {{ next_chapter.title }}</a>
   {% endif %}
   {% if chapter.story.author == current_user and chapter == chapter.story.chapters[-1] %}
-    <h5 class="mb-3">Make a new post</h5>
-    <div class="form-inline form-group" id="chapter_section">
-      <input class="form-check-input" type="checkbox" value="1" id="newchapter">
-      <label class="form-check-label mr-5">Begin a new chapter</label>
-      <input class="form-control" type="text" id="chaptertitle_inp" placeholder="Title">
-    </div>
-    <label class="radio-inline"><input type="radio" name="post_type" value="text" checked="checked"> Text post</label>
-    <label class="radio-inline"><input type="radio" name="post_type" value="vote"> Vote</label>
-    <label class="radio-inline"><input type="radio" name="post_type" value="writein"> Write-in</label>
-    <div id="text-editor">
-      <div id="quill-editor">
+    <div class="post-editor" x-data="post_editor">
+      <h5 class="mb-3">Make a new post</h5>
+      <div class="form-inline form-group" id="chapter_section">
+        <input class="form-check-input" type="checkbox" x-model="make_new_chapter">
+        <label class="form-check-label mr-5">Begin a new chapter</label>
+        <input class="form-control" type="text" placeholder="Title" x-model="new_chapter_title" x-show="make_new_chapter">
       </div>
+      <label class="radio-inline"><input type="radio" name="post_type" value="Text" checked="checked" x-model="post_type"> Text post</label>
+      <label class="radio-inline"><input type="radio" name="post_type" value="Vote" @click="$nextTick(() => { $dispatch('xta-setup') })" x-model="post_type"> Vote</label>
+      <label class="radio-inline"><input type="radio" name="post_type" value="Writein" x-model="post_type"> Write-in</label>
+      <input type="hidden" name="post_text" x-ref="text_hidden_input" value="" x-model="post_text">
+      <div x-ref="text-editor" x-show="post_type == 'Text'">
+        <div x-ref="quill">
+        </div>
+      </div>
+      <div x-ref="vote-editor" x-show="post_type == 'Vote'">
+        <div class="vote-question">
+          <textarea class="vote-editor" rows="1" data-min-rows="1" placeholder="What are you voting on?" x-bind="expanding_textarea" x-model="vote_question" pixel-height="24"></textarea>
+        </div>
+        <div>
+          <input class="form-check-input ml-0" type="checkbox" x-model="vote_multivote"><label class="form-check-label mr-3">Allow multiple votes</label>
+          <input class="form-check-input ml-0" type="checkbox" x-model="vote_writein"><label class="form-check-label mr-3">Allow write-in options</label>
+          <input class="form-check-input ml-0" type="checkbox" x-model="vote_hidden"><label class="form-check-label mr-3">Hide vote totals until close</label>
+        </div>
+        <div class="vote-entries">
+          <template x-for="(v, i) in vote_options">
+            <div class="has-vote">
+              <div class="vote-text"><textarea class="vote-editor" rows="1" data-min-rows="1" x-bind="expanding_textarea" x-model="v.text" pixel-height="28"></textarea></div>
+              <div class="delete-vote" title="Delete entry" @click="delete_option(i)">✘</div></div>
+          </template>
+          <button @click="add_option()">+ Add new option</button>
+        </div>
+      </div>
+      <button class="btn mt-2" @click="submit()">Post</button>
     </div>
-    <div id="vote-editor" style="display:none">
-    </div>
-    <button class="btn mt-2" id="post-button">Post</button>
   {% endif %}
 {% endblock %}
 {% block sidebar %}

@@ -279,7 +279,10 @@ def new_post() -> Response:
     p.story = nc.story
     s.add(p)
     if ptype == models.PostType.Vote:
-        vote_info = Vote.from_dict(data['vote_data'])
+        try:
+            vote_info = Vote.from_dict(data['vote_data'])
+        except Exception:
+            abort(400)
         vote_model = vote_info.create_model()
         vote_model.post = p
         s.add(vote_model)

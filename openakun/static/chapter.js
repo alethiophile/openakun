@@ -3,73 +3,6 @@
    nunjucks, anon_username, make_random_token, ExpandingTextarea,
    io */
 $(function () {
-  if (is_author) {
-    var quill = new Quill('#quill-editor', {
-      theme: 'snow',
-    });
-    $('#post-button').click(function () {
-      let post_type = $('input:radio[name=post_type]:checked').val();
-      let new_chapter = $('#newchapter').is(':checked');
-      let chap_title = $('#chaptertitle_inp').val();
-      if (new_chapter && chap_title === '') {
-        alert("Chapter title can't be empty");
-        return false;
-      }
-      let post_data = { chapter_id: chapter_id,
-                        new_chapter: new_chapter, chapter_title: chap_title,
-                        _csrf_token: csrf_token };
-      if (post_type == 'text') {
-        let post_html = quill.root.innerHTML;
-        post_html = fix_quill_html(post_html);
-        post_data['post_text'] = post_html;
-        // this names one of the server-side PostType enum values
-        post_data['post_type'] = 'Text';
-      }
-      else if (post_type == 'vote') {
-        /* let vote_question = $('#vote-editor textarea.vote-editor').val();
-         * let vote_entries = [];
-         * $('div.vote-entries div.vote-text').each(function () {
-         *   vote_entries.push($(this).html());
-         * });*/
-        /* post_data['vote_question'] = vote_question;
-         * post_data['vote_options'] = vote_entries;*/
-        post_data['vote_data'] = vote_editor.get_vote_data();
-        post_data['post_type'] = 'Vote';
-        console.log(post_data);
-      }
-      $.ajax(post_url, {
-        method: 'POST',
-        data: JSON.stringify(post_data),
-        contentType: 'application/json',
-        /* success: function () {
-         *   document.location.href = document.location.href;
-         * },*/
-        error: function (jqxhr, status, errorThrown) {
-          var errstr = "Error: " + status + " " + errorThrown;
-          console.log(errstr);
-          alert(errstr);
-        },
-      });
-    });
-    let show_correct_editor = (function () {
-      let val = $('input:radio[name=post_type]:checked').val();
-      if (val === 'text') {
-        $('#text-editor').show();
-        $('#vote-editor').hide();
-      } else if (val === 'vote') {
-        $('#vote-editor').show();
-        $('#text-editor').hide();
-      } else if (val === 'writein') {
-        
-      }
-    });
-    // we call this at the start to handle the case where the user
-    // reloads the page after switching editors; in this case the
-    // browser will save the radio button position, so we want to show
-    // the corresponding editor
-    show_correct_editor();
-    $('input:radio[name=post_type]').click(function () {
-      show_correct_editor();
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
       var m = moment($(this).data('dateval'));
@@ -195,15 +128,6 @@ $(function () {
     }
   });
 
-  let $vedit = $('#vote-editor');
-  let vote_editor;
-  if ($vedit.length > 0) {
-    vote_editor = DisplayVote({
-      elem: $vedit,
-      edit: true
-    });
-  }
-
 });
 
 document.addEventListener('alpine:init', () => {
@@ -272,4 +196,82 @@ document.addEventListener('alpine:init', () => {
       socket.emit('set_option_killed', msg);
     }
   }));
+
+  Alpine.data('post_editor', function() { return {
+    init() {
+      this.quill_instance = new Quill(this.$refs.quill, {
+        theme: 'snow',
+      });
+      let t = this;
+      // this.quill_instance.clipboard.dangerouslyPasteHTML(0, this.post_text);
+      this.quill_instance.root.innerHTML = this.post_text;
+      this.quill_instance.on('text-change', function () {
+        let html = t.quill_instance.root.innerHTML;
+        t.post_text = fix_quill_html(html);
+      });
+    },
+
+    post_type: this.$persist('Text'),
+    make_new_chapter: this.$persist(false),
+    new_chapter_title: this.$persist(''),
+    post_text: this.$persist(''),
+    vote_question: this.$persist(''),
+    vote_multivote: this.$persist(true),
+    vote_writein: this.$persist(true),
+    vote_hidden: this.$persist(false),
+    vote_options: this.$persist([]),
+
+    add_option() {
+      this.vote_options.push({ text: '' });
+    },
+
+    delete_option(ind) {
+      this.vote_options.splice(ind, 1);
+    },
+
+    reset() {
+      this.post_type = 'Text';
+      this.make_new_chapter = false;
+      this.new_chapter_title = '';
+      this.post_text = '';
+      this.vote_question = '';
+      this.vote_multivote = true;
+      this.vote_writein = true;
+      this.vote_hidden = false;
+      this.vote_options = [];
+      this.quill_instance.setText('');
+    },
+
+    submit() {
+      let msg = {
+        chapter_id: chapter_id,
+        _csrf_token: csrf_token,
+        post_type: this.post_type,
+        new_chapter: this.make_new_chapter,
+        chapter_title: this.new_chapter_title,
+        post_text: this.post_text,
+        vote_data: {
+          question: this.vote_question,
+          multivote: this.vote_multivote,
+          writein_allowed: this.vote_writein,
+          votes_hidden: this.vote_hidden,
+          votes: this.vote_options.map((v) => ({ ...v })),
+        },
+      };
+      console.log(msg);
+      fetch(post_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(msg)
+      }).then(
+        () => { this.reset(); },
+        (err) => {
+          var errstr = "Error: " + err;
+          console.log(errstr);
+          alert(errstr);
+        });
+    },
+  };});
 });
