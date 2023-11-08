@@ -99,7 +99,9 @@ class ChatMessage:
 
     def to_browser_message(self, admin=False) -> Dict[str, Any]:
         rv = { 'is_anon': (self.user_id is None),
-               'text': self.msg_text, 'date': self.date.timestamp() * 1000,
+               'text': self.msg_text, 'date': self.date,
+               'rendered_date': (self.date.astimezone(timezone.utc).
+                                 strftime("%b %d, %Y %I:%M %p UTC")),
                'id_token': self.browser_token, 'channel': self.channel_id }
         if self.user_name is not None:
             rv['username'] = self.user_name

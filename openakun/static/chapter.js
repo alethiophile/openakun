@@ -1,7 +1,6 @@
 /* global $, moment, is_author, chapter_id, csrf_token, Quill,
-   fix_quill_html, post_url, DisplayVote, channel_id, Alpine,
-   nunjucks, anon_username, make_random_token, ExpandingTextarea,
-   io */
+   fix_quill_html, post_url, channel_id, Alpine, make_random_token,
+   ExpandingTextarea, io */
 $(function () {
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
@@ -24,10 +23,12 @@ $(function () {
   });
   socket.on('chat_msg', function (data) {
     console.log('got chat message', data);
-    data.rendered_date = moment(data.date).format("MMM Do, YYYY h:mm A");
-    if (!msgs_recvd.has(data.id_token)) {
-      add_chat_msg(data);
-      msgs_recvd.add(data.id_token);
+    let $html = $(data.html);
+    fix_dates($html);
+    let tok = $html.data('token');
+    if (!msgs_recvd.has(tok)) {
+      add_chat_html($html);
+      msgs_recvd.add(tok);
     }
   });
   socket.on('new_post', function (data) {
@@ -63,18 +64,13 @@ $(function () {
   socket.on('error', socket_err);
   socket.on('connect_timeout', socket_err);
 
-  var chat_tmpl = nunjucks.compile($('#render_chatmsg').html());
   /* Adds a message to the chatbox, rendering it. Called
      for every message that comes in over the wire. */
-  function add_chat_msg (msg) {
+  function add_chat_html ($html) {
     var $cm = $('#chat-messages');
     var scrollBottomVal = $cm[0].scrollHeight - $cm.height();
-    if (msg.is_anon) {
-      msg.username = anon_username;
-    }
-    var $d = $(chat_tmpl.render({ c: msg}));
-    $('#chat-messages').append($d);
-    var msgHeight = $d.height();
+    $('#chat-messages').append($html);
+    var msgHeight = $html.height();
     if (scrollBottomVal - $cm[0].scrollTop < msgHeight) {
       $cm.scrollTop($cm.height());
     }
@@ -203,7 +199,6 @@ document.addEventListener('alpine:init', () => {
         theme: 'snow',
       });
       let t = this;
-      // this.quill_instance.clipboard.dangerouslyPasteHTML(0, this.post_text);
       this.quill_instance.root.innerHTML = this.post_text;
       this.quill_instance.on('text-change', function () {
         let html = t.quill_instance.root.innerHTML;

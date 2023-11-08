@@ -1,8 +1,8 @@
-{# Rendered by both server-side and jinja.js. Make sure to maintain compatibility. #}
-<div class="chatmsg">
+<div class="chatmsg" data-token="{{ c.id_token }}">
     <div class="chat_head">
         <div class="chat_sender">{{ c.username }}</div>
-        <div class="chat_date">{{ c.rendered_date }}</div>
+        {# TODO update this to allow setting server timezone #}
+        <div class="chat_date server-date" data-dateval="{{ c.date.timestamp() * 1000|int }}">{{ c.rendered_date }}</div>
     </div>
     <div class="chat_message">{{ c.text }}</div>
 </div>

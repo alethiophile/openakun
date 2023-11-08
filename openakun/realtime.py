@@ -79,7 +79,10 @@ def handle_backlog(data):
 def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
     for i in msgs:
         mo = i.to_browser_message()
-        socketio.emit('chat_msg', mo, room=to)
+        if mo['is_anon']:
+            mo['username'] = 'anon'
+        html = render_template('render_chatmsg.html', c=mo)
+        socketio.emit('chat_msg', { 'html': html }, room=to)
 
 def register_ip(addr):
     # TODO make this use Redis and a periodic sweep, like chat messages
@@ -157,7 +160,11 @@ def handle_chat(data) -> None:
     db.redis_conn.sadd('all_channels', rkey)
 
     mo = msg.to_browser_message()
-    emit('chat_msg', mo, room=channel_id)
+    if mo['is_anon']:
+        # TODO eventually set this to the story-configured anon username
+        mo['username'] = 'anon'
+    html = render_template('render_chatmsg.html', c=mo)
+    emit('chat_msg', { 'html': html }, room=channel_id)
 
 def add_active_vote(vote: Vote, channel_id: int) -> None:
     """This function takes trusted input: it gets called when a new vote is
