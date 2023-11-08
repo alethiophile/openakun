@@ -111,10 +111,10 @@ class PostType(enum.Enum):
 
 def order_idx_default(context):
     cid = context.get_current_parameters()['chapter_id']
-    rv = context.connection.execute(select([
+    rv = context.connection.execute(select(
         func.coalesce(
             func.max(Post.order_idx) + 10,
-            0)]).where(Post.chapter_id == cid))
+            0)).where(Post.chapter_id == cid))
     rows = rv.fetchall()
     return rows[0][0]
 
