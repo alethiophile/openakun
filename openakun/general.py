@@ -1,6 +1,6 @@
 from . import models
 
-import secrets, re, redis
+import secrets, re, redis, sqlalchemy
 from flask import session, request, abort, g, current_app, url_for
 from functools import wraps
 from base64 import b64encode
@@ -8,7 +8,7 @@ from werkzeug import Response
 from sentry_sdk import push_scope, capture_message
 from flask_login import LoginManager
 
-from typing import Callable
+from typing import Callable, Optional
 
 class ConfigError(Exception):
     pass
@@ -16,7 +16,11 @@ class ConfigError(Exception):
 login_mgr = LoginManager()
 
 # creates an empty object, since object() can't be written to
-db = lambda: None
+class DbObj:
+    db_engine: Optional[sqlalchemy.engine.Engine]
+    Session: Optional[sqlalchemy.orm.sessionmaker]
+    redis_conn: Optional[redis.Redis]
+db = DbObj()
 db.db_engine, db.Session, db.redis_conn = None, None, None
 
 redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?"

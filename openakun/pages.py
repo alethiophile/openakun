@@ -245,6 +245,7 @@ def new_post() -> Response:
     s = db_connect()
     print('new_post')
     data = request.json
+    assert data is not None
     print(data)
     c = (s.query(models.Chapter).
          filter(models.Chapter.id == data['chapter_id']).one_or_none())

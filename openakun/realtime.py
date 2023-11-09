@@ -31,6 +31,7 @@ def get_story(channel_id):
 
 # user_id can be string ID or 'anon'
 def check_channel_auth(channel_id, user_id):
+    assert db.redis_conn is not None
     auth_hkey = '{}:{}'.format(user_id, channel_id)
     cv = db.redis_conn.hget('channel_auth', auth_hkey)
     if cv is None:
@@ -173,6 +174,7 @@ def add_active_vote(vote: Vote, channel_id: int) -> None:
 
     """
     assert vote.db_id is not None
+    assert db.redis_conn is not None
 
     channel_key = f"channel_votes:{channel_id}"
     db.redis_conn.sadd(channel_key, vote.db_id)
@@ -188,6 +190,7 @@ def add_active_vote(vote: Vote, channel_id: int) -> None:
     db.redis_conn.set(opts_key, json.dumps(vote_opts))
 
 def vote_is_active(channel_id: int, vote_id: int) -> bool:
+    assert db.redis_conn is not None
     channel_key = f"channel_votes:{channel_id}"
     return db.redis_conn.sismember(channel_key, vote_id)
 
@@ -198,6 +201,9 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
     render active votes in new loads.
 
     """
+    assert db.redis_conn is not None
+    assert vote.db_id is not None
+
     if not vote_is_active(channel_id, vote.db_id):
         vote.active = False
         return vote
@@ -211,9 +217,10 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
     vote.close_time = vote_config.get('close_time')
 
     for v in vote.votes:
+        assert v.db_id is not None
         option_key = f"option_votes:{v.db_id}"
         v.vote_count = db.redis_conn.scard(option_key)
-        ks = db.redis_conn.hget("options_killed", v.db_id)
+        ks = db.redis_conn.hget("options_killed", str(v.db_id))
         if ks is None:
             v.killed = False
             v.killed_text = None
@@ -227,6 +234,7 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
     return vote
 
 def get_vote_config(vote_id: int) -> Dict[str, Any]:
+    assert db.redis_conn is not None
     opts_key = f"vote_config:{vote_id}"
     rv = db.redis_conn.get(opts_key)
     assert rv is not None
@@ -243,6 +251,8 @@ def verify_valid_option(channel_id: int, vote_id: int,
     allow_killed is true, ignore the kill status.
 
     """
+    assert db.redis_conn is not None
+
     # no race conditions should apply here; channel_votes and vote_options are
     # write-once quantities, while options_killed is only read as a oneshot
     channel_key = f"channel_votes:{channel_id}"
@@ -306,6 +316,7 @@ def do_add_vote(vote_id: int, option_id: int,
     # which there is contention on this is if nginx is load-balancing multiple
     # socketios, and in that case one IP must always go to the same process and
     # so will never have contention
+    assert db.redis_conn is not None
 
     opts = get_vote_config(vote_id)
     rv = []
@@ -380,6 +391,8 @@ def handle_add_vote(data) -> None:
 @socketio.on('remove_vote')
 @with_channel_auth()
 def handle_remove_vote(data) -> None:
+    assert db.redis_conn is not None
+
     channel_id = data['channel']
     vote_id = data['vote']
     option_id = data['option']
@@ -409,6 +422,8 @@ def handle_remove_vote(data) -> None:
 @socketio.on('new_vote_entry')
 @with_channel_auth()
 def handle_new_vote_entry(data) -> None:
+    assert db.redis_conn is not None
+
     channel_id = data['channel']
     vote_id = data['vote']
     voteinfo = data['vote_info']
@@ -431,14 +446,15 @@ def handle_new_vote_entry(data) -> None:
     if not option.text:
         return None
 
-    m = option.create_model()
-    m.vote_id = vote_id
+    om = option.create_model()
+    om.vote_id = vote_id
     s = db_connect()
-    s.add(m)
+    s.add(om)
     s.commit()
 
     # this picks up the db_id just set by Postgres
-    option = VoteEntry.from_model(m)
+    option = VoteEntry.from_model(om)
+    assert option.db_id is not None
     vote_key = f"vote_options:{vote_id}"
     db.redis_conn.sadd(vote_key, option.db_id)
 
@@ -451,9 +467,11 @@ def handle_new_vote_entry(data) -> None:
         m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
-def get_user_votes(vote_id: Union[int, str], user_id: str = None) -> set[int]:
+def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> set[int]:
     """Takes a vote ID and a user identifier, which is either a string with
     "user:<userid>", or a hex IP hash. Returns a set of option IDs."""
+    assert db.redis_conn is not None
+
     if user_id is None:
         user_id = get_user_identifier()
     vote_key = f'vote_options:{vote_id}'
@@ -494,6 +512,8 @@ def close_vote(channel_id: int, vote_id: int) -> None:
     open on the given channel.
 
     """
+    assert db.redis_conn is not None
+
     s = db_connect()
     vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     ve = Vote.from_model(vm)
@@ -563,6 +583,8 @@ def set_vote_active(data) -> None:
 
 @socketio.on('set_option_killed')
 def set_option_killed(data) -> None:
+    assert db.redis_conn is not None
+
     channel_id = data['channel']
     story = get_story(channel_id)
 

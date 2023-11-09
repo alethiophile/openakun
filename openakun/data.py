@@ -53,7 +53,7 @@ class ChatMessage:
 
     @classmethod
     def new(cls, msg_text: str, browser_token: str, channel_id: int,
-            date: datetime = None, anon_id: Optional[str] = None,
+            date: Optional[datetime] = None, anon_id: Optional[str] = None,
             user_id: Optional[int] = None,
             user_name: Optional[str] = None) -> ChatMessage:
         serv_tok = secrets.token_urlsafe()
@@ -280,9 +280,10 @@ class Post:
             post_type=m.post_type)
 
     def create_model(self) -> models.Post:
-        d = { 'text': self.text,
-              'posted_date': self.posted_date,
-              'post_type': self.post_type }
+        d: dict[str, Any] = {
+            'text': self.text,
+            'posted_date': self.posted_date,
+            'post_type': self.post_type }
         if self.order_idx is not None:
             d['order_idx'] = self.order_idx
         # we do it this way because we have to not pass order_idx at all if
