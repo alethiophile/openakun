@@ -374,6 +374,42 @@ time the server will automatically close the vote (using Celery).
    is denied and logged
  - On client end, rich text editor generates known-good HTML; HTML
    cleaning/scanning should be transparent to ordinary users
+** Frontend concerns
+The previous design had a fairly minimal but conventional frontend, written in
+Javascript and communicating with the server primarily in JSON. This
+necessitated the use of a client-side templating system (here Nunjucks). This
+was workable but kind of painful, and for more complex interactive components
+like the vote display became extremely painful.
+
+Recently the frontend has been redesigned to use an HTML-on-the-wire arrangement
+a la HTMX. HTML fragments are sent down the socket connection, then inserted
+into the page by a fairly minimal dispatcher apparatus. (For the moment the
+actual socket payload is HTML strings within JSON, since SocketIO requires this;
+however, this is an implementation detail.)
+
+For most updates this is straightforward. The one exception is vote display
+updates, since these need to be separate per-user (in order to show which
+options a user has voted for). For these, the server does not render a separate
+version of the vote update for every user — this would have O(N^2) scaling with
+an unfavorable constant, and also add quite a bit of complexity. Instead, user
+votes are tracked in JS on the client side, and reapplied to the server-sent
+HTML as needed. This is luckily pretty easy using Alpine.js.
+
+Currently the system still uses SocketIO for its socket connection. However, the
+main benefit of this — falling back gracefully to old techniques like long
+polling where websockets are unavailable — is now fairly obsolete; almost every
+browser supports websockets. Thus, the plan is to replace SocketIO with a pure
+websocket connection, and strip out even more of the frontend code in favor of
+pulling in HTMX and its websocket extension.
+
+This will require some backend work. As it stands the socket backend is handled
+by Flask-SocketIO, which provides user and channel abstractions. However, this
+is incompatible with HTMX. It should be fairly quick to set up a minimal channel
+service using flask-sock instead. Once this is done, the current socketio
+endpoints can be migrated to either HTTP request endpoints, or listeners on the
+websocket. Most of them should probably be HTTP requests, since this makes
+message acknowledgement more straightforward.
+
 * Feature requests
  - Ability to delete writeins
  - Ability to change multivote and writein permission on a vote
