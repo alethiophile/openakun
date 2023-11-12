@@ -167,12 +167,13 @@ def handle_chat(data) -> None:
     html = render_template('render_chatmsg.html', c=mo)
     emit('chat_msg', { 'html': html }, room=channel_id)
 
-def add_active_vote(vote: Vote, channel_id: int) -> None:
+def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     """This function takes trusted input: it gets called when a new vote is
     created, and its parameters come from pages.new_post(), which verifies the
     data.
 
     """
+    vote = Vote.from_model(vm)
     assert vote.db_id is not None
     assert db.redis_conn is not None
 
@@ -188,6 +189,11 @@ def add_active_vote(vote: Vote, channel_id: int) -> None:
                   ['multivote', 'writein_allowed', 'votes_hidden'] }
     opts_key = f"vote_config:{vote.db_id}"
     db.redis_conn.set(opts_key, json.dumps(vote_opts))
+
+    for e in vm.votes:
+        for u in e.votes:
+            uid = u.user_id or u.anon_id
+            do_add_vote(vm.id, e.id, str(uid))
 
 def vote_is_active(channel_id: int, vote_id: int) -> bool:
     assert db.redis_conn is not None
@@ -358,6 +364,12 @@ def do_add_vote(vote_id: int, option_id: int,
     return rv
 
 def send_vote_html(channel_id: int, vote_id: int):
+    """Render a vote in user-agnostic form (i.e. no voted-for annotations) and
+    send the resulting HTML over the channel. This is called every time a vote
+    is altered (votes added or removed, options added, config changed, etc.) in
+    order to update clients' views.
+
+    """
     s = db_connect()
     m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     v = Vote.from_model(m)
@@ -548,12 +560,14 @@ def close_vote(channel_id: int, vote_id: int) -> None:
             v.votes.append(um)
     s.commit()
 
-    db.redis_conn.delete(f"vote_config:{vote_id}")
-    db.redis_conn.delete(f"vote_options:{vote_id}")
+    db.redis_conn.delete(f"vote_config:{vote_id}", f"vote_options:{vote_id}")
     for v in vm.votes:
         db.redis_conn.delete(f"option_votes:{v.id}")
         db.redis_conn.hdel("options_killed", v.id)
     db.redis_conn.srem(f"channel_votes:{channel_id}", str(vote_id))
+    uv_glob = f'user_votes:{vote_id}:*'
+    keys = list(db.redis_conn.scan_iter(match=uv_glob))
+    db.redis_conn.delete(*keys)
 
 # This can just call add_active_vote again, unset time_closed on the vote
 # entry, and emit an event to the fronte

@@ -3,7 +3,8 @@
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
-                        MetaData, Boolean, CheckConstraint, Index, Table, Enum)
+                        MetaData, Boolean, CheckConstraint, UniqueConstraint,
+                        Index, Table, Enum)
 from sqlalchemy import create_engine, func  # noqa: F401
 from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
 from sqlalchemy.sql import select
@@ -171,6 +172,7 @@ class UserVote(Base):
     __table_args__ = (
         CheckConstraint('(user_id is null) != (anon_id is null)',
                         name='user_or_anon'),
+        UniqueConstraint('entry_id', 'user_id', 'anon_id'),
     )
 
     id = Column(Integer, primary_key=True)

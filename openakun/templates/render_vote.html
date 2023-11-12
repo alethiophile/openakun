@@ -1,4 +1,4 @@
-<div class="vote" x-data="active_vote" db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
+<div class="vote" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
   <div class="vote-question">{{ vote.question }}</div>
   <div class="vote-entries">
     {%- for ve in vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') -%}
@@ -6,7 +6,7 @@
            :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
            @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
         <div class="vote-count">{{ ve.vote_count }}</div>
-        <div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div></div>
+        {%- if vote.active %}<div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div></div>{% endif -%}
     {%- endfor -%}
     {%- for ve in vote.votes|selectattr('killed') -%}
       <div class="has-vote" db-id="{{ ve.db_id }}">
@@ -14,6 +14,8 @@
       </div>
     {%- endfor -%}
   </div>
-  <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
-  <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
+  {%- if vote.active -%}
+    <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
+    <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
+  {%- endif -%}
 </div>

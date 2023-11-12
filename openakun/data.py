@@ -123,6 +123,7 @@ class VoteEntry:
     db_id: Optional[int] = None
     # this is a contextual member used only when it's clear which user is meant
     user_voted: Optional[bool] = None
+    users_voted_for: Optional[list[str]] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> VoteEntry:
@@ -130,21 +131,43 @@ class VoteEntry:
 
     @classmethod
     def from_model(cls, m: models.VoteEntry) -> VoteEntry:
+        uvl = [str(i.user_id or i.anon_id) for i in m.votes]
         return cls(
             text=m.vote_text,
             killed=m.killed,
             killed_text=m.killed_text,
-            db_id=m.id)
+            db_id=m.id,
+            users_voted_for=uvl,
+            vote_count=len(uvl))
 
     def to_dict(self) -> Dict[str, Any]:
         return attr.asdict(self)
 
+    def set_model_votes(self, em):
+        """Given a model, update the votes on it to match the current
+        users_voted_for. This clears out the existing data in Postgres; make
+        sure this is what you want.
+
+        """
+        if self.users_voted_for is None:
+            return
+        em.votes.clear()
+        uvs = set(self.users_voted_for or [])
+        for i in uvs:
+            try:
+                vm = models.UserVote(user_id=int(i))
+            except ValueError:
+                vm = models.UserVote(anon_id=i)
+            em.votes.append(vm)
+
     def create_model(self) -> models.VoteEntry:
-        return models.VoteEntry(
+        em = models.VoteEntry(
             vote_text=self.text,
             killed=self.killed,
-            killed_text=self.killed_text
-        )
+            killed_text=self.killed_text)
+        if self.users_voted_for:
+            self.set_model_votes(em)
+        return em
 
 @attr.s(auto_attribs=True)
 class Vote:

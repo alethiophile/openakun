@@ -292,8 +292,8 @@ def new_post() -> Response:
     # emit the post after committing the session, so that clients don't see a
     # chapter that failed DB write
     if p.post_type == models.PostType.Vote:
-        vote_info = Vote.from_model(vote_model)
-        realtime.add_active_vote(vote_info, c.story.channel_id)
+        # vote_info = Vote.from_model(vote_model)
+        realtime.add_active_vote(vote_model, c.story.channel_id)
     prepare_post(p, user_votes=False)
     text = render_template('render_post.html', p=p)
     realtime.socketio.emit('new_post', { 'html': text }, room=str(channel_id))

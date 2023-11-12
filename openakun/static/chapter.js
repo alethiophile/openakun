@@ -116,14 +116,6 @@ $(function () {
   $('#chat-send').click(function () {
     chat_trigger_send();
   });
-  $('#newchapter').change(function () {
-    if ($(this).is(':checked')) {
-      $('#chaptertitle_inp').css('visibility', 'visible');
-    } else {
-      $('#chaptertitle_inp').css('visibility', 'hidden');
-    }
-  });
-
 });
 
 document.addEventListener('alpine:init', () => {
