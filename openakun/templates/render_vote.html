@@ -6,7 +6,8 @@
            :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
            @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
         <div class="vote-count">{{ ve.vote_count }}</div>
-        {%- if vote.active %}<div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div></div>{% endif -%}
+        {%- if vote.active %}<div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
+      </div>
     {%- endfor -%}
     {%- for ve in vote.votes|selectattr('killed') -%}
       <div class="has-vote" db-id="{{ ve.db_id }}">
