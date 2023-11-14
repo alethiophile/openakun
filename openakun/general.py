@@ -1,6 +1,6 @@
 from . import models
 
-import secrets, re, redis, sqlalchemy
+import secrets, re, redis, sqlalchemy, importlib.resources
 from flask import session, request, abort, g, current_app, url_for
 from functools import wraps
 from base64 import b64encode
@@ -37,8 +37,26 @@ def parse_redis_url(url):
     rv['db'] = int(o.group('db') or '0')
     return rv
 
+def decode_redis_dict(l):
+    if not isinstance(l, list):
+        return l
+    def to_pairs(l):
+        i = iter(l)
+        while True:
+            try:
+                a = next(i)
+                b = next(i)
+            except StopIteration:
+                break
+            try:
+                b = b.decode()
+            except AttributeError:
+                pass
+            yield (a.decode(), b)
+    return dict(to_pairs(l))
+
 # TODO make this per-request?
-def db_setup(config=None) -> None:
+def db_setup(config=None, force_redis=False) -> None:
     # global db_engine, Session, redis_conn
     if config is None:
         config = current_app.config_data
@@ -51,8 +69,18 @@ def db_setup(config=None) -> None:
     if db.redis_conn is None:
         redis_info = parse_redis_url(config['openakun']['redis_url'])
         db.redis_conn = redis.StrictRedis(**redis_info)
+        fl = db.redis_conn.function_list()
+        for i in fl:
+            d = decode_redis_dict(i)
+            if d['library_name'] == 'votes' and not force_redis:
+                break
+        else:
+            print("adding lua function")
+            lua_code = (importlib.resources.files('openakun').
+                        joinpath('redisvotes.lua').read_text())
+            db.redis_conn.function_load(lua_code, replace=True)
 
-def db_connect():
+def db_connect() -> sqlalchemy.orm.Session:
     if not hasattr(g, 'db_session'):
         g.db_session = db.Session()
     return g.db_session

@@ -11,6 +11,7 @@ from flask import request, render_template
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone
+from sqlalchemy import sql
 import hashlib, json
 
 from typing import List, Dict, Optional, Any, Union
@@ -177,23 +178,22 @@ def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     assert vote.db_id is not None
     assert db.redis_conn is not None
 
+    rd = vote.to_redis_dict()
+    print(rd)
+    rds = json.dumps(rd)
+    db.redis_conn.hset('vote_info', str(vote.db_id), rds)
+
     channel_key = f"channel_votes:{channel_id}"
-    db.redis_conn.sadd(channel_key, vote.db_id)
+    db.redis_conn.sadd(channel_key, str(vote.db_id))
 
-    vote_key = f"vote_options:{vote.db_id}"
-    for v in vote.votes:
-        assert v.db_id is not None
-        db.redis_conn.sadd(vote_key, v.db_id)
-
-    vote_opts = { k: v for k, v in vote.to_dict().items() if k in
-                  ['multivote', 'writein_allowed', 'votes_hidden'] }
-    opts_key = f"vote_config:{vote.db_id}"
-    db.redis_conn.set(opts_key, json.dumps(vote_opts))
-
-    for e in vm.votes:
-        for u in e.votes:
-            uid = u.user_id or u.anon_id
-            do_add_vote(vm.id, e.id, str(uid))
+def repopulate_from_db():
+    s = db.Session()
+    votes = (s.query(models.VoteInfo).
+             where((models.VoteInfo.time_closed > sql.functions.now()) |
+                   (models.VoteInfo.time_closed == None)).all())
+    for vm in votes:
+        channel_id = vm.post.story.channel_id
+        add_active_vote(vm, channel_id)
 
 def vote_is_active(channel_id: int, vote_id: int) -> bool:
     assert db.redis_conn is not None
@@ -216,152 +216,17 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
     vote.active = True
 
-    vote_config = get_vote_config(vote.db_id)
-    vote.multivote = vote_config['multivote']
-    vote.writein_allowed = vote_config['writein_allowed']
-    vote.votes_hidden = vote_config['votes_hidden']
-    vote.close_time = vote_config.get('close_time')
-
-    for v in vote.votes:
-        assert v.db_id is not None
-        option_key = f"option_votes:{v.db_id}"
-        v.vote_count = db.redis_conn.scard(option_key)
-        ks = db.redis_conn.hget("options_killed", str(v.db_id))
-        if ks is None:
-            v.killed = False
-            v.killed_text = None
-        elif ks == '':
-            v.killed = True
-            v.killed_text = None
-        else:
-            v.killed = True
-            v.killed_text = ks
+    rds = db.redis_conn.hget('vote_info', str(vote.db_id))
+    rd = json.loads(rds)
+    vote.update_redis_dict(rd)
 
     return vote
-
-def get_vote_config(vote_id: int) -> Dict[str, Any]:
-    assert db.redis_conn is not None
-    opts_key = f"vote_config:{vote_id}"
-    rv = db.redis_conn.get(opts_key)
-    assert rv is not None
-    return json.loads(rv)
-
-def verify_valid_option(channel_id: int, vote_id: int,
-                        option_id: Optional[int],
-                        allow_killed: bool = False) -> bool:
-    """This function verifies that 1. the given vote belongs to the given channel,
-    2. the given option belongs to the given vote, 3. the given option has not
-    been killed.
-
-    If option_id is None, skips the latter two steps and only checks 1. If
-    allow_killed is true, ignore the kill status.
-
-    """
-    assert db.redis_conn is not None
-
-    # no race conditions should apply here; channel_votes and vote_options are
-    # write-once quantities, while options_killed is only read as a oneshot
-    channel_key = f"channel_votes:{channel_id}"
-    if not db.redis_conn.sismember(channel_key, str(vote_id)):
-        return False
-
-    if option_id is None:
-        return True
-
-    vote_key = f"vote_options:{vote_id}"
-    if not db.redis_conn.sismember(vote_key, str(option_id)):
-        return False
-
-    if (db.redis_conn.hexists("options_killed", str(option_id))
-        and not allow_killed):
-        return False
-
-    return True
 
 def get_user_identifier() -> str:
     if current_user.is_anonymous:
         return register_ip(request.remote_addr)
     else:
         return f"user:{current_user.id}"
-
-def do_add_vote(vote_id: int, option_id: int,
-                uid: str) -> List[Message]:
-    """This function does the work of add_vote, including the somewhat tricky
-    no-multivote logic. It trusts its input; all authentication is done by
-    handle_add_vote. The given uid is a user ID as returned by
-    get_user_identifier.
-
-    The return value is a list of dicts which should (if appropriate) be
-    emitted as option_vote_total messages. This function already takes account
-    of the votes_hidden option, so no values are returned if that option is
-    set.
-
-    """
-
-    # in the non-multivote case, we need to atomically 1. add the new vote, 2.
-    # set the user_votes value to the new vote, 3. remove the old vote (from
-    # the prior user_votes value); there's a potential for race conditions
-
-    # the key is to put the atomic getset operation on user_votes between
-    # adding the new vote and removing the old; this ensures that any option in
-    # the getset value has already been voted for, and so removing it and
-    # unsetting that vote is always a valid operation
-
-    # really this is a silly concern, since it can only happen if a single user
-    # is spamming vote messages at high rate, if I have problems with this I'll
-    # just implement rate-limiting or something.
-
-    # there is still a potential race condition where your existing vote is X
-    # and you quickly switch to Y then back to X, where your vote ends up
-    # getting deleted from both X and Y
-
-    # I don't know if I actually care, but if so the answer is probably lua
-    # scripting on the redis end
-
-    # and all this is equally stupid because the only plausible situation in
-    # which there is contention on this is if nginx is load-balancing multiple
-    # socketios, and in that case one IP must always go to the same process and
-    # so will never have contention
-    assert db.redis_conn is not None
-
-    opts = get_vote_config(vote_id)
-    rv = []
-
-    option_key = f"option_votes:{option_id}"
-    res = db.redis_conn.sadd(option_key, uid)
-
-    if not opts['multivote']:
-        uv_key = f"user_votes:{vote_id}:{uid}"
-        old_vote_bytes = db.redis_conn.getset(uv_key, option_id)
-        old_option_id = (None if old_vote_bytes is None else
-                         int(old_vote_bytes.decode()))
-        if old_option_id == option_id:
-            # in this case it's a repeat vote, so we don't need to do anything
-            old_option_id = None
-
-    if res == 0:
-        # in this case, it was a duplicate vote message for what the user was
-        # already voting for, so we don't need either to send a new totals
-        # message, or to unvote the old vote if not multivote
-        return []
-
-    rv.append(Message(
-        message_type='user_vote',
-        data={ 'vote': vote_id, 'option': option_id, 'value': True },
-        dest=request.sid))
-
-    unvote_res = 0
-    if not opts['multivote']:
-        if old_option_id is not None:
-            old_option_key = f"option_votes:{old_option_id}"
-            unvote_res = db.redis_conn.srem(old_option_key, uid)
-            rv.append(Message(
-                message_type='user_vote',
-                data={ 'vote': vote_id, 'option': old_option_id,
-                       'value': False },
-                dest=request.sid))
-
-    return rv
 
 def send_vote_html(channel_id: int, vote_id: int):
     """Render a vote in user-agnostic form (i.e. no voted-for annotations) and
@@ -389,15 +254,22 @@ def handle_add_vote(data) -> None:
     vote_id = data['vote']
     option_id = data['option']
 
-    if not verify_valid_option(channel_id, vote_id, option_id):
+    if not vote_is_active(channel_id, vote_id):
         return None
 
     uid = get_user_identifier()
-    messages = do_add_vote(vote_id, option_id, uid)
-    for m in messages:
-        if m.dest is None:
-            m.dest = channel_id
-        m.send()
+    rv = db.redis_conn.fcall('add_vote', 2, f'channel_votes:{channel_id}',
+                             'vote_info', vote_id, option_id, uid)
+    if not rv:
+        return
+
+    conf = json.loads(db.redis_conn.hget('vote_info', str(vote_id)))
+    pl = { 'vote': vote_id, 'option': option_id, 'value': True,
+           'clear': False }
+    if not conf['multivote']:
+        pl['clear'] = True
+    m = Message(message_type='user_vote', data=pl, dest=request.sid)
+    m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
 @socketio.on('remove_vote')
@@ -409,26 +281,20 @@ def handle_remove_vote(data) -> None:
     vote_id = data['vote']
     option_id = data['option']
 
-    if not verify_valid_option(channel_id, vote_id, option_id):
+    if not vote_is_active(channel_id, vote_id):
         return None
 
-    opts = get_vote_config(vote_id)
     uid = get_user_identifier()
 
-    option_key = f"option_votes:{option_id}"
-    res = db.redis_conn.srem(option_key, uid)
+    rv = db.redis_conn.fcall('remove_vote', 2, f'channel_votes:{channel_id}',
+                             'vote_info', vote_id, option_id, uid)
+    if not rv:
+        return
 
-    if res == 0:
-        return None
-
-    emit('user_vote',
-         {'vote': vote_id, 'option': option_id, 'value': False },
-         room=request.sid)
-
-    if not opts['multivote']:
-        uv_key = f"user_votes:{vote_id}:{uid}"
-        db.redis_conn.delete(uv_key)
-
+    m = Message(message_type='user_vote',
+                data={ 'vote': vote_id, 'option': option_id, 'value': False,
+                       'clear': False }, dest=request.sid)
+    m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
 @socketio.on('new_vote_entry')
@@ -440,11 +306,11 @@ def handle_new_vote_entry(data) -> None:
     vote_id = data['vote']
     voteinfo = data['vote_info']
 
-    if not verify_valid_option(channel_id, vote_id, None):
+    if not vote_is_active(channel_id, vote_id):
         return None
 
-    opts = get_vote_config(vote_id)
-    if not opts['writein_allowed']:
+    conf = json.loads(db.redis_conn.hget('vote_info', str(vote_id)))
+    if not conf['writein_allowed']:
         return None
 
     option = VoteEntry.from_dict(voteinfo)
@@ -467,16 +333,29 @@ def handle_new_vote_entry(data) -> None:
     # this picks up the db_id just set by Postgres
     option = VoteEntry.from_model(om)
     assert option.db_id is not None
-    vote_key = f"vote_options:{vote_id}"
-    db.redis_conn.sadd(vote_key, option.db_id)
 
     uid = get_user_identifier()
-    total_msgs = do_add_vote(vote_id, option.db_id, uid)
+    rv = db.redis_conn.fcall('new_vote_entry', 2,
+                             f'channel_votes:{channel_id}',
+                             'vote_info', vote_id, option.db_id, uid)
 
-    for m in total_msgs:
-        if m.dest is None:
-            m.dest = channel_id
-        m.send()
+    # we check whether writeins are allowed within the Redis function, to
+    # ensure atomicity; a false value means that that check (or another
+    # correctness check) failed, so the Postgres object we just created should
+    # be destroyed
+
+    # this should only happen in case of a race condition; usually attempts at
+    # creating a new entry when writein_allowed is false will be fenced out by
+    # the within-Python check above
+    if not rv:
+        s.delete(om)
+        s.commit()
+        return
+
+    m = Message(message_type='user_vote',
+                data={ 'vote': vote_id, 'option': option.db_id, 'value': True,
+                       'clear': False }, dest=request.sid)
+    m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
 def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> set[int]:
@@ -486,26 +365,26 @@ def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> s
 
     if user_id is None:
         user_id = get_user_identifier()
-    vote_key = f'vote_options:{vote_id}'
-
-    opts = db.redis_conn.smembers(vote_key)
+    user_id = str(user_id)
 
     rv = set()
-    for o in opts:
-        o = o.decode()
-        opt_key = f'option_votes:{o}'
-        if db.redis_conn.sismember(opt_key, user_id):
-            rv.add(int(o))
+    vis = db.redis_conn.hget('vote_info', str(vote_id))
+    if not vis:
+        return rv
+    vote = json.loads(vis)
+    for oid, opt in vote['votes'].items():
+        if user_id in opt['users_voted_for']:
+            rv.add(int(oid))
 
     return rv
 
-@socketio.on('get_my_votes')
-def request_my_votes(data) -> None:
-    vote_id = data['vote']
+# @socketio.on('get_my_votes')
+# def request_my_votes(data) -> None:
+#     vote_id = data['vote']
 
-    votes = get_user_votes(vote_id)
-    for v in votes:
-        emit('user_vote', { 'vote': vote_id, 'option': v, 'value': True })
+#     votes = get_user_votes(vote_id)
+#     for v in votes:
+#         emit('user_vote', { 'vote': vote_id, 'option': v, 'value': True })
 
 # To close a vote, the following needs to be done:
 #
@@ -525,6 +404,12 @@ def close_vote(channel_id: int, vote_id: int) -> None:
 
     """
     assert db.redis_conn is not None
+
+    if not vote_is_active(channel_id, vote_id):
+        return None
+
+    channel_key = f"channel_votes:{channel_id}"
+    db.redis_conn.srem(channel_key, str(vote_id))
 
     s = db_connect()
     vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
@@ -560,17 +445,10 @@ def close_vote(channel_id: int, vote_id: int) -> None:
             v.votes.append(um)
     s.commit()
 
-    db.redis_conn.delete(f"vote_config:{vote_id}", f"vote_options:{vote_id}")
-    for v in vm.votes:
-        db.redis_conn.delete(f"option_votes:{v.id}")
-        db.redis_conn.hdel("options_killed", v.id)
-    db.redis_conn.srem(f"channel_votes:{channel_id}", str(vote_id))
-    uv_glob = f'user_votes:{vote_id}:*'
-    keys = list(db.redis_conn.scan_iter(match=uv_glob))
-    db.redis_conn.delete(*keys)
+    db.redis_conn.hdel('vote_info', str(vote_id))
 
 # This can just call add_active_vote again, unset time_closed on the vote
-# entry, and emit an event to the fronte
+# entry, and emit an event to the frontend
 def open_vote(channel_id: int, vote_id: int) -> None:
     pass
 
@@ -608,20 +486,17 @@ def set_option_killed(data) -> None:
     vote_id = data['vote']
     option_id = data['option']
     killed = data['killed']
-    kill_string = data.get('message', '')
+    kill_string = data.get('message', '') if killed else None
 
-    if not verify_valid_option(channel_id, vote_id, option_id,
-                               allow_killed=True):
+    if not vote_is_active(channel_id, vote_id):
         return
 
-    # Kill status is tracked by the options_killed hash. Keys in the hash are
-    # numeric option IDs. If a key exists in the hash, the option has been
-    # killed. The value may be an empty string, signifying no reason given, or
-    # else a string describing the reason.
-    if not killed:
-        db.redis_conn.hdel("options_killed", str(option_id))
-    else:
-        db.redis_conn.hset("options_killed", str(option_id), kill_string)
+    rv = db.redis_conn.fcall('set_option_killed', 2,
+                             f'channel_votes:{channel_id}',
+                             'vote_info', vote_id, option_id, kill_string)
+    if not rv:
+        return None
+
     send_vote_html(int(channel_id), int(vote_id))
 
 @socketio.on('set_vote_options')

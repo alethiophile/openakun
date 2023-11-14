@@ -118,12 +118,12 @@ class ChatMessage:
 class VoteEntry:
     text: str
     killed: bool = False
-    vote_count: Optional[int] = None
     killed_text: Optional[str] = None
+    vote_count: Optional[int] = None
     db_id: Optional[int] = None
+    users_voted_for: Optional[list[str]] = None
     # this is a contextual member used only when it's clear which user is meant
     user_voted: Optional[bool] = None
-    users_voted_for: Optional[list[str]] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> VoteEntry:
@@ -142,6 +142,22 @@ class VoteEntry:
 
     def to_dict(self) -> Dict[str, Any]:
         return attr.asdict(self)
+
+    def to_redis_dict(self) -> Dict[str, Any]:
+        return {
+            'killed': self.killed,
+            'killed_text': self.killed_text,
+            'users_voted_for': self.users_voted_for,
+        }
+
+    def update_redis_dict(self, d: Dict[str, Any]) -> None:
+        self.killed = d['killed']
+        if self.killed:
+            self.killed_text = d.get('killed_text')
+        else:
+            self.killed_text = None
+        self.users_voted_for = list(set(d['users_voted_for']))
+        self.vote_count = len(self.users_voted_for)
 
     def set_model_votes(self, em):
         """Given a model, update the votes on it to match the current
@@ -201,10 +217,40 @@ class Vote:
     def to_dict(self) -> Dict[str, Any]:
         return attr.asdict(self)
 
+    def to_redis_dict(self) -> Dict[str, Any]:
+        vd = { str(i.db_id): i.to_redis_dict() for i in self.votes }
+        return {
+            'multivote': self.multivote,
+            'writein_allowed': self.writein_allowed,
+            'votes_hidden': self.votes_hidden,
+            'votes': vd,
+            'close_time': (self.close_time.isoformat() if self.close_time
+                           else None),
+        }
+
+    def update_redis_dict(self, d: Dict[str, Any]) -> None:
+        """This updates self in-place according to the passed-in Redis dict. A
+        Redis dict contains only the data necessary to the
+        performance-sensitive vote-counting code.
+
+        """
+        print(d)
+        self.multivote = d['multivote']
+        self.writein_allowed = d['writein_allowed']
+        self.votes_hidden = d['votes_hidden']
+        self.close_time = (datetime.fromisoformat(d['close_time'])
+                           if d['close_time'] else None)
+        for d, o in d['votes'].items():
+            di = int(d)
+            for i in self.votes:
+                if i.db_id == di:
+                    i.update_redis_dict(o)
+                    break
+
     def create_model(self) -> models.VoteInfo:
-        """This method creates model class objects representing the vote. It should be
-        used only for votes that have not yet been entered into the database at
-        all.
+        """This method creates model class objects representing the vote. It
+        should be used only for votes that have not yet been entered into the
+        database at all.
 
         """
         rv = models.VoteInfo(

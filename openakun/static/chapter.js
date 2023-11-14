@@ -154,6 +154,9 @@ document.addEventListener('alpine:init', () => {
       if (data.vote != this.vote_id) {
         return;
       }
+      if (data.clear) {
+        this.user_votes = {};
+      }
       this.user_votes[data.option] = data.value;
     },
 

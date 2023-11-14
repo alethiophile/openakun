@@ -95,11 +95,12 @@ def init_db(silent: bool = False) -> None:
 def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
     config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
     config = get_config(config_fn)
-    db_setup(config)
+    db_setup(config, force_redis=True)
     assert db.db_engine is not None
     # TODO figure out the real way to ensure DB versioning here, alembic?
     if not inspect(db.db_engine).has_table('user_with_role'):
         init_db()
     app = create_app(config)
+    realtime.repopulate_from_db()
     realtime.socketio.run(app, host=host, port=port, debug=debug,
                           allow_unsafe_werkzeug=devel)
