@@ -12,6 +12,10 @@ services:
       - type: bind
         source: ./
         target: /app
+    depends_on:
+      - redis
+      - postgres
+    stop_signal: SIGINT
   redis:
     image: "redis:alpine"
   postgres:

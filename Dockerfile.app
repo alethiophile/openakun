@@ -33,7 +33,8 @@ RUN apt-get update && apt-get -y upgrade && \
 COPY --from=builder --link /venv /venv
 COPY --from=builder --link /app/dist/*.whl /tmp
 RUN /venv/bin/pip install /tmp/*.whl && rm -f /tmp/*
-CMD /venv/bin/openakun_server --host 0.0.0.0
+STOPSIGNAL INT
+CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0"]
 
 FROM base AS dev
 RUN apt-get update && apt-get -y upgrade && \
@@ -45,4 +46,5 @@ COPY --from=builder --link /opt/poetry /opt/poetry
 ENV PATH="/venv/bin:$PATH" \
     VIRTUAL_ENV=/venv
 RUN /opt/poetry/bin/poetry install
-CMD openakun_server --host 0.0.0.0 --debug --devel
+STOPSIGNAL SIGINT
+CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0", "--debug", "--devel"]
