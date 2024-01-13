@@ -1,22 +1,25 @@
-<div class="vote" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
-  <div class="vote-question">{{ vote.question }}</div>
-  <div class="vote-entries">
-    {%- for ve in vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') -%}
-      <div class="vote-entry has-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}"
-           :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
-           @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
-        <div class="vote-count">{{ ve.vote_count }}</div>
-        {%- if vote.active %}<div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
-      </div>
-    {%- endfor -%}
-    {%- for ve in vote.votes|selectattr('killed') -%}
-      <div class="has-vote" db-id="{{ ve.db_id }}">
-        <div class="vote-text"><span class="killed-vote">{{ ve.text }}</span>{% if ve.killed_text %}<br><span class="kill-reason">{{ ve.killed_text }}</span>{% endif %}</div>
-      </div>
-    {%- endfor -%}
-  </div>
-  {%- if vote.active -%}
-    <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
-    <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
-  {%- endif -%}
+<div class="vote{% if vote.active %} active-vote{% endif %}" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
+    <div class="vote-question">{{ vote.question }}</div>
+    <div class="vote-entries">
+        {%- for ve in vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') -%}
+            <div class="vote-entry has-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}"
+                 :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
+                 @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
+                <div class="vote-count">{{ ve.vote_count }}</div>
+                {%- if vote.active %}<div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
+            </div>
+        {%- endfor -%}
+        {%- for ve in vote.votes|selectattr('killed') -%}
+            <div class="has-vote" db-id="{{ ve.db_id }}">
+                <div class="vote-text"><span class="killed-vote">{{ ve.text }}</span>{% if ve.killed_text %}<br><span class="kill-reason">{{ ve.killed_text }}</span>{% endif %}</div>
+            </div>
+        {%- endfor -%}
+    </div>
+    {%- if vote.active -%}
+        <div>
+            <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
+            <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
+        </div>
+        <button x-show="admin" @click="close_vote()">Close vote</button>
+    {%- endif -%}
 </div>

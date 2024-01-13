@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from . import models
-from .general import db, db_connect, db_setup
+from .general import db, db_connect, db_setup, decode_redis_dict
 from .data import ChatMessage, Vote, VoteEntry, Message
 from flask_socketio import join_room, emit, SocketIO
 from flask_login import current_user
@@ -11,7 +11,7 @@ from flask import request, render_template
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone
-from sqlalchemy import sql
+from sqlalchemy import sql, orm
 import hashlib, json
 
 from typing import List, Dict, Optional, Any, Union
@@ -178,8 +178,9 @@ def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     assert vote.db_id is not None
     assert db.redis_conn is not None
 
+    print("opening vote: ", vote)
     rd = vote.to_redis_dict()
-    print(rd)
+    rd['channel_id'] = channel_id
     rds = json.dumps(rd)
     db.redis_conn.hset('vote_info', str(vote.db_id), rds)
 
@@ -192,6 +193,7 @@ def repopulate_from_db():
              where((models.VoteInfo.time_closed > sql.functions.now()) |
                    (models.VoteInfo.time_closed == None)).all())
     for vm in votes:
+        print(vm)
         channel_id = vm.post.story.channel_id
         add_active_vote(vm, channel_id)
 
@@ -213,6 +215,8 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
     if not vote_is_active(channel_id, vote.db_id):
         vote.active = False
         return vote
+
+    print("populate_vote", channel_id, vote)
 
     vote.active = True
 
@@ -264,6 +268,7 @@ def handle_add_vote(data) -> None:
         return
 
     conf = json.loads(db.redis_conn.hget('vote_info', str(vote_id)))
+    print(conf)
     pl = { 'vote': vote_id, 'option': option_id, 'value': True,
            'clear': False }
     if not conf['multivote']:
@@ -398,9 +403,18 @@ def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> s
 #  - the vote removed from the channel_votes set
 #  - the time_closed set on the vote_info row
 #  - the vote_closed event emitted to the frontend
-def close_vote(channel_id: int, vote_id: int) -> None:
-    """This function trusts its input: caller must verify that the given vote is
-    open on the given channel.
+def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
+               s: Optional[orm.Session] = None) -> None:
+    """This function trusts its input: caller must verify that the given vote
+    is open on the given channel.
+
+    set_close_time is used to check whether the vote's close time is set to
+    now. This should be true if a vote is being closed "for real" (due to user
+    action or timer expiration), false if it's being closed on shutdown for
+    later repopulation. If a vote has a close time set to a point in the
+    future, that timer will still tick while closed for repopulation; if the
+    close time passes during the downtime, the vote will stay closed and not
+    repopulate.
 
     """
     assert db.redis_conn is not None
@@ -408,14 +422,18 @@ def close_vote(channel_id: int, vote_id: int) -> None:
     if not vote_is_active(channel_id, vote_id):
         return None
 
-    channel_key = f"channel_votes:{channel_id}"
-    db.redis_conn.srem(channel_key, str(vote_id))
-
-    s = db_connect()
+    shutdown = True
+    if s is None:
+        s = db_connect()
+        shutdown = False
     vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     ve = Vote.from_model(vm)
 
     populate_vote(channel_id, ve)
+    print(f"closing vote {ve}")
+
+    channel_key = f"channel_votes:{channel_id}"
+    db.redis_conn.srem(channel_key, str(vote_id))
 
     # these parameters don't matter when the vote is closed but they're
     # preserved for if it opens again
@@ -425,14 +443,17 @@ def close_vote(channel_id: int, vote_id: int) -> None:
 
     # for closed votes, time_closed represents the actual time of closure, so
     # just set it to the current time
-    vm.time_closed = datetime.now(tz=timezone.utc)
+    if set_close_time:
+        vm.time_closed = datetime.now(tz=timezone.utc)
+    else:
+        vm.time_closed = ve.close_time
 
     ed = { i.db_id: i for i in ve.votes }
     for v in vm.votes:
         v.killed = ed[v.id].killed
         v.killed_text = ed[v.id].killed_text
 
-        opt_key = f"option_votes:{v.db_id}"
+        opt_key = f"option_votes:{v.id}"
         vl = [i.decode() for i in db.redis_conn.smembers(opt_key)]
         v.votes.clear()
         for u in vl:
@@ -447,10 +468,28 @@ def close_vote(channel_id: int, vote_id: int) -> None:
 
     db.redis_conn.hdel('vote_info', str(vote_id))
 
+    if not shutdown:
+        send_vote_html(channel_id, vm.id)
+
+def close_to_db():
+    s = db.Session()
+    vl = db.redis_conn.hgetall('vote_info')
+    vd = decode_redis_dict(vl)
+    for vid, vs in vd.items():
+        vi = json.loads(vs)
+        channel_id = vi['channel_id']
+        close_vote(channel_id, int(vid), set_close_time=False, s=s)
+
 # This can just call add_active_vote again, unset time_closed on the vote
 # entry, and emit an event to the frontend
 def open_vote(channel_id: int, vote_id: int) -> None:
-    pass
+    s = db_connect()
+    vm = s.query(models.VoteInfo).where(models.VoteInfo.id == vote_id).one()
+    channel_id = vm.post.story.channel_id
+    vm.time_closed = None
+    add_active_vote(vm, channel_id)
+    s.commit()
+    send_vote_html(channel_id, vm.id)
 
 @socketio.on('set_vote_active')
 def set_vote_active(data) -> None:

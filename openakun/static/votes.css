@@ -19,10 +19,10 @@ textarea.vote-editor {
 div.has-vote {
   display: flex;
 }
-div.vote-entry {
+div.active-vote div.vote-entry {
   cursor: pointer;
 }
-div.vote-entry:hover {
+div.active-vote div.vote-entry:hover {
   color: var(--vote-selected-text-color);
   background-color: var(--vote-selected-bg-color);
 }

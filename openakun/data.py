@@ -151,6 +151,7 @@ class VoteEntry:
         }
 
     def update_redis_dict(self, d: Dict[str, Any]) -> None:
+        print(self, d)
         self.killed = d['killed']
         if self.killed:
             self.killed_text = d.get('killed_text')
@@ -211,6 +212,7 @@ class Vote:
             multivote=m.multivote,
             writein_allowed=m.writein_allowed,
             votes_hidden=m.votes_hidden,
+            close_time=m.time_closed,
             votes=vl,
             db_id=m.id)
 
@@ -234,14 +236,14 @@ class Vote:
         performance-sensitive vote-counting code.
 
         """
-        print(d)
+        print(self, d)
         self.multivote = d['multivote']
         self.writein_allowed = d['writein_allowed']
         self.votes_hidden = d['votes_hidden']
         self.close_time = (datetime.fromisoformat(d['close_time'])
                            if d['close_time'] else None)
-        for d, o in d['votes'].items():
-            di = int(d)
+        for vk, o in d['votes'].items():
+            di = int(vk)
             for i in self.votes:
                 if i.db_id == di:
                     i.update_redis_dict(o)

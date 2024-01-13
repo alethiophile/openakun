@@ -185,7 +185,17 @@ document.addEventListener('alpine:init', () => {
       };
       let socket = window._socketio_socket;
       socket.emit('set_option_killed', msg);
-    }
+    },
+
+    close_vote: function () {
+      let msg = {
+        channel: channel_id,
+        vote: this.vote_id,
+        active: false,
+      };
+      let socket = window._socketio_socket;
+      socket.emit('set_vote_active', msg);
+    },
   }));
 
   Alpine.data('post_editor', function() { return {
