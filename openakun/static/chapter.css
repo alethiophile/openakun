@@ -18,6 +18,9 @@
 .story-author a {
   color: var(--author-link-text-color);
 }
+.description {
+  margin: 5em;
+}
 #quill-editor {
   min-height: 5rem;
   overflow-y: auto;
@@ -48,6 +51,12 @@
   width: 100%;
   display: flex;
   padding-right: 10px;
+}
+.chat-bar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .chatmsg {
   padding: 5px;

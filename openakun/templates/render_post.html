@@ -1,4 +1,6 @@
+{% if htmx %}<div id="story-content" hx-swap-oob="beforeend">{% endif %}
 <div class="post">
   {% if p.post_type == models.PostType.Text %}{{ p.text | safe }}{% else %}{% set vote = p.vote %}{% include 'render_vote.html' %}{% endif %}
   <div class="post_date server-date" data-dateval="{{ p.date_millis }}">{{ p.rendered_date }}</div>
 </div>
+{% if htmx %}</div>{% endif %}

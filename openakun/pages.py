@@ -1,6 +1,6 @@
 #!python
 
-from . import models, realtime
+from . import models, realtime, websocket
 from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
 from .general import csrf_check, make_csrf, login_mgr, db_connect
 
@@ -181,9 +181,12 @@ def view_chapter(story_id: int, chapter_id: int) -> str:
                filter(models.Chapter.id == chapter_id,
                       models.Chapter.story_id == story_id).
                one_or_none())
+    chat_backlog = [i.to_browser_message() for i in
+                    realtime.get_back_messages(chapter.story.channel_id)]
     if chapter is None:
         abort(404)
-    return render_template("view_chapter.html", chapter=chapter, server=True)
+    return render_template("view_chapter.html", chapter=chapter,
+                           msgs=chat_backlog)
 
 def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
                 order_idx: Optional[int] = None) -> models.Post:
@@ -295,8 +298,8 @@ def new_post() -> Response:
         # vote_info = Vote.from_model(vote_model)
         realtime.add_active_vote(vote_model, c.story.channel_id)
     prepare_post(p, user_votes=False)
-    text = render_template('render_post.html', p=p)
-    realtime.socketio.emit('new_post', { 'html': text }, room=str(channel_id))
+    text = render_template('render_post.html', p=p, htmx=True)
+    websocket.pubsub.publish(f'chan:{channel_id}', text)
     return jsonify({ 'new_url': url_for('questing.view_chapter',
                                         story_id=p.story.id,
                                         chapter_id=p.chapter.id) })

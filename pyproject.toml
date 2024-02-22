@@ -19,10 +19,10 @@ attrs = "^20.2.0"
 celery = {extras = ["redis"], version = "^5.2.0"}
 sentry-sdk = {extras = ["flask"], version = "^1.34.0"}
 flask = "^2.3.2"
-flask-socketio = {git = "https://github.com/miguelgrinberg/Flask-SocketIO"}
 flask-login = "^0.6.2"
 gevent = "^23.7.0"
 gevent-websocket = "^0.10.1"
+flask-sock = "^0.7.0"
 
 [tool.poetry.scripts]
 openakun_initdb = 'openakun.app:init_db'

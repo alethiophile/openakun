@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from . import models
+from . import models, websocket
 from .general import db, db_connect, db_setup, decode_redis_dict
 from .data import ChatMessage, Vote, VoteEntry, Message
-from flask_socketio import join_room, emit, SocketIO
 from flask_login import current_user
 from flask import request, render_template
 from functools import wraps
@@ -16,7 +15,13 @@ import hashlib, json
 
 from typing import List, Dict, Optional, Any, Union
 
-socketio = SocketIO()
+handlers = {}
+
+def handle_message(which):
+    def deco(fn):
+        handlers[which] = fn
+        return fn
+    return deco
 
 def get_channel(channel_id):
     s = db_connect()
@@ -57,21 +62,8 @@ def with_channel_auth(err_val=None):
         return auth_wrapper
     return return_func
 
-@socketio.on('connect')
-def handle_connect():
-    print("Got connection")
-    db_setup()
-
-@socketio.on('join')
-@with_channel_auth({ 'success': False, 'error': 'Channel is private' })
-def handle_join(data):
-    print("Got join", data)
-    channel_id = data['channel']
-    join_room(channel_id)
-    return { 'success': True }
-
-@socketio.on('backlog')
-@with_channel_auth({ 'success': False, 'error': 'Channel is private' })
+@handle_message('backlog')
+#@with_channel_auth({ 'success': False, 'error': 'Channel is private' })
 def handle_backlog(data):
     print("Sending backlog for channel", data['channel'])
     bl = get_back_messages(data['channel'])
@@ -83,8 +75,8 @@ def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
         mo = i.to_browser_message()
         if mo['is_anon']:
             mo['username'] = 'anon'
-        html = render_template('render_chatmsg.html', c=mo)
-        socketio.emit('chat_msg', { 'html': html }, room=to)
+        html = render_template('render_chatmsg.html', c=mo, htmx=True)
+        websocket.pubsub.publish(to, html)
 
 def register_ip(addr):
     # TODO make this use Redis and a periodic sweep, like chat messages
@@ -123,7 +115,7 @@ def get_back_messages(cid: int) -> List[ChatMessage]:
             pass
     return msgs
 
-@socketio.on('chat_msg')
+@handle_message('chat_message')
 @with_channel_auth()
 def handle_chat(data) -> None:
     print("Chat message", data, request.remote_addr, current_user)
@@ -165,8 +157,8 @@ def handle_chat(data) -> None:
     if mo['is_anon']:
         # TODO eventually set this to the story-configured anon username
         mo['username'] = 'anon'
-    html = render_template('render_chatmsg.html', c=mo)
-    emit('chat_msg', { 'html': html }, room=channel_id)
+    html = render_template('render_chatmsg.html', c=mo, htmx=True)
+    websocket.pubsub.publish(f'chan:{channel_id}', html)
 
 def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     """This function takes trusted input: it gets called when a new vote is
@@ -228,7 +220,7 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
 def get_user_identifier() -> str:
     if current_user.is_anonymous:
-        return register_ip(request.remote_addr)
+        return 'anon:' + register_ip(request.remote_addr)
     else:
         return f"user:{current_user.id}"
 
@@ -245,9 +237,9 @@ def send_vote_html(channel_id: int, vote_id: int):
     populate_vote(channel_id, v)
     html = render_template('render_vote.html', vote=v)
     msg = { 'vote': v.db_id, 'html': html }
-    emit('rendered_vote', msg, room=str(channel_id))
+    websocket.pubsub.publish(f'chan:{channel_id}', html)
 
-@socketio.on('add_vote')
+@handle_message('add_vote')
 @with_channel_auth()
 def handle_add_vote(data) -> None:
     """Takes an info dictionary of the form:
@@ -273,11 +265,11 @@ def handle_add_vote(data) -> None:
            'clear': False }
     if not conf['multivote']:
         pl['clear'] = True
-    m = Message(message_type='user_vote', data=pl, dest=request.sid)
+    m = Message(message_type='user-vote', data=pl, dest=uid)
     m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
-@socketio.on('remove_vote')
+@handle_message('remove_vote')
 @with_channel_auth()
 def handle_remove_vote(data) -> None:
     assert db.redis_conn is not None
@@ -296,13 +288,13 @@ def handle_remove_vote(data) -> None:
     if not rv:
         return
 
-    m = Message(message_type='user_vote',
+    m = Message(message_type='user-vote',
                 data={ 'vote': vote_id, 'option': option_id, 'value': False,
-                       'clear': False }, dest=request.sid)
+                       'clear': False }, dest=uid)
     m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
-@socketio.on('new_vote_entry')
+@handle_message('new_vote_entry')
 @with_channel_auth()
 def handle_new_vote_entry(data) -> None:
     assert db.redis_conn is not None
@@ -357,9 +349,9 @@ def handle_new_vote_entry(data) -> None:
         s.commit()
         return
 
-    m = Message(message_type='user_vote',
+    m = Message(message_type='user-vote',
                 data={ 'vote': vote_id, 'option': option.db_id, 'value': True,
-                       'clear': False }, dest=request.sid)
+                       'clear': False }, dest=uid)
     m.send()
     send_vote_html(int(channel_id), int(vote_id))
 
@@ -383,7 +375,7 @@ def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> s
 
     return rv
 
-# @socketio.on('get_my_votes')
+# @handle_message('get_my_votes')
 # def request_my_votes(data) -> None:
 #     vote_id = data['vote']
 
@@ -491,7 +483,7 @@ def open_vote(channel_id: int, vote_id: int) -> None:
     s.commit()
     send_vote_html(channel_id, vm.id)
 
-@socketio.on('set_vote_active')
+@handle_message('set_vote_active')
 def set_vote_active(data) -> None:
     channel_id = int(data['channel'])
     story = get_story(channel_id)
@@ -512,7 +504,7 @@ def set_vote_active(data) -> None:
     else:
         open_vote(channel_id, vote_id)
 
-@socketio.on('set_option_killed')
+@handle_message('set_option_killed')
 def set_option_killed(data) -> None:
     assert db.redis_conn is not None
 
@@ -538,7 +530,7 @@ def set_option_killed(data) -> None:
 
     send_vote_html(int(channel_id), int(vote_id))
 
-@socketio.on('set_vote_options')
+@handle_message('set_vote_options')
 def set_vote_options(data) -> None:
     # TODO factor out this authentication code
     channel_id = data['channel']

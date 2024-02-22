@@ -48,19 +48,6 @@ tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)"
 tests-no-zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six"]
 
 [[package]]
-name = "bidict"
-version = "0.22.1"
-description = "The bidirectional mapping library for Python."
-category = "main"
-optional = false
-python-versions = ">=3.7"
-
-[package.extras]
-docs = ["furo", "sphinx", "sphinx-copybutton"]
-lint = ["pre-commit"]
-test = ["hypothesis", "pytest", "pytest-benchmark[histogram]", "pytest-cov", "pytest-xdist", "sortedcollections", "sortedcontainers", "sphinx"]
-
-[[package]]
 name = "billiard"
 version = "3.6.4.0"
 description = "Python multiprocessing fork with improvements and bugfixes"
@@ -298,26 +285,19 @@ Flask = ">=1.0.4"
 Werkzeug = ">=1.0.1"
 
 [[package]]
-name = "Flask-SocketIO"
-version = "5.3.7.dev0"
-description = "Socket.IO integration for Flask applications"
+name = "flask-sock"
+version = "0.7.0"
+description = "WebSocket support for Flask"
 category = "main"
 optional = false
 python-versions = ">=3.6"
-develop = false
 
 [package.dependencies]
-Flask = ">=0.9"
-python-socketio = ">=5.0.2"
+flask = ">=2"
+simple-websocket = ">=0.5.1"
 
 [package.extras]
 docs = ["sphinx"]
-
-[package.source]
-type = "git"
-url = "https://github.com/miguelgrinberg/Flask-SocketIO"
-reference = "HEAD"
-resolved_reference = "57d40f934aa5a35649a15122d87b77a4024cf08d"
 
 [[package]]
 name = "gevent"
@@ -565,39 +545,6 @@ description = "passive checker of Python programs"
 category = "dev"
 optional = false
 python-versions = ">=3.8"
-
-[[package]]
-name = "python-engineio"
-version = "4.8.0"
-description = "Engine.IO server and client for Python"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-simple-websocket = ">=0.10.0"
-
-[package.extras]
-asyncio-client = ["aiohttp (>=3.4)"]
-client = ["requests (>=2.21.0)", "websocket-client (>=0.54.0)"]
-docs = ["sphinx"]
-
-[[package]]
-name = "python-socketio"
-version = "5.10.0"
-description = "Socket.IO server and client for Python"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-bidict = ">=0.21.0"
-python-engineio = ">=4.8.0"
-
-[package.extras]
-asyncio-client = ["aiohttp (>=3.4)"]
-client = ["requests (>=2.21.0)", "websocket-client (>=0.54.0)"]
-docs = ["sphinx"]
 
 [[package]]
 name = "pytz"
@@ -915,7 +862,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "8d4dd1688044ff426bd31c8d278b715a03ae998b6ea73531a9a75c3052e0d623"
+content-hash = "32df74da9646ebc97b12e2b072a4666fa3b5a78b3700dd27b0fd88044cecf970"
 
 [metadata.files]
 alembic = [
@@ -933,10 +880,6 @@ async-timeout = [
 attrs = [
     {file = "attrs-20.3.0-py2.py3-none-any.whl", hash = "sha256:31b2eced602aa8423c2aea9c76a724617ed67cf9513173fd3a4f03e3a929c7e6"},
     {file = "attrs-20.3.0.tar.gz", hash = "sha256:832aa3cde19744e49938b91fea06d69ecb9e649c93ba974535d08ad92164f700"},
-]
-bidict = [
-    {file = "bidict-0.22.1-py3-none-any.whl", hash = "sha256:6ef212238eb884b664f28da76f33f1d28b260f665fc737b413b287d5487d1e7b"},
-    {file = "bidict-0.22.1.tar.gz", hash = "sha256:1e0f7f74e4860e6d0943a05d4134c63a2fad86f3d4732fb265bd79e4e856d81d"},
 ]
 billiard = [
     {file = "billiard-3.6.4.0-py3-none-any.whl", hash = "sha256:87103ea78fa6ab4d5c751c4909bcff74617d985de7fa8b672cf8618afd5a875b"},
@@ -1072,7 +1015,10 @@ flask-login = [
     {file = "Flask-Login-0.6.3.tar.gz", hash = "sha256:5e23d14a607ef12806c699590b89d0f0e0d67baeec599d75947bf9c147330333"},
     {file = "Flask_Login-0.6.3-py3-none-any.whl", hash = "sha256:849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d"},
 ]
-Flask-SocketIO = []
+flask-sock = [
+    {file = "flask-sock-0.7.0.tar.gz", hash = "sha256:e023b578284195a443b8d8bdb4469e6a6acf694b89aeb51315b1a34fcf427b7d"},
+    {file = "flask_sock-0.7.0-py3-none-any.whl", hash = "sha256:caac4d679392aaf010d02fabcf73d52019f5bdaf1c9c131ec5a428cb3491204a"},
+]
 gevent = [
     {file = "gevent-23.9.1-cp310-cp310-macosx_11_0_universal2.whl", hash = "sha256:a3c5e9b1f766a7a64833334a18539a362fb563f6c4682f9634dea72cbe24f771"},
     {file = "gevent-23.9.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b101086f109168b23fa3586fccd1133494bdb97f86920a24dc0b23984dc30b69"},
@@ -1329,14 +1275,6 @@ pycparser = [
 pyflakes = [
     {file = "pyflakes-3.1.0-py2.py3-none-any.whl", hash = "sha256:4132f6d49cb4dae6819e5379898f2b8cce3c5f23994194c24b77d5da2e36f774"},
     {file = "pyflakes-3.1.0.tar.gz", hash = "sha256:a0aae034c444db0071aa077972ba4768d40c830d9539fd45bf4cd3f8f6992efc"},
-]
-python-engineio = [
-    {file = "python-engineio-4.8.0.tar.gz", hash = "sha256:2a32585d8fecd0118264fe0c39788670456ca9aa466d7c026d995cfff68af164"},
-    {file = "python_engineio-4.8.0-py3-none-any.whl", hash = "sha256:6055ce35b7f32b70641d53846faf76e06f2af0107a714cedb2750595c69ade43"},
-]
-python-socketio = [
-    {file = "python-socketio-5.10.0.tar.gz", hash = "sha256:01c616946fa9f67ed5cc3d1568e1c4940acfc64aeeb9ff621a53e80cabeb748a"},
-    {file = "python_socketio-5.10.0-py3-none-any.whl", hash = "sha256:fb18d9b84cfb05289dc207b790c3de59cd242310d9b980b1c31e9faf4f79101a"},
 ]
 pytz = [
     {file = "pytz-2023.3.post1-py2.py3-none-any.whl", hash = "sha256:ce42d816b81b68506614c11e8937d3aa9e41007ceb50bfdcb0749b921bf646c7"},

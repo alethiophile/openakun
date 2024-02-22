@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import attr, secrets, bleach
+import attr, secrets, bleach, json
 from datetime import datetime, timezone
-from flask_socketio import emit
 
-from . import models
+from . import models, websocket
 
 from typing import Optional, Dict, Any, List
 
@@ -97,7 +96,7 @@ class ChatMessage:
             rv.user_id = self.user_id
         return rv
 
-    def to_browser_message(self, admin=False) -> Dict[str, Any]:
+    def to_browser_message(self, anon_username='anon', admin=False) -> Dict[str, Any]:
         rv = { 'is_anon': (self.user_id is None),
                'text': self.msg_text, 'date': self.date,
                'rendered_date': (self.date.astimezone(timezone.utc).
@@ -107,6 +106,8 @@ class ChatMessage:
             rv['username'] = self.user_name
         if admin and self.anon_id is not None:
             rv['anon_id'] = self.anon_id
+        if self.user_id is None:
+            rv['username'] = anon_username
         return rv
 
     def to_dict(self) -> Dict[str, Any]:
@@ -370,4 +371,5 @@ class Message:
     def send(self, room: Optional[str] = None) -> None:
         if room is None:
             room = self.dest
-        emit(self.message_type, self.data, room=room)
+        self.data['type'] = self.message_type
+        websocket.pubsub.publish(room, json.dumps(self.data))

@@ -1,4 +1,4 @@
-from . import models, realtime, pages
+from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
                       ConfigError, db_setup, db, login_mgr)
 
@@ -30,13 +30,6 @@ def create_app(config):
             integrations=[FlaskIntegration()]
         )
 
-        @realtime.socketio.on_error_default
-        def sentry_report_socketio(e):
-            print(e)
-            with push_scope() as scope:
-                scope.set_extra('event', request.event)
-                capture_exception()
-
     if ('secret_key' not in config['openakun'] or
         len(config['openakun']['secret_key']) == 0):  # noqa: E129
         raise ConfigError("Secret key not provided")
@@ -45,9 +38,7 @@ def create_app(config):
     global login_mgr
     login_mgr.init_app(app)
     login_mgr.login_view = 'login'
-    realtime.socketio.init_app(app,
-                               logger=app.config['DEBUG'],
-                               engineio_logger=app.config['DEBUG'])
+    websocket.sock.init_app(app)
 
     # to make the proxy_fix apply to the socketio as well, this has to be done
     # after the socketio is connected to the app
@@ -108,8 +99,7 @@ def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
     signal.signal(signal.SIGINT, sigterm)
     realtime.repopulate_from_db()
     try:
-        realtime.socketio.run(app, host=host, port=port, debug=debug,
-                              allow_unsafe_werkzeug=devel)
+        app.run(host=host, port=port, debug=debug)
     finally:
         print("Closing out Redis data...")
         realtime.close_to_db()

@@ -11,87 +11,6 @@ $(function () {
   }
   fix_dates($('body'));
 
-  var socket = io();
-  window._socketio_socket = socket;
-  var msgs_recvd = new Set();
-  socket.on('connect', function () {
-    console.log('joining room');
-    socket.emit('join', { channel: channel_id }, function (res) {
-      console.log("join result", res)
-      socket.emit('backlog', { channel: channel_id });
-    });
-  });
-  socket.on('chat_msg', function (data) {
-    console.log('got chat message', data);
-    let $html = $(data.html);
-    fix_dates($html);
-    let tok = $html.data('token');
-    if (!msgs_recvd.has(tok)) {
-      add_chat_html($html);
-      msgs_recvd.add(tok);
-    }
-  });
-  socket.on('new_post', function (data) {
-    console.log('new post:', data);
-    let $html = $(data.html);
-    fix_dates($html);
-    $('#story-content').append($html);
-  });
-  socket.on('rendered_vote', function (data) {
-    let vote_id = data.vote;
-    console.log("rendered_vote", vote_id);
-    let el = $(`div.vote[db-id='${vote_id}']`)[0];
-    Alpine.morph(el, data.html);
-  });
-  socket.on('user_vote', function (data) {
-    let ev = new CustomEvent("user-vote", { detail: data });
-    window.dispatchEvent(ev);
-  });
-  socket.on('disconnect', function (reason) {
-    console.log('disconnected', reason);
-    socket.connect();
-  });
-  socket.on('connect_error', function (error) {
-    console.log('connection error');
-    setTimeout(function () {
-      console.log('trying reconnect');
-      socket.connect();
-    }, 1000);
-  });
-  function socket_err(error) {
-    console.log('error', error);
-  }
-  socket.on('error', socket_err);
-  socket.on('connect_timeout', socket_err);
-
-  /* Adds a message to the chatbox, rendering it. Called
-     for every message that comes in over the wire. */
-  function add_chat_html ($html) {
-    var $cm = $('#chat-messages');
-    var scrollBottomVal = $cm[0].scrollHeight - $cm.height();
-    $('#chat-messages').append($html);
-    var msgHeight = $html.height();
-    if (scrollBottomVal - $cm[0].scrollTop < msgHeight) {
-      $cm.scrollTop($cm.height());
-    }
-  }
-  /* Send a chat message. Takes a string message, arranges
-     for it to be sent. */
-  function chat_send (msg) {
-    var mo = { channel: channel_id, msg: msg, id_token: make_random_token() };
-    socket.emit('chat_msg', mo);
-  }
-  function chat_trigger_send () {
-    var $ct = $('#chat-type');
-    var chat_msg = $ct.val();
-    if (chat_msg === '') {
-      return;
-    }
-    chat_send(chat_msg);
-    $ct.val('');
-    $ct.attr('rows', $ct.data('min-rows'));
-  }
-
   ExpandingTextarea({
     id: 'chat-type',
     pixel_height: 21,
@@ -108,15 +27,82 @@ $(function () {
 
   $('#chat-type').keydown(function (ev) {
     if (ev.which == 13 && !ev.shiftKey) {
-      chat_trigger_send();
+      // note: must use requestSubmit() here, not submit(), because
+      // submit() doesn't raise the submit event and so doesn't
+      // trigger htmx
+      $(this).closest('form')[0].requestSubmit();
       return false;
     }
     return true;
   });
-  $('#chat-send').click(function () {
-    chat_trigger_send();
+  htmx.on('form#chat-sender', "htmx:wsConfigSend", (ev) => {
+    if (ev.detail.parameters['type'] == 'chat_message') {
+      ev.detail.parameters['id_token'] = make_random_token();
+    }
+  });
+
+  htmx.on('form#chat-sender', 'htmx:wsAfterSend', (ev) => {
+    let $ct = $('#chat-type');
+    $ct.val('');
+    $ct.attr('rows', $ct.data('min-rows'));
+  });
+
+  // here we track whether the chat window is scrolled down to the
+  // bottom -- if so, we're in "current mode", and new chat messages
+  // should scroll the window to the bottom as well; if not, we're in
+  // "backscroll mode", and new chat messages don't affect the scroll
+  // position
+  let msgs = document.querySelector('#chat-messages').querySelectorAll('.chatmsg');
+  let last_chat_message = msgs[msgs.length - 1];
+  let scroll_after_new = true;
+  let cm = document.querySelector('#chat-messages');
+  cm.scrollTop = cm.scrollHeight;
+  function scroll_from_bottom(el) {
+    return el.scrollHeight - (el.scrollTop + el.clientHeight);
+  }
+  htmx.on('#chat-messages', 'scrollend', (ev) => {
+    scroll_after_new = scroll_from_bottom(ev.target) < last_chat_message.clientHeight;
+  });
+
+  // any new content gets server dates fixed
+  htmx.on('htmx:load', (ev) => {
+    fix_dates($(ev.detail.elt));
+  });
+
+  // only chat messages do the scroll stuff
+  htmx.on('#chat-messages', 'htmx:load', (ev) => {
+    if (scroll_after_new) {
+      let cm = document.querySelector('#chat-messages');
+      cm.scrollTop = cm.scrollHeight;
+    }
+    last_chat_message = ev.detail.elt;
+  });
+
+  htmx.on('htmx:wsOpen', (ev) => {
+    window._websock = ev.detail.socketWrapper;
+  });
+
+  htmx.on('htmx:wsBeforeMessage', (ev) => {
+    console.log(ev);
+    let msg_obj;
+    try {
+      msg_obj = JSON.parse(ev.detail.message);
+    } catch (error) {
+      // not JSON, proceed as usual
+      return;
+    }
+    // message was JSON, dispatch as event
+    ev.preventDefault();
+    let cev = new CustomEvent(msg_obj['type'], { detail: msg_obj });
+    window.dispatchEvent(cev);
   });
 });
+
+function send_message(socket, type, message) {
+  message['type'] = type;
+  let data = JSON.stringify(message);
+  socket.send(data);
+}
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('active_vote', () => ({
@@ -141,12 +127,12 @@ document.addEventListener('alpine:init', () => {
       let msg = { channel: channel_id,
                   vote: this.vote_id,
                   option: id };
-      let socket = window._socketio_socket;
+      let socket = window._websock;
       if (this.user_votes[id]) {
-        socket.emit('remove_vote', msg);
+        send_message(socket, 'remove_vote', msg)
       }
       else {
-        socket.emit('add_vote', msg);
+        send_message(socket, 'add_vote', msg);
       }
     },
 
@@ -169,8 +155,8 @@ document.addEventListener('alpine:init', () => {
       let msg = { channel: channel_id,
                   vote: this.vote_id,
                   vote_info: { text: vt } };
-      let socket = window._socketio_socket;
-      socket.emit('new_vote_entry', msg);
+      let socket = window._websock;
+      send_message(socket, 'new_vote_entry', msg);
 
       this.$refs.edit.value = '';
       this.editing = false;
@@ -183,8 +169,8 @@ document.addEventListener('alpine:init', () => {
         option: option_id,
         killed: true
       };
-      let socket = window._socketio_socket;
-      socket.emit('set_option_killed', msg);
+      let socket = window._websock;
+      send_message(socket, 'set_option_killed', msg);
     },
 
     close_vote: function () {
@@ -193,8 +179,8 @@ document.addEventListener('alpine:init', () => {
         vote: this.vote_id,
         active: false,
       };
-      let socket = window._socketio_socket;
-      socket.emit('set_vote_active', msg);
+      let socket = window._websock;
+      send_message(socket, 'set_vote_active', msg);
     },
   }));
 
