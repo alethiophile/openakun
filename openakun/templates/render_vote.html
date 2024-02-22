@@ -1,12 +1,36 @@
-<div id="voteblock-{{ vote.db_id }}" hx-ext="alpine-morph" hx-swap-oob="morph" class="vote{% if vote.active %} active-vote{% endif %}" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)">
+{# This is sort of a mindscrew because it can be drawn in three different
+contexts:
+
+- inline in a page, on a full page load
+
+- from the /vote endpoint, on an HTMX request triggered by the set-vote-open
+  event
+
+- by the realtime code, to be sent down the websocket for vote updates
+
+The first doesn't use any HTMX, but it draws them all except hx-swap-oob for use
+later. The second is triggered by the standard hx attributes on the second line
+(after the realtime engine sends a set-vote-open event), and gets swapped in via
+the standard outerHTML strategy. Both of these include individual user info in
+the render (notably the voted-for classes on the options, and the is_author flag
+drawing admin UI).
+
+The third gets swapped in via alpine-morph, triggered by the hx-swap-oob
+attr. This render does not include any individual user info; it's sent
+identically to every user. User-specific UI in this version is handled by alpine
+on the client side.
+
+#}
+<div id="voteblock-{{ vote.db_id }}" hx-ext="alpine-morph" {% if morph_swap %}hx-swap-oob="morph" {% endif %}class="vote{% if vote.active %} active-vote{% endif %}" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)"
+     hx-get="{{ url_for('questing.view_vote', vote_id=vote.db_id) }}" hx-trigger="set-vote-open[detail.vote_id=={{ vote.db_id }}] from:window" hx-swap="outerHTML">
     <div class="vote-question">{{ vote.question }}</div>
     <div class="vote-entries">
         {%- for ve in vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') -%}
             <div class="vote-entry has-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}" key="{{ ve.db_id }}"
-                 :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"
+                 :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }" tabindex="0" role="button"
                  @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
                 <div class="vote-count">{{ ve.vote_count }}</div>
-                {%- if vote.active %}<div x-show="admin" class="delete-vote" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
+                {%- if vote.active %}<div x-show="admin" class="delete-vote" tabindex="0" role="button" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
             </div>
         {%- endfor -%}
         {%- for ve in vote.votes|selectattr('killed') -%}
@@ -21,5 +45,8 @@
             <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
         </div>
         <button x-show="admin" @click="close_vote()">Close vote</button>
+    {%- elif is_author -%}
+        <button hx-post="{{ url_for('questing.reopen_vote', channel_id=chapter.story.channel_id, vote_id=vote.db_id) }}"
+                hx-swap="none" name="_csrf_token" value="{{ session['_csrf_token'] }}">Re-open vote</button>
     {%- endif -%}
 </div>

@@ -4,9 +4,11 @@
 $(function () {
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
-      var m = moment($(this).data('dateval'));
+      let $t = $(this);
+      var m = moment($t.data('dateval'));
       var rd = m.format("MMM Do, YYYY h:mm A");
-      $(this).html(rd);
+      $t.html(rd);
+      $t.removeClass('server-date');
     });
   }
   fix_dates($('body'));

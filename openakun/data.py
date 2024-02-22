@@ -131,15 +131,23 @@ class VoteEntry:
         return cls(**d)
 
     @classmethod
-    def from_model(cls, m: models.VoteEntry) -> VoteEntry:
-        uvl = [str(i.user_id or i.anon_id) for i in m.votes]
+    def from_model(cls, m: models.VoteEntry,
+                   uid: Optional[str] = None) -> VoteEntry:
+        print(m.votes)
+        uvl = [f'user:{i.user_id}' if i.user_id else f'anon:{i.anon_id}'
+               for i in m.votes]
+        if uid is not None:
+            user_voted = uid in uvl
+        else:
+            user_voted = None
         return cls(
             text=m.vote_text,
             killed=m.killed,
             killed_text=m.killed_text,
             db_id=m.id,
             users_voted_for=uvl,
-            vote_count=len(uvl))
+            vote_count=len(uvl),
+            user_voted=user_voted)
 
     def to_dict(self) -> Dict[str, Any]:
         return attr.asdict(self)
@@ -206,8 +214,8 @@ class Vote:
         return cls(**c)
 
     @classmethod
-    def from_model(cls, m: models.VoteInfo) -> Vote:
-        vl = [VoteEntry.from_model(i) for i in m.votes]
+    def from_model(cls, m: models.VoteInfo, uid: Optional[str] = None) -> Vote:
+        vl = [VoteEntry.from_model(i, uid) for i in m.votes]
         return cls(
             question=m.vote_question,
             multivote=m.multivote,

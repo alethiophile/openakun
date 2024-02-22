@@ -155,6 +155,14 @@ class VoteInfo(Base):
     votes = relationship('VoteEntry', uselist=True, back_populates='vote_info')
     post = relationship('Post', back_populates='vote_info')
 
+    def __repr__(self) -> str:
+        return (f"VoteInfo(id={self.id}, post_id={self.post_id}, "
+                f"vote_question=\"{self.vote_question}\", "
+                f"multivote={self.multivote}, "
+                f"writein_allowed={self.writein_allowed}, "
+                f"votes_hidden={self.votes_hidden}, "
+                f"time_closed={self.time_closed}, votes={self.votes})")
+
 class VoteEntry(Base):
     __tablename__ = 'vote_entries'
 
@@ -166,6 +174,11 @@ class VoteEntry(Base):
 
     votes = relationship('UserVote', uselist=True, cascade='all, delete-orphan')
     vote_info = relationship('VoteInfo', uselist=False, back_populates='votes')
+
+    def __repr__(self) -> str:
+        return (f"VoteEntry(id={self.id}, vote_id={self.vote_id}, "
+                f"vote_text={self.vote_text}, killed={self.killed}, "
+                f"killed_text={self.killed_text}, votes={self.votes})")
 
 class UserVote(Base):
     __tablename__ = 'user_votes'
@@ -181,6 +194,11 @@ class UserVote(Base):
     user_id = Column(Integer, ForeignKey('users.id'),
                      nullable=True)
     anon_id = Column(String, nullable=True)
+
+    def __repr__(self) -> str:
+        return (f'UserVote(entry_id={self.entry_id}, ' +
+                (f'user_id={self.user_id}' if self.user_id is not None else
+                 f'anon_id={self.anon_id}') + ')')
 
 class WriteinEntry(Base):
     __tablename__ = 'writein_entries'

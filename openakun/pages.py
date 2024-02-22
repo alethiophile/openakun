@@ -13,7 +13,6 @@ from sentry_sdk import push_scope, capture_message, capture_exception
 import itsdangerous
 from passlib.context import CryptContext
 
-import json
 from datetime import datetime, timezone
 
 from typing import Optional, Union
@@ -24,11 +23,6 @@ def make_hasher():
         deprecated='auto',
     )
     return pwd_context
-
-# if os.environ.get('OPENAKUN_TESTING') == '1':
-#     config.read_dict(os.openakun_test_config)  # this is a terrible hack
-# else:
-#     config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
 
 questing = Blueprint('questing', __name__)
 
@@ -166,13 +160,18 @@ def prepare_post(p: models.Post, user_votes: bool = False) -> None:
     p.date_millis = (p.posted_date.timestamp() * 1000)
     if p.post_type == models.PostType.Vote:
         channel_id = p.story.channel_id
-        v = Vote.from_model(p.vote_info)
-        realtime.populate_vote(channel_id, v)
-        if user_votes:
-            uv = realtime.get_user_votes(p.vote_info.id)
-            for o in v.votes:
-                o.user_voted = o.db_id in uv
-        p.vote = v
+        p.vote = full_vote_info(channel_id, p.vote_info, user_votes)
+
+def full_vote_info(channel_id: int, vm: models.VoteInfo,
+                   user_votes: bool = False) -> Vote:
+    uid = realtime.get_user_identifier() if user_votes else None
+    v = Vote.from_model(vm, uid)
+    realtime.populate_vote(channel_id, v)
+    if user_votes and v.active:
+        uv = realtime.get_user_votes(vm.id)
+        for o in v.votes:
+            o.user_voted = o.db_id in uv
+    return v
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id: int, chapter_id: int) -> str:
@@ -185,8 +184,23 @@ def view_chapter(story_id: int, chapter_id: int) -> str:
                     realtime.get_back_messages(chapter.story.channel_id)]
     if chapter is None:
         abort(404)
+    is_author = chapter.story.author == current_user
     return render_template("view_chapter.html", chapter=chapter,
-                           msgs=chat_backlog)
+                           msgs=chat_backlog, is_author=is_author)
+
+@questing.route('/vote/<int:vote_id>')
+def view_vote(vote_id: int) -> str:
+    s = db_connect()
+    ve = (s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).
+          one_or_none())
+    if ve is None:
+        abort(404)
+    channel_id = ve.post.chapter.story.channel_id
+    chapter = ve.post.chapter
+    is_author = chapter.story.author == current_user
+    vote = full_vote_info(channel_id, ve, True)
+    return render_template("render_vote.html", chapter=chapter, vote=vote,
+                           is_author=is_author)
 
 def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
                 order_idx: Optional[int] = None) -> models.Post:
@@ -303,6 +317,15 @@ def new_post() -> Response:
     return jsonify({ 'new_url': url_for('questing.view_chapter',
                                         story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
+
+@questing.route('/reopen_vote/<int:channel_id>/<int:vote_id>', methods=['POST'])
+@csrf_check
+def reopen_vote(channel_id: int, vote_id: int) -> str:
+    # this just passes on to set_vote_active(), which handles authentication
+    # and verification
+    msg = { 'channel': channel_id, 'vote': vote_id, 'active': True }
+    realtime.set_vote_active(msg)
+    return ''
 
 @questing.route('/user/<int:user_id>')
 def user_profile(user_id: int) -> str:

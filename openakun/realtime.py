@@ -170,7 +170,6 @@ def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     assert vote.db_id is not None
     assert db.redis_conn is not None
 
-    print("opening vote: ", vote)
     rd = vote.to_redis_dict()
     rd['channel_id'] = channel_id
     rds = json.dumps(rd)
@@ -208,8 +207,6 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
         vote.active = False
         return vote
 
-    print("populate_vote", channel_id, vote)
-
     vote.active = True
 
     rds = db.redis_conn.hget('vote_info', str(vote.db_id))
@@ -224,7 +221,7 @@ def get_user_identifier() -> str:
     else:
         return f"user:{current_user.id}"
 
-def send_vote_html(channel_id: int, vote_id: int):
+def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     """Render a vote in user-agnostic form (i.e. no voted-for annotations) and
     send the resulting HTML over the channel. This is called every time a vote
     is altered (votes added or removed, options added, config changed, etc.) in
@@ -235,7 +232,7 @@ def send_vote_html(channel_id: int, vote_id: int):
     m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     v = Vote.from_model(m)
     populate_vote(channel_id, v)
-    html = render_template('render_vote.html', vote=v)
+    html = render_template('render_vote.html', vote=v, morph_swap=True)
     msg = { 'vote': v.db_id, 'html': html }
     websocket.pubsub.publish(f'chan:{channel_id}', html)
 
@@ -445,23 +442,26 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
         v.killed = ed[v.id].killed
         v.killed_text = ed[v.id].killed_text
 
-        opt_key = f"option_votes:{v.id}"
-        vl = [i.decode() for i in db.redis_conn.smembers(opt_key)]
+        vl = ed[v.id].users_voted_for
         v.votes.clear()
         for u in vl:
             if u.startswith('user:'):
                 user_id = int(u[5:])
                 um = models.UserVote(user_id=user_id)
             else:
-                anon_id = u
+                anon_id = u[5:]
                 um = models.UserVote(anon_id=anon_id)
             v.votes.append(um)
+    print("vm:", vm)
     s.commit()
 
     db.redis_conn.hdel('vote_info', str(vote_id))
 
     if not shutdown:
-        send_vote_html(channel_id, vm.id)
+        websocket.pubsub.publish(f'chan:{channel_id}',
+                                 json.dumps({ 'type': 'set-vote-open',
+                                              'vote_id': vote_id,
+                                              'open': False }))
 
 def close_to_db():
     s = db.Session()
@@ -481,7 +481,10 @@ def open_vote(channel_id: int, vote_id: int) -> None:
     vm.time_closed = None
     add_active_vote(vm, channel_id)
     s.commit()
-    send_vote_html(channel_id, vm.id)
+
+    websocket.pubsub.publish(f'chan:{channel_id}',
+                             json.dumps({ 'type': 'set-vote-open',
+                                          'vote_id': vote_id, 'open': True }))
 
 @handle_message('set_vote_active')
 def set_vote_active(data) -> None:
