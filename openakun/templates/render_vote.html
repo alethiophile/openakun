@@ -30,12 +30,13 @@ on the client side.
                  :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }" tabindex="0" role="button"
                  @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
                 <div class="vote-count">{{ ve.vote_count }}</div>
-                {%- if vote.active %}<div x-show="admin" class="delete-vote" tabindex="0" role="button" title="Delete entry" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
+                {%- if vote.active %}<div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete entry" @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
             </div>
         {%- endfor -%}
         {%- for ve in vote.votes|selectattr('killed') -%}
             <div class="has-vote" db-id="{{ ve.db_id }}" key="{{ ve.db_id }}">
                 <div class="vote-text"><span class="killed-vote">{{ ve.text }}</span>{% if ve.killed_text %}<br><span class="kill-reason">{{ ve.killed_text }}</span>{% endif %}</div>
+                {% if vote.active %}<div class="vote-button kill-reason" tabindex="0" role="button" x-show="admin" title="Set reason for deletion">✍</div><div class="vote-button restore-vote" tabindex="0" role="button" x-show="admin" title="Restore entry" @keydown.enter="restore_option({{ ve.db_id }})" @click="restore_option({{ ve.db_id }})">✔</div><div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete permanently" @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>{% endif %}
             </div>
         {%- endfor -%}
     </div>

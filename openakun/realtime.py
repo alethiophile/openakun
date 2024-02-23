@@ -519,15 +519,16 @@ def set_option_killed(data) -> None:
 
     vote_id = data['vote']
     option_id = data['option']
-    killed = data['killed']
-    kill_string = data.get('message', '') if killed else None
+    killed = '1' if data['killed'] else '0'
+    kill_string = data.get('message', '')
 
     if not vote_is_active(channel_id, vote_id):
         return
 
     rv = db.redis_conn.fcall('set_option_killed', 2,
                              f'channel_votes:{channel_id}',
-                             'vote_info', vote_id, option_id, kill_string)
+                             'vote_info', vote_id, option_id, killed,
+                             kill_string)
     if not rv:
         return None
 

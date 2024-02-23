@@ -48,7 +48,7 @@ div.can-add-votes .vote-entry.new-vote {
 div.vote-editing .vote-entry {
   cursor: default;
 }
-.delete-vote {
+.vote-button {
   padding: .5em;
   display: flex;
   align-items: center;
@@ -56,6 +56,15 @@ div.vote-editing .vote-entry {
 }
 div.delete-vote:hover {
   background-color: var(--vote-delete-bg-color);
+}
+div.restore-vote:hover {
+  background-color: #55ff55;
+}
+div.kill-reason:hover {
+  background-color: #cccccc;
+}
+div.kill-reason {
+  font-weight: bold;
 }
 div.vote-count {
   padding: .5em;

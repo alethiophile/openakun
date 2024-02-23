@@ -101,7 +101,7 @@
           <template x-for="(v, i) in vote_options">
             <div class="has-vote">
               <div class="vote-text"><textarea class="vote-editor" rows="1" data-min-rows="1" x-bind="expanding_textarea" x-model="v.text" pixel-height="28"></textarea></div>
-              <div class="delete-vote" title="Delete entry" @click="delete_option(i)">✘</div></div>
+              <div class="delete-vote" role="button" tabindex="0" title="Delete entry" @keydown.enter="delete_option(i)" @click="delete_option(i)">✘</div></div>
           </template>
           <button @click="add_option()">+ Add new option</button>
         </div>

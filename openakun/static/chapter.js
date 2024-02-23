@@ -175,6 +175,29 @@ document.addEventListener('alpine:init', () => {
       send_message(socket, 'set_option_killed', msg);
     },
 
+    set_kill_text: function (option_id, text) {
+      let msg = {
+        channel: channel_id,
+        vote: this.vote_id,
+        option: option_id,
+        killed: true,
+        message: text,
+      };
+      let socket = window._websock;
+      send_message(socket, 'set_option_killed', msg);
+    },
+
+    restore_option: function (option_id) {
+      let msg = {
+        channel: channel_id,
+        vote: this.vote_id,
+        option: option_id,
+        killed: false,
+      };
+      let socket = window._websock;
+      send_message(socket, 'set_option_killed', msg);
+    },
+
     close_vote: function () {
       let msg = {
         channel: channel_id,

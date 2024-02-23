@@ -34,7 +34,7 @@
  - [X] Create votes on client, send as author
  - [X] Allow voting
  - [X] Server-side render for closed votes
- - [ ] allow closing votes (by author only)
+ - [X] allow closing votes (by author only)
    - this can be a post endpoint maybe? doesn't matter
  - [ ] timer for closing votes automatically
    - store close time on vote_config

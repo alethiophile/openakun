@@ -111,14 +111,15 @@ local function set_option_killed(keys, args)
    end
    local vote_id = args[1]
    local option_id = args[2]
+   local killed = args[3]
    -- nil signifies not killed, '' signifies killed with no reason,
    -- string signifies reason
-   local kill_string = args[3]
+   local kill_string = args[4]
    local vote = get_vote(vote_id)
    if not vote.votes[option_id] then
       return false
    end
-   if not kill_string then
+   if killed == '0' then
       vote.votes[option_id].killed = false
       vote.votes[option_id].killed_text = nil
    elseif kill_string == '' then
