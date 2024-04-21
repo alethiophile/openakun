@@ -1,10 +1,11 @@
 #!python3
 
-from .pages import config, parse_redis_url
+from .general import parse_redis_url
+from .app import get_config
 from .models import Base
 from .realtime import message_cache_len, ChatMessage
 
-import celery, redis, json
+import celery, redis, json, os
 from celery.signals import worker_process_init, worker_process_shutdown
 
 from sqlalchemy import create_engine
@@ -15,6 +16,9 @@ from sqlalchemy.dialects import postgresql
 from datetime import datetime, timezone, timedelta
 
 from typing import Dict, Any, List
+
+config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
+config = get_config(config_fn)
 
 redis_url = config['openakun']['redis_url']
 queue = celery.Celery()
@@ -105,10 +109,22 @@ def save_chat_messages():
         all_messages.extend(msgs)
         redis_conn.ltrim(c, - message_cache_len, -1)
 
+    # domain invariant: these two sets cover all of all_messages and do not
+    # intersect
+    user_messages = [ChatMessage.from_dict(i) for i in all_messages
+                     if i.get('user_id', None) is not None]
+    anon_messages = [ChatMessage.from_dict(i) for i in all_messages
+                     if i.get('anon_id', None) is not None]
+
     s = db_session()
     insert_ignoring_duplicates(
         s,
-        [ChatMessage.from_dict(i).to_model() for i in all_messages])
+        # [ChatMessage.from_dict(i).to_model() for i in all_messages])
+        [i.to_model() for i in user_messages])
+    insert_ignoring_duplicates(
+        s,
+        # [ChatMessage.from_dict(i).to_model() for i in all_messages])
+        [i.to_model() for i in anon_messages])
     s.commit()
     print("commit done")
 
