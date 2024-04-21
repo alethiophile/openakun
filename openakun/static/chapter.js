@@ -89,12 +89,20 @@ $(function () {
 
   // it can cancel the event if desired
   function process_ws_html(ev) {
+    let parser = new DOMParser();
+    let doc = parser.parseFromString(ev.detail.message, "text/html");
+    let node = doc.body.firstChild;
+    console.log(node);
     // the is_author flag is set in inline JS in the view_chapter.html template
-    if (ev.detail.message.includes(`data-totals-hidden="1"`) && is_author) {
+    if (node.getAttribute('data-totals-hidden') == '1' && is_author) {
       // in this case, we expect the same data with vote totals drawn
       // to come in over the author-only channel, so we ignore the
       // public-consumption one with totals hidden
       console.log("ignoring totals-hidden update")
+      ev.preventDefault();
+    }
+    if (node.hasAttribute('data-chapter-id') && node.getAttribute('data-chapter-id') != chapter_id) {
+      console.log(`ignoring update for chapter ${node.getAttribute('data-chapter-id')} (current chapter is ${chapter_id})`);
       ev.preventDefault();
     }
   }

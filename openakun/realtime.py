@@ -228,8 +228,7 @@ def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     # in this case the public update will have vote totals hidden; we draw a
     # special update with totals shown, and send it only to the story author
     if v.votes_hidden and v.active:
-        author = m.post.story.author
-        author_id = f"user:{author.id}"
+        author_id = f"user:{m.post.story.author_id}"
         html = render_template('render_vote.html', vote=v, morph_swap=True,
                                is_author=True)
         websocket.pubsub.publish(author_id, html)
