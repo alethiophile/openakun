@@ -225,8 +225,15 @@ def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     v = Vote.from_model(m)
     populate_vote(channel_id, v)
+    # in this case the public update will have vote totals hidden; we draw a
+    # special update with totals shown, and send it only to the story author
+    if v.votes_hidden and v.active:
+        author = m.post.story.author
+        author_id = f"user:{author.id}"
+        html = render_template('render_vote.html', vote=v, morph_swap=True,
+                               is_author=True)
+        websocket.pubsub.publish(author_id, html)
     html = render_template('render_vote.html', vote=v, morph_swap=True)
-    msg = { 'vote': v.db_id, 'html': html }
     websocket.pubsub.publish(f'chan:{channel_id}', html)
 
 @handle_message('add_vote')

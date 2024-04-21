@@ -25,15 +25,18 @@ vote, but cannot turn an Alpine-active element into an inactive one, or vice
 versa. Thus, only updates via OOB are done via alpine-morph.
 
 #}
+{%- set hide_totals = vote.votes_hidden and vote.active and not is_author -%}
 <div id="voteblock-{{ vote.db_id }}" hx-ext="alpine-morph" {% if morph_swap %}hx-swap-oob="morph" {% endif %}class="vote{% if vote.active %} active-vote{% endif %}" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)"
-     hx-get="{{ url_for('questing.view_vote', vote_id=vote.db_id) }}" hx-trigger="set-vote-open[detail.vote_id=={{ vote.db_id }}] from:window" hx-swap="outerHTML">
+     hx-get="{{ url_for('questing.view_vote', vote_id=vote.db_id) }}" hx-trigger="set-vote-open[detail.vote_id=={{ vote.db_id }}] from:window" hx-swap="outerHTML"
+     {%- if hide_totals %} data-totals-hidden="1"{% endif -%}>
     <div class="vote-question">{{ vote.question }}</div>
+    {%- if hide_totals %}{% set entry_list = vote.votes|rejectattr('killed') %}{% else %}{% set entry_list = vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') %}{% endif -%}
     <div class="vote-entries">
-        {%- for ve in vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') -%}
+        {%- for ve in entry_list -%}
             <div class="vote-entry has-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}" key="{{ ve.db_id }}"
                  :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }" tabindex="0" role="button"
                  @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
-                <div class="vote-count">{{ ve.vote_count }}</div>
+                {% if not hide_totals %}<div class="vote-count">{{ ve.vote_count }}</div>{% endif %}
                 {%- if vote.active %}<div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete entry" @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
             </div>
         {%- endfor -%}
@@ -47,18 +50,20 @@ versa. Thus, only updates via OOB are done via alpine-morph.
                     <div class="vote-button kill-reason" tabindex="0" role="button" x-show="admin && !edit_killtext" title="Set reason for deletion"
                          @click="edit_killtext = true" @keydown.enter="edit_killtext = true">✍</div>
                     <div class="vote-button restore-vote" tabindex="0" role="button" x-show="admin" title="Restore entry"
-                         @keydown.enter="restore_option({{ ve.db_id }})" @click="restore_option({{ ve.db_id }})">✔</div>
+                         @keydown.enter="restore_option(db_id)" @click="restore_option(db_id)">✔</div>
                     <div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete permanently"
-                         @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>
+                         @keydown.enter="delete_option(db_id)" @click="delete_option(db_id)">✘</div>
                 {% endif %}
             </div>
         {%- endfor -%}
     </div>
     {%- if vote.active -%}
+        {%- if vote.writein_allowed -%}
         <div>
             <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
             <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
         </div>
+        {%- endif -%}
         <button x-show="admin" @click="close_vote()">Close vote</button>
     {%- elif is_author -%}
         <button hx-post="{{ url_for('questing.reopen_vote', channel_id=chapter.story.channel_id, vote_id=vote.db_id) }}"

@@ -84,6 +84,21 @@ $(function () {
     window._websock = ev.detail.socketWrapper;
   });
 
+  // this is called on every incoming WS message, before HTMX handles
+  // it, if and only if that message is not JSON
+
+  // it can cancel the event if desired
+  function process_ws_html(ev) {
+    // the is_author flag is set in inline JS in the view_chapter.html template
+    if (ev.detail.message.includes(`data-totals-hidden="1"`) && is_author) {
+      // in this case, we expect the same data with vote totals drawn
+      // to come in over the author-only channel, so we ignore the
+      // public-consumption one with totals hidden
+      console.log("ignoring totals-hidden update")
+      ev.preventDefault();
+    }
+  }
+
   htmx.on('htmx:wsBeforeMessage', (ev) => {
     console.log(ev);
     let msg_obj;
@@ -91,6 +106,7 @@ $(function () {
       msg_obj = JSON.parse(ev.detail.message);
     } catch (error) {
       // not JSON, proceed as usual
+      process_ws_html(ev);
       return;
     }
     // message was JSON, dispatch as event
