@@ -41,9 +41,9 @@
  - [ ] differentiate closed votes in style
  - [ ] implement hidden totals on client side
  - [X] make votes reorder by total (if not hidden)
- - [-] allow killing votes
+ - [X] allow killing votes
    - [X] kill functionality
-   - [ ] kill reason
+   - [X] kill reason
  - [X] allow adding writeins
  - [ ] allow setting vote config on creation time
  - [X] handle voted-for for server-side-rendered votes

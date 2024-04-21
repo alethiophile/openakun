@@ -112,8 +112,6 @@ local function set_option_killed(keys, args)
    local vote_id = args[1]
    local option_id = args[2]
    local killed = args[3]
-   -- nil signifies not killed, '' signifies killed with no reason,
-   -- string signifies reason
    local kill_string = args[4]
    local vote = get_vote(vote_id)
    if not vote.votes[option_id] then
