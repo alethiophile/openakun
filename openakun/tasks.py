@@ -116,17 +116,17 @@ def save_chat_messages():
     anon_messages = [ChatMessage.from_dict(i) for i in all_messages
                      if i.get('anon_id', None) is not None]
 
-    s = db_session()
-    insert_ignoring_duplicates(
-        s,
-        # [ChatMessage.from_dict(i).to_model() for i in all_messages])
-        [i.to_model() for i in user_messages])
-    insert_ignoring_duplicates(
-        s,
-        # [ChatMessage.from_dict(i).to_model() for i in all_messages])
-        [i.to_model() for i in anon_messages])
-    s.commit()
-    print("commit done")
+    with db_session() as s:
+        insert_ignoring_duplicates(
+            s,
+            # [ChatMessage.from_dict(i).to_model() for i in all_messages])
+            [i.to_model() for i in user_messages])
+        insert_ignoring_duplicates(
+            s,
+            # [ChatMessage.from_dict(i).to_model() for i in all_messages])
+            [i.to_model() for i in anon_messages])
+        s.commit()
+        print("commit done")
 
     age_cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=1)
     cutoff_us = age_cutoff.timestamp() * 1000000

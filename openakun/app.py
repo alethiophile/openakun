@@ -2,8 +2,8 @@ from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
                       ConfigError, db_setup, db, login_mgr)
 
-import configparser, click, os, signal
-from flask import Flask, request
+import configparser, click, os, signal, traceback
+from flask import Flask, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
@@ -17,6 +17,17 @@ def get_config(config_fn: str):
         raise RuntimeError(f"Couldn't find config file {config_fn}")
 
     return config
+
+def close_db_session(err):
+    if err:
+        print(err)
+    if not hasattr(g, 'db_session'):
+        return
+    try:
+        g.db_session.close()
+    except Exception:
+        print("error in close_db_session()")
+        traceback.print_exc()
 
 def create_app(config):
     app = Flask('openakun')
@@ -61,6 +72,8 @@ def create_app(config):
     app.route('/csp_violation_report', methods=['POST'])(csp_report)
 
     app.register_blueprint(pages.questing)
+
+    app.teardown_appcontext(close_db_session)
 
     return app
 
