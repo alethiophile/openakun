@@ -98,6 +98,14 @@ class SubscriptionFanout:
 # global
 pubsub = SubscriptionFanout()
 
+handlers = {}
+
+def handle_message(which):
+    def deco(fn):
+        handlers[which] = fn
+        return fn
+    return deco
+
 @sock.route('/ws/<int:channel>')
 def ws_endpoint(ws, channel: int) -> None:
     print("current user is", str(current_user), channel)
@@ -128,7 +136,7 @@ def ws_endpoint(ws, channel: int) -> None:
         print("got websocket data:", data)
         msg = json.loads(data)
         msg['channel'] = channel
-        fn = realtime.handlers.get(msg['type'])
+        fn = handlers.get(msg['type'])
         if fn is None:
             continue
         fn(msg)

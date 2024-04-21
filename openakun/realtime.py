@@ -12,16 +12,9 @@ from operator import attrgetter
 from datetime import datetime, timezone
 from sqlalchemy import sql, orm
 import hashlib, json
+from .websocket import handle_message
 
 from typing import List, Dict, Optional, Any, Union
-
-handlers = {}
-
-def handle_message(which):
-    def deco(fn):
-        handlers[which] = fn
-        return fn
-    return deco
 
 def get_channel(channel_id):
     s = db_connect()
