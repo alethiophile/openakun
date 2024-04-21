@@ -161,7 +161,6 @@ document.addEventListener('alpine:init', () => {
       send_message(socket, 'new_vote_entry', msg);
 
       this.$refs.edit.value = '';
-      this.editing = false;
     },
 
     delete_option: function (option_id) {

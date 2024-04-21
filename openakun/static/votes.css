@@ -39,6 +39,10 @@ div.vote-entry.voted-for {
   text-decoration: line-through;
   font-size: smaller;
 }
+.kill-reason-text {
+  font-size: smaller;
+  color: #888;
+}
 div.vote-editing .vote-entry.new-vote {
   display: flex;
 }
@@ -84,4 +88,9 @@ div.new-vote {
 }
 .vote-entries {
   margin-bottom: 5px;
+}
+input.kill-text-edit {
+  font-size: smaller;
+  height: 75%;
+  align-self: center;
 }

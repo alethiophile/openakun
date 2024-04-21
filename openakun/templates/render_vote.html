@@ -20,6 +20,10 @@ attr. This render does not include any individual user info; it's sent
 identically to every user. User-specific UI in this version is handled by alpine
 on the client side.
 
+Notably, the alpine-morph swap strategy is necessary for updates to the active
+vote, but cannot turn an Alpine-active element into an inactive one, or vice
+versa. Thus, only updates via OOB are done via alpine-morph.
+
 #}
 <div id="voteblock-{{ vote.db_id }}" hx-ext="alpine-morph" {% if morph_swap %}hx-swap-oob="morph" {% endif %}class="vote{% if vote.active %} active-vote{% endif %}" {% if vote.active %}x-data="active_vote" {% endif %}db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)"
      hx-get="{{ url_for('questing.view_vote', vote_id=vote.db_id) }}" hx-trigger="set-vote-open[detail.vote_id=={{ vote.db_id }}] from:window" hx-swap="outerHTML">
@@ -34,9 +38,19 @@ on the client side.
             </div>
         {%- endfor -%}
         {%- for ve in vote.votes|selectattr('killed') -%}
-            <div class="has-vote" db-id="{{ ve.db_id }}" key="{{ ve.db_id }}">
-                <div class="vote-text"><span class="killed-vote">{{ ve.text }}</span>{% if ve.killed_text %}<br><span class="kill-reason">{{ ve.killed_text }}</span>{% endif %}</div>
-                {% if vote.active %}<div class="vote-button kill-reason" tabindex="0" role="button" x-show="admin" title="Set reason for deletion">✍</div><div class="vote-button restore-vote" tabindex="0" role="button" x-show="admin" title="Restore entry" @keydown.enter="restore_option({{ ve.db_id }})" @click="restore_option({{ ve.db_id }})">✔</div><div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete permanently" @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>{% endif %}
+            <div class="has-vote" {% if vote.active %}x-data="{ edit_killtext: false, db_id: {{ ve.db_id }} }" {% endif %}db-id="{{ ve.db_id }}" key="{{ ve.db_id }}">
+                <div class="vote-text"><span class="killed-vote">{{ ve.text }}</span>{% if ve.killed_text %}<br><span class="kill-reason-text">{{ ve.killed_text }}</span>{% endif %}</div>
+                {% if vote.active %}
+                    <input class="kill-text-edit" type="text" placeholder="Reason killed" x-show="edit_killtext"
+                           @keydown.enter="set_kill_text(db_id, $el.value); edit_killtext = false"
+                           @keydown.escape="edit_killtext = false">
+                    <div class="vote-button kill-reason" tabindex="0" role="button" x-show="admin && !edit_killtext" title="Set reason for deletion"
+                         @click="edit_killtext = true" @keydown.enter="edit_killtext = true">✍</div>
+                    <div class="vote-button restore-vote" tabindex="0" role="button" x-show="admin" title="Restore entry"
+                         @keydown.enter="restore_option({{ ve.db_id }})" @click="restore_option({{ ve.db_id }})">✔</div>
+                    <div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete permanently"
+                         @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>
+                {% endif %}
             </div>
         {%- endfor -%}
     </div>
