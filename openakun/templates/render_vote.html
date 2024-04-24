@@ -30,41 +30,75 @@ versa. Thus, only updates via OOB are done via alpine-morph.
      hx-get="{{ url_for('questing.view_vote', vote_id=vote.db_id) }}" hx-trigger="set-vote-open[detail.vote_id=={{ vote.db_id }}] from:window" hx-swap="outerHTML"
      {%- if hide_totals %} data-totals-hidden="1"{% endif -%}>
     <div class="vote-question">{{ vote.question }}</div>
-    {%- if hide_totals %}{% set entry_list = vote.votes|rejectattr('killed') %}{% else %}{% set entry_list = vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') %}{% endif -%}
+    {%- if vote.active -%}
+        <form class="settings" ws-send x-show="admin" hx-vals='{ "type": "set_vote_options", "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }} }'>
+            <label class="settings-option"><input type="checkbox" name="multivote" value="true" {% if vote.multivote %}checked disabled
+            title="Cannot disable multivote once enabled"{% endif %}> Allow multiple vote selections</label>
+            <label class="settings-option"><input type="checkbox" name="writein_allowed" value="true" {% if vote.writein_allowed %}checked{% endif %}> Allow submitting new options</label>
+            <label class="settings-option"><input type="checkbox" name="votes_hidden" value="true" {% if vote.votes_hidden %}checked{% endif %}> Hide vote totals until vote is closed</label>
+            <button type="submit">Save</button>
+        </form>
+    {%- endif -%}
+    {%- if hide_totals %}{% set entry_list = vote.votes|rejectattr('killed') -%}
+    {% else %}{% set entry_list = vote.votes|sort(attribute='vote_count', reverse=True)|rejectattr('killed') %}{% endif -%}
     <div class="vote-entries">
         {%- for ve in entry_list -%}
-            <div class="vote-entry has-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}" key="{{ ve.db_id }}"
-                 :class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }" tabindex="0" role="button"
-                 @click="toggle_vote({{ ve.db_id }})"><div class="vote-text">{{ ve.text }}</div>
+            {% if vote.active %}<form ws-send hx-trigger="click from:find div, keydown[which==13] from:find div"
+                  hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }}, "option": {{ ve.db_id }} }'>
+                <!-- we use a hidden input here to allow AlpineJS to change it, since it doesn't play well with hx-* attributes -->
+                <input type="hidden" name="type" x-bind:value="user_votes['{{ ve.db_id }}'] ? 'remove_vote' : 'add_vote'">{% endif %}
+                <div class="vote-entry has-vote{% if ve.user_voted %} voted-for{% endif %}" db-id="{{ ve.db_id }}" key="{{ ve.db_id }}"
+                    {% if vote.active %}:class="{ 'voted-for': user_votes['{{ ve.db_id }}'] }"{% endif %} tabindex="0" role="button"><div class="vote-text">{{ ve.text }}</div>
                 {% if not hide_totals %}<div class="vote-count">{{ ve.vote_count }}</div>{% endif %}
-                {%- if vote.active %}<div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete entry" @keydown.enter="delete_option({{ ve.db_id }})" @click="delete_option({{ ve.db_id }})">✘</div>{% endif -%}
-            </div>
+                {%- if vote.active -%}
+                    <div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete entry"
+                         ws-send hx-trigger="click, keydown[which==13]"
+                         hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }},
+                                 "option": {{ ve.db_id }}, "type": "set_option_killed", "killed": true }'>✘</div>{% endif -%}
+                </div>
+            {% if vote.active %}</form>{% endif %}
         {%- endfor -%}
         {%- for ve in vote.votes|selectattr('killed') -%}
             <div class="has-vote" {% if vote.active %}x-data="{ edit_killtext: false, db_id: {{ ve.db_id }} }" {% endif %}db-id="{{ ve.db_id }}" key="{{ ve.db_id }}">
                 <div class="vote-text"><span class="killed-vote">{{ ve.text }}</span>{% if ve.killed_text %}<br><span class="kill-reason-text">{{ ve.killed_text }}</span>{% endif %}</div>
                 {% if vote.active %}
                     <input class="kill-text-edit" type="text" placeholder="Reason killed" x-show="edit_killtext"
-                           @keydown.enter="set_kill_text(db_id, $el.value); edit_killtext = false"
-                           @keydown.escape="edit_killtext = false">
+                           name="message" ws-send hx-trigger="keydown[which==13]"
+                           hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }},
+                                  "option": {{ ve.db_id }}, "type": "set_option_killed", "killed": true }'
+                           @keydown.enter="edit_killtext = false"
+                           x-ref="kill_reason_{{ ve.db_id }}">
                     <div class="vote-button kill-reason" tabindex="0" role="button" x-show="admin && !edit_killtext" title="Set reason for deletion"
-                         @click="edit_killtext = true" @keydown.enter="edit_killtext = true">✍</div>
+                         @click="edit_killtext = true; $nextTick(() => { $refs.kill_reason_{{ ve.db_id }}.focus() })"
+                         @keydown.enter="edit_killtext = true; $nextTick(() => { $refs.kill_reason_{{ ve.db_id }}.focus() })">✍</div>
                     <div class="vote-button restore-vote" tabindex="0" role="button" x-show="admin" title="Restore entry"
-                         @keydown.enter="restore_option(db_id)" @click="restore_option(db_id)">✔</div>
+                         ws-send hx-trigger="click, keydown[which==13]"
+                         hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }},
+                                "option": {{ ve.db_id }}, "type": "set_option_killed", "killed": false }'>✔</div>
                     <div x-show="admin" class="delete-vote vote-button" tabindex="0" role="button" title="Delete permanently"
-                         @keydown.enter="delete_option(db_id)" @click="delete_option(db_id)">✘</div>
+                         ws-send hx-trigger="click, keydown[which==13]"
+                         hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }},
+                                 "option": {{ ve.db_id }}, "type": "set_option_killed", "killed": true,
+                                 "hard_delete": true }'>✘</div>
                 {% endif %}
             </div>
         {%- endfor -%}
     </div>
     {%- if vote.active -%}
         {%- if vote.writein_allowed -%}
-        <div>
-            <textarea x-ref="edit" class="vote-editor" rows="1" data-min-rows="1" @keydown.enter="submit_new($event)" placeholder="Custom vote"></textarea>
-            <div class="submit-row"><button @click="submit_new()">Submit custom vote</button></div>
+            <div>
+                <form x-ref="new_opt_form" ws-send {# hx-trigger="submit, keydown[which==13] from:find textarea" #}
+                      hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }}, "type": "new_vote_entry" }'
+                      hx-on::ws-after-send="this.reset()">
+                    <textarea x-ref="new_opt_edit" class="vote-editor" rows="1" data-min-rows="1" name="option_text" placeholder="Custom vote"
+                              @keyup.enter="if (!$event.shiftKey) { $refs.new_opt_form.requestSubmit(); $event.preventDefault(); }"></textarea>
+                    <div class="submit-row"><button type="submit">Submit custom vote</button></div>
+                </form>
         </div>
         {%- endif -%}
-        <button x-show="admin" @click="close_vote()">Close vote</button>
+        <button x-show="admin" ws-send
+                hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }},
+                        "type": "set_vote_active", "active": false }'>Close vote</button>
     {%- elif is_author -%}
         <button hx-post="{{ url_for('questing.reopen_vote', channel_id=chapter.story.channel_id, vote_id=vote.db_id) }}"
                 hx-swap="none" name="_csrf_token" value="{{ session['_csrf_token'] }}">Re-open vote</button>

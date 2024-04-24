@@ -111,7 +111,7 @@
   {% endif %}
 {% endblock %}
 {% block sidebar %}
-    <div hx-ext="ws" ws-connect="/ws/{{ chapter.story.channel_id }}" class="chat-bar" id="chat-ws-target">
+    <div class="chat-bar" id="chat-ws-target">
         <div id="chat-messages">
             {% include 'chat_backlog.html' %}
         </div>
@@ -119,7 +119,7 @@
             <form id="chat-sender" class="chat-controls" ws-send>
                 <input type="hidden" name="type" value="chat_message">
                 <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1" placeholder="Chat" name="msg"></textarea>
-                <button id="chat-send" class="btn btn-sm">Send</button>
+                <button type="submit" class="btn btn-sm">Send</button>
             </form>
         </div>
     </div>

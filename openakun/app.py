@@ -75,6 +75,8 @@ def create_app(config):
 
     app.teardown_appcontext(close_db_session)
 
+    pages.htmx.init_app(app)
+
     return app
 
 def init_db(silent: bool = False) -> None:

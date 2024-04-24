@@ -23,6 +23,7 @@ flask-login = "^0.6.2"
 gevent = "^23.7.0"
 gevent-websocket = "^0.10.1"
 flask-sock = "^0.7.0"
+flask-htmx = "^0.3.2"
 
 [tool.poetry.scripts]
 openakun_initdb = 'openakun.app:init_db'

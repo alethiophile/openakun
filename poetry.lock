@@ -273,6 +273,17 @@ async = ["asgiref (>=3.2)"]
 dotenv = ["python-dotenv"]
 
 [[package]]
+name = "flask-htmx"
+version = "0.3.2"
+description = "A Flask extension to work with HTMX."
+category = "main"
+optional = false
+python-versions = ">=3.8,<4.0"
+
+[package.dependencies]
+Flask = ">=2.0.2,<4.0.0"
+
+[[package]]
 name = "flask-login"
 version = "0.6.3"
 description = "User authentication and session management for Flask."
@@ -862,7 +873,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "32df74da9646ebc97b12e2b072a4666fa3b5a78b3700dd27b0fd88044cecf970"
+content-hash = "92027f3f20ec2ee06f021ee41b52a3d228796a566dfed6cacec99b5019a5053c"
 
 [metadata.files]
 alembic = [
@@ -1010,6 +1021,10 @@ flake8 = [
 flask = [
     {file = "flask-2.3.3-py3-none-any.whl", hash = "sha256:f69fcd559dc907ed196ab9df0e48471709175e696d6e698dd4dbe940f96ce66b"},
     {file = "flask-2.3.3.tar.gz", hash = "sha256:09c347a92aa7ff4a8e7f3206795f30d826654baf38b873d0744cd571ca609efc"},
+]
+flask-htmx = [
+    {file = "flask_htmx-0.3.2-py3-none-any.whl", hash = "sha256:a1e0071216349197d6669662c2c35a1ab849b6fca28c89dc90932761f7e73c05"},
+    {file = "flask_htmx-0.3.2.tar.gz", hash = "sha256:8def77bb292369ff77513ff7b76d27b06f83e1d8c21165b6714c06c1cc2b9275"},
 ]
 flask-login = [
     {file = "Flask-Login-0.6.3.tar.gz", hash = "sha256:5e23d14a607ef12806c699590b89d0f0e0d67baeec599d75947bf9c147330333"},

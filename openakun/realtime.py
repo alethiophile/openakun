@@ -225,14 +225,17 @@ def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     v = Vote.from_model(m)
     populate_vote(channel_id, v)
+    # this is a dummy chapter object used only to get the channel ID
+    dummy_chapter = { 'story': { 'channel_id': channel_id }}
     # in this case the public update will have vote totals hidden; we draw a
     # special update with totals shown, and send it only to the story author
     if v.votes_hidden and v.active:
         author_id = f"user:{m.post.story.author_id}"
         html = render_template('render_vote.html', vote=v, morph_swap=True,
-                               is_author=True)
+                               is_author=True, chapter=dummy_chapter)
         websocket.pubsub.publish(author_id, html)
-    html = render_template('render_vote.html', vote=v, morph_swap=True)
+    html = render_template('render_vote.html', vote=v, morph_swap=True,
+                           chapter=dummy_chapter)
     websocket.pubsub.publish(f'chan:{channel_id}', html)
 
 @handle_message('add_vote')
@@ -297,7 +300,8 @@ def handle_new_vote_entry(data) -> None:
 
     channel_id = data['channel']
     vote_id = data['vote']
-    voteinfo = data['vote_info']
+    # voteinfo = data['vote_info']
+    option_text = data['option_text']
 
     if not vote_is_active(channel_id, vote_id):
         return None
@@ -306,16 +310,20 @@ def handle_new_vote_entry(data) -> None:
     if not conf['writein_allowed']:
         return None
 
-    option = VoteEntry.from_dict(voteinfo)
-    # the only thing we accept from the client is the option text
-    option.killed = False
-    option.killed_text = None
-    option.vote_count = 1
-    option.db_id = None
-
-    option.text = option.text.strip()
-    if not option.text:
+    option_text = option_text.strip()
+    if not option_text:
         return None
+    option = VoteEntry(text=option_text)
+    # option = VoteEntry.from_dict(voteinfo)
+    # # the only thing we accept from the client is the option text
+    # option.killed = False
+    # option.killed_text = None
+    # option.vote_count = 1
+    # option.db_id = None
+
+    # option.text = option.text.strip()
+    # if not option.text:
+    #     return None
 
     om = option.create_model()
     om.vote_id = vote_id
@@ -542,5 +550,9 @@ def set_vote_options(data) -> None:
     if story.author != current_user:
         return
 
+    print(data)
+    multivote = data.get('multivote') == 'true'
+    writein_allowed = data.get('writein_allowed') == 'true'
+    votes_hidden = data.get('votes_hidden') == 'true'
     # possible keys are ['multivote', 'writein_allowed', 'votes_hidden',
     # 'close_time']

@@ -7,6 +7,7 @@ from .general import csrf_check, make_csrf, login_mgr, db_connect
 from flask import (render_template, request, redirect, url_for, flash, abort,
                    jsonify, session, current_app, Blueprint)
 from flask_login import login_user, current_user, logout_user, login_required
+from flask_htmx import HTMX
 from werkzeug import Response
 from sentry_sdk import push_scope, capture_message, capture_exception
 
@@ -16,6 +17,8 @@ from passlib.context import CryptContext
 from datetime import datetime, timezone
 
 from typing import Optional, Union
+
+htmx = HTMX()
 
 def make_hasher():
     pwd_context = CryptContext(
@@ -72,7 +75,10 @@ def logout() -> Response:
     if not current_user.is_anonymous:
         logout_user()
         make_csrf(force=True)
-    return redirect(url_for('questing.main'))
+    if htmx:
+        return '', { "HX-Location": url_for('questing.main') }
+    else:
+        return redirect(url_for('questing.main'))
 
 def create_user(name: str, email: str, password: str) -> models.User:
     hasher = make_hasher()
@@ -344,4 +350,4 @@ def get_dark_mode() -> bool:
 def change_settings() -> str:
     dark_mode = int(request.form.get('dark_mode', 0))
     session['dark_mode'] = bool(dark_mode)
-    return ''
+    return '', { 'HX-Refresh': "true" }

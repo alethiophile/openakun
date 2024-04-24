@@ -1,6 +1,6 @@
 /* global $, moment, is_author, chapter_id, csrf_token, Quill,
    fix_quill_html, post_url, channel_id, Alpine, make_random_token,
-   ExpandingTextarea, io */
+   ExpandingTextarea, htmx, ws_html_func */
 $(function () {
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
@@ -80,19 +80,7 @@ $(function () {
     last_chat_message = ev.detail.elt;
   });
 
-  htmx.on('htmx:wsOpen', (ev) => {
-    window._websock = ev.detail.socketWrapper;
-  });
-
-  // this is called on every incoming WS message, before HTMX handles
-  // it, if and only if that message is not JSON
-
-  // it can cancel the event if desired
-  function process_ws_html(ev) {
-    let parser = new DOMParser();
-    let doc = parser.parseFromString(ev.detail.message, "text/html");
-    let node = doc.body.firstChild;
-    console.log(node);
+  ws_html_func((node, ev) => {
     // the is_author flag is set in inline JS in the view_chapter.html template
     if (node.getAttribute('data-totals-hidden') == '1' && is_author) {
       // in this case, we expect the same data with vote totals drawn
@@ -105,30 +93,8 @@ $(function () {
       console.log(`ignoring update for chapter ${node.getAttribute('data-chapter-id')} (current chapter is ${chapter_id})`);
       ev.preventDefault();
     }
-  }
-
-  htmx.on('htmx:wsBeforeMessage', (ev) => {
-    console.log(ev);
-    let msg_obj;
-    try {
-      msg_obj = JSON.parse(ev.detail.message);
-    } catch (error) {
-      // not JSON, proceed as usual
-      process_ws_html(ev);
-      return;
-    }
-    // message was JSON, dispatch as event
-    ev.preventDefault();
-    let cev = new CustomEvent(msg_obj['type'], { detail: msg_obj });
-    window.dispatchEvent(cev);
   });
 });
-
-function send_message(socket, type, message) {
-  message['type'] = type;
-  let data = JSON.stringify(message);
-  socket.send(data);
-}
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('active_vote', () => ({
@@ -149,19 +115,6 @@ document.addEventListener('alpine:init', () => {
     editing: false,
     admin: false,
 
-    toggle_vote: function (id) {
-      let msg = { channel: channel_id,
-                  vote: this.vote_id,
-                  option: id };
-      let socket = window._websock;
-      if (this.user_votes[id]) {
-        send_message(socket, 'remove_vote', msg)
-      }
-      else {
-        send_message(socket, 'add_vote', msg);
-      }
-    },
-
     handle_vote: function (data) {
       if (data.vote != this.vote_id) {
         return;
@@ -170,65 +123,6 @@ document.addEventListener('alpine:init', () => {
         this.user_votes = {};
       }
       this.user_votes[data.option] = data.value;
-    },
-
-    submit_new: function (ev) {
-      if (ev && ev.shiftKey) {
-        return;
-      }
-      if (ev) { ev.preventDefault(); }
-      let vt = this.$refs.edit.value;
-      let msg = { channel: channel_id,
-                  vote: this.vote_id,
-                  vote_info: { text: vt } };
-      let socket = window._websock;
-      send_message(socket, 'new_vote_entry', msg);
-
-      this.$refs.edit.value = '';
-    },
-
-    delete_option: function (option_id) {
-      let msg = {
-        channel: channel_id,
-        vote: this.vote_id,
-        option: option_id,
-        killed: true
-      };
-      let socket = window._websock;
-      send_message(socket, 'set_option_killed', msg);
-    },
-
-    set_kill_text: function (option_id, text) {
-      let msg = {
-        channel: channel_id,
-        vote: this.vote_id,
-        option: option_id,
-        killed: true,
-        message: text,
-      };
-      let socket = window._websock;
-      send_message(socket, 'set_option_killed', msg);
-    },
-
-    restore_option: function (option_id) {
-      let msg = {
-        channel: channel_id,
-        vote: this.vote_id,
-        option: option_id,
-        killed: false,
-      };
-      let socket = window._websock;
-      send_message(socket, 'set_option_killed', msg);
-    },
-
-    close_vote: function () {
-      let msg = {
-        channel: channel_id,
-        vote: this.vote_id,
-        active: false,
-      };
-      let socket = window._websock;
-      send_message(socket, 'set_vote_active', msg);
     },
   }));
 

@@ -106,8 +106,8 @@ def handle_message(which):
         return fn
     return deco
 
-@sock.route('/ws/<int:channel>')
-def ws_endpoint(ws, channel: int) -> None:
+@sock.route('/ws/<channel>')
+def ws_endpoint(ws, channel: str) -> None:
     print("current user is", str(current_user), channel)
 
     ws_chan = f'ws:{id(ws)}'
@@ -133,10 +133,16 @@ def ws_endpoint(ws, channel: int) -> None:
         except ConnectionClosed:
             pubsub.publish(ws_chan, 'ws_quit')
             raise
-        print("got websocket data:", data)
+        # print("got websocket data:", data)
         msg = json.loads(data)
-        msg['channel'] = channel
-        fn = handlers.get(msg['type'])
+        try:
+            msg['channel'] = int(channel)
+        except ValueError:
+            msg['channel'] = channel
+        mtype = msg.get('type', None)
+        if mtype is None:
+            continue
+        fn = handlers.get(mtype)
         if fn is None:
             continue
         fn(msg)
