@@ -9,7 +9,7 @@
  - Sentry DSN, once that's integrated
  - Password hash parameters (hash, security level)
    - Don't allow the known bad ones
-*** TODO add Flask config to openakun.cfg
+*** DONE add Flask config to openakun.cfg
  - Have a section Flask that gets dumped into flask config
    - ast.literal_eval to get around the issue with strings vs. Python
      objects
@@ -24,12 +24,19 @@
      Postgres
    - when vote is rendered, need to show which options current user is voting
      for
-*** TODO display posts better
+ - [X] Make new posts appear immediately
+   - [X] Add htmx-ws implementation
+   - [X] Ensure new posts only appear if viewing appropriate chapter
+ - [ ] Get rid of the client-side fix_server_dates thing and moment.js
+*** DONE display posts better
  - include date of posting
-*** TODO set up UI for chapters
+*** DONE set up UI for chapters
 *** TODO tune Quill editors for real markup abilities
  - incl. achievement links
-** DONE Realtime engine: chat
+** TODO Realtime engine: chat
+ - [X] Allow chatting
+ - [ ] Set up banlists and moderation
+
 ** TODO Realtime engine: votes
  - [X] Create votes on client, send as author
  - [X] Allow voting
@@ -39,15 +46,18 @@
  - [ ] timer for closing votes automatically
    - store close time on vote_config
  - [ ] differentiate closed votes in style
- - [ ] implement hidden totals on client side
+ - [X] implement hidden totals on client side
  - [X] make votes reorder by total (if not hidden)
- - [X] allow killing votes
+ - [-] allow killing votes
    - [X] kill functionality
    - [X] kill reason
+   - [ ] hard-kill (deletes from author + user view)
+     (this doesn't actually delete off the server)
  - [X] allow adding writeins
- - [ ] allow setting vote config on creation time
+ - [X] allow setting vote config on creation time
+ - [ ] allow reconfiguring votes after-the-fact
  - [X] handle voted-for for server-side-rendered votes
- - [ ] reorder vote options as vote totals are updated
+ - [X] reorder vote options as vote totals are updated
 
 The vote subsystem has several entities: channel (bound to story), vote and
 option. The channel is the basis of authentication: permission to chat in a
