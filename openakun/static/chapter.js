@@ -94,9 +94,31 @@ $(function () {
       ev.preventDefault();
     }
   });
+
+  setInterval(() => {
+    let cev = new CustomEvent('update-clocks');
+    window.dispatchEvent(cev);
+  }, 500);
 });
 
 document.addEventListener('alpine:init', () => {
+
+  function format_interval(millis) {
+    let seconds = Math.floor(millis / 1000), minutes = Math.floor(seconds / 60),
+        hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
+    let ss = seconds % 60, mm = minutes % 60, hh = hours % 24;
+    let pad = (num) => num.toString().padStart(2, '0');
+    if (hours == 0) {
+      return `${mm}:${pad(ss)}`;
+    }
+    else if (days == 0) {
+      return `${hh}:${pad(mm)}:${pad(ss)}`;
+    }
+    else {
+      return `${days} ${days > 1 ? 'days' : 'day'} ${hh}:${pad(mm)}:${pad(ss)}`;
+    }
+  }
+
   Alpine.data('active_vote', () => ({
     init() {
       // The server sets the .voted-for class on all the votes the
@@ -114,6 +136,20 @@ document.addEventListener('alpine:init', () => {
     user_votes: {},
     editing: false,
     admin: false,
+    close_time_str: "",
+
+    update_close_time: function() {
+      let ct = new Date(parseInt(this.$refs.close_time.getAttribute('data-close-time')));
+      let now = new Date(Date.now());
+      let diff = ct - now;
+      if (diff < 0) {
+        console.log("error: vote closing in the past");
+        this.close_time_str = "";
+        return;
+      }
+      let fint = format_interval(diff);
+      this.close_time_str = "Vote closes in " + fint;
+    },
 
     handle_vote: function (data) {
       if (data.vote != this.vote_id) {

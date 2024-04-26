@@ -161,12 +161,12 @@ class VoteEntry:
 
     def update_redis_dict(self, d: Dict[str, Any]) -> None:
         print(self, d)
-        self.killed = d['killed']
+        self.killed = d.get('killed', False)
         if self.killed:
             self.killed_text = d.get('killed_text')
         else:
             self.killed_text = None
-        self.users_voted_for = list(set(d['users_voted_for']))
+        self.users_voted_for = list(set(d.get('users_voted_for', [])))
         self.vote_count = len(self.users_voted_for)
 
     def set_model_votes(self, em):
@@ -236,7 +236,7 @@ class Vote:
             'votes_hidden': self.votes_hidden,
             'votes': vd,
             'close_time': (self.close_time.isoformat() if self.close_time
-                           else None),
+                           else False),
         }
 
     def update_redis_dict(self, d: Dict[str, Any]) -> None:
@@ -246,11 +246,11 @@ class Vote:
 
         """
         print(self, d)
-        self.multivote = d['multivote']
-        self.writein_allowed = d['writein_allowed']
-        self.votes_hidden = d['votes_hidden']
+        self.multivote = d.get('multivote', False)
+        self.writein_allowed = d.get('writein_allowed', False)
+        self.votes_hidden = d.get('votes_hidden', False)
         self.close_time = (datetime.fromisoformat(d['close_time'])
-                           if d['close_time'] else None)
+                           if d.get('close_time') else None)
         for vk, o in d['votes'].items():
             di = int(vk)
             for i in self.votes:

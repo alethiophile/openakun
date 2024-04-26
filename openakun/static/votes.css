@@ -94,15 +94,28 @@ input.kill-text-edit {
   height: 75%;
   align-self: center;
 }
-form.settings {
+div.settings {
   display: flex;
   margin: 1em;
-  /* margin-top: 1em; */
-  /* margin-bottom: 1em; */
   font-size: smaller;
 }
-form.settings button {
+div.settings button {
   margin-left: auto;
+  height: 75%;
+}
+div.settings input, div.settings select {
+  margin-left: 0.5em;
+}
+div.settings input {
+  font-size: smaller;
+  height: 75%;
+  align-self: center;
+}
+div.settings input:invalid {
+  border: 1px dashed red;
+}
+div.settings span {
+  align-self: center;
 }
 label.settings-option {
   margin-right: 1em;

@@ -31,12 +31,27 @@ versa. Thus, only updates via OOB are done via alpine-morph.
      {%- if hide_totals %} data-totals-hidden="1"{% endif -%}>
     <div class="vote-question">{{ vote.question }}</div>
     {%- if vote.active -%}
-        <form class="settings" ws-send x-show="admin" hx-vals='{ "type": "set_vote_options", "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }} }'>
-            <label class="settings-option"><input type="checkbox" name="multivote" value="true" {% if vote.multivote %}checked disabled
-            title="Cannot disable multivote once enabled"{% endif %}> Allow multiple vote selections</label>
-            <label class="settings-option"><input type="checkbox" name="writein_allowed" value="true" {% if vote.writein_allowed %}checked{% endif %}> Allow submitting new options</label>
-            <label class="settings-option"><input type="checkbox" name="votes_hidden" value="true" {% if vote.votes_hidden %}checked{% endif %}> Hide vote totals until vote is closed</label>
-            <button type="submit">Save</button>
+        {%- if vote.close_time -%}
+            <div x-ref="close_time" data-close-time="{{ (vote.close_time.timestamp() * 1000)|int }}"
+                 @update-clocks.window="update_close_time()" x-text="close_time_str">Vote closing at {{ vote.close_time.isoformat() }}</div>
+        {%- endif -%}
+        <form ws-send hx-vals='{ "type": "set_vote_options", "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }} }'>
+            <div class="settings" x-show="admin">
+                <label class="settings-option"><input type="checkbox" name="multivote" value="true" {% if vote.multivote %}checked disabled
+                                                      title="Cannot disable multivote once enabled"{% endif %}> Allow multiple vote selections</label>
+                <label class="settings-option"><input type="checkbox" name="writein_allowed" value="true" {% if vote.writein_allowed %}checked{% endif %}> Allow submitting new options</label>
+                <label class="settings-option"><input type="checkbox" name="votes_hidden" value="true" {% if vote.votes_hidden %}checked{% endif %}> Hide vote totals until vote is closed</label>
+                <button type="submit">Save</button>
+            </div>
+        </form>
+        <form ws-send hx-vals='{ "type": "set_vote_close_time", "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }} }'>
+            <div class="settings" x-show="admin" style="margin-top: -0.5em">
+                <span>Close automatically in: </span><input type="text" inputmode="numeric" name="value" style="width: 5em"
+                                                            @beforeinput='if ($event.data && !/^\d+$/.test($event.data)) { $event.preventDefault() }'>
+                <select name="unit"><option value="minutes">minutes</option><option value="hours">hours</option></select>
+                <button type="submit">Set close time</button>
+                <button type="button" style="margin-left: 0.5em" ws-send hx-vals='{ "type": "set_vote_close_time", "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }}, "clear": true }'{% if vote.close_time is none %} disabled{% endif %}>Clear close time</button>
+            </div>
         </form>
     {%- endif -%}
     {%- if hide_totals %}{% set entry_list = vote.votes|rejectattr('killed') -%}

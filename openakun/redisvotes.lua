@@ -1,5 +1,14 @@
 #!lua name=votes
 
+-- This code is loaded into Redis as a function in order to carry out
+-- vote operations atomically. Any operation that changes a value on a
+-- vote generally must be done here, due to how votes are stored.
+
+-- The scheme for vote storage is very simple: all information about a
+-- given vote is stored in a Redis hash whose keys are vote ID
+-- strings, and values are JSON text. This includes vote
+-- configuration, options and votes.
+
 -- for all these functions, "keys" will always be 1. the appropriate
 -- "channel_votes:{channel_id}" key and 2. "vote_info"
 
@@ -131,3 +140,28 @@ local function set_option_killed(keys, args)
    return true
 end
 redis.register_function('set_option_killed', set_option_killed)
+
+local function set_vote_config(keys, args)
+   if not redis.call('SISMEMBER', keys[1], args[1]) == 1 then
+      return false
+   end
+   local vote_id = args[1]
+   local vote_json = args[2]
+   local vote_conf = cjson.decode(vote_json)
+   local vote = get_vote(vote_id)
+   if vote_conf.multivote then
+      vote.multivote = true
+   end
+   if vote.writein_allowed ~= nil then
+      vote.writein_allowed = vote_conf.writein_allowed
+   end
+   if vote.votes_hidden ~= nil then
+      vote.votes_hidden = vote_conf.votes_hidden
+   end
+   if vote.close_time ~= nil then
+      vote.close_time = vote_conf.close_time
+   end
+   set_vote(vote_id, vote)
+   return true
+end
+redis.register_function('set_vote_config', set_vote_config)

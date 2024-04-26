@@ -9,7 +9,7 @@ from flask_login import current_user
 from flask import request, render_template
 from functools import wraps
 from operator import attrgetter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import sql, orm
 import hashlib, json
 from .websocket import handle_message
@@ -213,6 +213,16 @@ def get_user_identifier() -> str:
         return 'anon:' + register_ip(request.remote_addr)
     else:
         return f"user:{current_user.id}"
+
+def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
+    s = db_connect()
+    vm = (s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).
+          one_or_none())
+    if vm is None:
+        return None
+    v = Vote.from_model(vm)
+    populate_vote(channel_id, v)
+    return v
 
 def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     """Render a vote in user-agnostic form (i.e. no voted-for annotations) and
@@ -544,15 +554,83 @@ def set_option_killed(data) -> None:
 @handle_message('set_vote_options')
 def set_vote_options(data) -> None:
     # TODO factor out this authentication code
-    channel_id = data['channel']
+    channel_id = int(data['channel'])
     story = get_story(channel_id)
+    vote_id = int(data['vote'])
 
     if story.author != current_user:
         return
 
+    if not vote_is_active(channel_id, vote_id):
+        return
+
+    # TODO handle close time here as well
     print(data)
     multivote = data.get('multivote') == 'true'
     writein_allowed = data.get('writein_allowed') == 'true'
     votes_hidden = data.get('votes_hidden') == 'true'
     # possible keys are ['multivote', 'writein_allowed', 'votes_hidden',
     # 'close_time']
+
+    vote = get_vote_object(channel_id, vote_id)
+
+    # attempts to turn multivote off are ignored, since this could require
+    # deleting user votes
+    if multivote:
+        vote.multivote = True
+
+    vote.writein_allowed = writein_allowed
+    vote.votes_hidden = votes_hidden
+
+    rv = db.redis_conn.fcall('set_vote_config', 2,
+                             f'channel_votes:{channel_id}', 'vote_info',
+                             vote_id, json.dumps(vote.to_redis_dict()))
+    if not rv:
+        return None
+
+    send_vote_html(channel_id, vote_id)
+
+@handle_message('set_vote_close_time')
+def set_vote_close_time(data) -> None:
+    # TODO factor out this authentication code
+    channel_id = int(data['channel'])
+    story = get_story(channel_id)
+    vote_id = int(data['vote'])
+
+    if story.author != current_user:
+        return
+
+    if not vote_is_active(channel_id, vote_id):
+        return
+
+    # TODO handle close time here as well
+    print(data)
+
+    vote = get_vote_object(channel_id, vote_id)
+
+    if data.get('clear'):
+        vote.close_time = None
+    else:
+        try:
+            num = int(data.get('value'))
+        except Exception:
+            return
+        unit = data.get('unit')
+        if unit == 'minutes':
+            td = num * 60
+        elif unit == 'hours':
+            td = num * 3600
+        else:
+            return
+        vote.close_time = datetime.now(tz=timezone.utc) + timedelta(seconds=td)
+
+    rd = {}
+    rd['close_time'] = vote.to_redis_dict()['close_time']
+
+    rv = db.redis_conn.fcall('set_vote_config', 2,
+                             f'channel_votes:{channel_id}', 'vote_info',
+                             vote_id, json.dumps(rd))
+    if not rv:
+        return None
+
+    send_vote_html(channel_id, vote_id)
