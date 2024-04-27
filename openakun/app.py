@@ -1,6 +1,6 @@
 from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
-                      ConfigError, db_setup, db, login_mgr)
+                      ConfigError, db_setup, db, login_mgr, add_htmx_vary)
 
 import configparser, click, os, signal, traceback
 from flask import Flask, g
@@ -69,6 +69,7 @@ def create_app(config):
 
     app.before_request(make_csrf)
     app.after_request(add_csp)
+    app.after_request(add_htmx_vary)
     app.route('/csp_violation_report', methods=['POST'])(csp_report)
 
     app.register_blueprint(pages.questing)

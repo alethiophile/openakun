@@ -1,5 +1,5 @@
-/* global $, moment, is_author, chapter_id, csrf_token, Quill,
-   fix_quill_html, post_url, channel_id, Alpine, make_random_token,
+/* global $, moment, is_author, csrf_token, Quill,
+   fix_quill_html, post_url, Alpine, make_random_token,
    ExpandingTextarea, htmx, ws_html_func */
 $(function () {
   function fix_dates($el) {
@@ -89,6 +89,7 @@ $(function () {
       console.log("ignoring totals-hidden update")
       ev.preventDefault();
     }
+    let chapter_id = document.querySelector("#story-content").getAttribute('data-chapter-id');
     if (node.hasAttribute('data-chapter-id') && node.getAttribute('data-chapter-id') != chapter_id) {
       console.log(`ignoring update for chapter ${node.getAttribute('data-chapter-id')} (current chapter is ${chapter_id})`);
       ev.preventDefault();
@@ -207,6 +208,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     submit() {
+      let chapter_id = document.querySelector("#story-content").getAttribute('data-chapter-id');
       let msg = {
         chapter_id: chapter_id,
         _csrf_token: csrf_token,

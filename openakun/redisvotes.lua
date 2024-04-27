@@ -62,7 +62,7 @@ local function add_vote(keys, args)
       return false
    end
    if not vote.multivote then
-      for _, v in vote.votes do
+      for _, v in pairs(vote.votes) do
          v.users_voted_for[user_id] = nil
       end
    end

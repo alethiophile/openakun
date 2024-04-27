@@ -9,10 +9,6 @@ function ws_html_func(f) {
 }
 
 $(function () {
-  htmx.on('htmx:wsOpen', (ev) => {
-    window._websock = ev.detail.socketWrapper;
-  });
-
   // this is called on every incoming WS message, before HTMX handles
   // it, if and only if that message is not JSON
 

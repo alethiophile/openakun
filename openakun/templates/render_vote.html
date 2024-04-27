@@ -102,14 +102,14 @@ versa. Thus, only updates via OOB are done via alpine-morph.
     {%- if vote.active -%}
         {%- if vote.writein_allowed -%}
             <div>
-                <form x-ref="new_opt_form" ws-send {# hx-trigger="submit, keydown[which==13] from:find textarea" #}
+                <form x-ref="new_opt_form" ws-send
                       hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }}, "type": "new_vote_entry" }'
                       hx-on::ws-after-send="this.reset()">
                     <textarea x-ref="new_opt_edit" class="vote-editor" rows="1" data-min-rows="1" name="option_text" placeholder="Custom vote"
                               @keyup.enter="if (!$event.shiftKey) { $refs.new_opt_form.requestSubmit(); $event.preventDefault(); }"></textarea>
                     <div class="submit-row"><button type="submit">Submit custom vote</button></div>
                 </form>
-        </div>
+            </div>
         {%- endif -%}
         <button x-show="admin" ws-send
                 hx-vals='{ "channel": {{ chapter.story.channel_id }}, "vote": {{ vote.db_id }},

@@ -27,7 +27,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}">
     <script nonce="{{ get_script_nonce() }}">
-     var chapter_id = {{ chapter.id }};
      var channel_id = '{{ chapter.story.channel_id }}';
      var post_url = '{{ url_for('questing.new_post') }}';
      var csrf_token = '{{ session['_csrf_token'] }}';
@@ -43,7 +42,9 @@
                 {% if chapter.story.chapters|length > 1 %}
                     <span class="dropdown-header">Contents</span>
                     {% for i in chapter.story.chapters %}
-                        <a class="dropdown-item" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}">{{ i.title }}</a>
+                        <a class="dropdown-item" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}"
+                           hx-get="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}"
+                           hx-target="#content-container" hx-push-url="true">{{ i.title }}</a>
                     {% endfor %}
                 {% endif %}
                 <span class="dropdown-header">Story actions</span>
@@ -62,15 +63,17 @@
       {{ chapter.story.description | safe }}
     </div>
   {% endif %}
-  <div id="story-content">
+  <div id="story-content" data-chapter-id="{{ chapter.id }}">
     {% for p in chapter.posts %}
       {% do prepare_post(p, True) %}
       {% include 'render_post.html' %}
     {% endfor %}
   </div>
   {% if chapter != chapter.story.chapters[-1] %}
-    {% set next_chapter = chapter.story.chapters[chapter.story.chapters.index(chapter)+1] %}
-    <a class="nextchapter_link" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}">Next: {{ next_chapter.title }}</a>
+      {% set next_chapter = chapter.story.chapters[chapter.story.chapters.index(chapter)+1] %}
+      <a class="nextchapter_link" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
+         hx-get="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
+         hx-target="#content-container" hx-push-url="true">Next: {{ next_chapter.title }}</a>
   {% endif %}
   {% if chapter.story.author == current_user and chapter == chapter.story.chapters[-1] %}
     <div class="post-editor" x-data="post_editor">
@@ -93,9 +96,9 @@
           <textarea class="vote-editor" rows="1" data-min-rows="1" placeholder="What are you voting on?" x-bind="expanding_textarea" x-model="vote_question" pixel-height="24"></textarea>
         </div>
         <div>
-          <input class="form-check-input ml-0" type="checkbox" x-model="vote_multivote"><label class="form-check-label mr-3">Allow multiple votes</label>
-          <input class="form-check-input ml-0" type="checkbox" x-model="vote_writein"><label class="form-check-label mr-3">Allow write-in options</label>
-          <input class="form-check-input ml-0" type="checkbox" x-model="vote_hidden"><label class="form-check-label mr-3">Hide vote totals until close</label>
+            <label class="form-check-label mr-3"><input class="form-check-input ml-0" type="checkbox" x-model="vote_multivote"> Allow multiple votes</label>
+            <label class="form-check-label mr-3"><input class="form-check-input ml-0" type="checkbox" x-model="vote_writein"> Allow write-in options</label>
+            <label class="form-check-label mr-3"><input class="form-check-input ml-0" type="checkbox" x-model="vote_hidden"> Hide vote totals until close</label>
         </div>
         <div class="vote-entries">
           <template x-for="(v, i) in vote_options">

@@ -122,6 +122,10 @@ def add_csp(resp: Response) -> Response:
     resp.headers[header_name] = hval
     return resp
 
+def add_htmx_vary(resp: Response) -> Response:
+    resp.headers['Vary'] = 'HX-Request, HX-History-Restore-Request'
+    return resp
+
 def csp_report() -> str:
     # TODO log this
     print(request.data)

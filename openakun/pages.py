@@ -10,6 +10,7 @@ from flask_login import login_user, current_user, logout_user, login_required
 from flask_htmx import HTMX
 from werkzeug import Response
 from sentry_sdk import push_scope, capture_message, capture_exception
+from jinja2_fragments.flask import render_block
 
 import itsdangerous
 from passlib.context import CryptContext
@@ -191,8 +192,12 @@ def view_chapter(story_id: int, chapter_id: int) -> str:
     if chapter is None:
         abort(404)
     is_author = chapter.story.author == current_user
-    return render_template("view_chapter.html", chapter=chapter,
-                           msgs=chat_backlog, is_author=is_author)
+    if htmx and not htmx.history_restore_request:
+        return render_block("view_chapter.html", "content", chapter=chapter,
+                            msgs=chat_backlog, is_author=is_author)
+    else:
+        return render_template("view_chapter.html", chapter=chapter,
+                               msgs=chat_backlog, is_author=is_author)
 
 @questing.route('/vote/<int:vote_id>')
 def view_vote(vote_id: int) -> str:
@@ -318,7 +323,7 @@ def new_post() -> Response:
         # vote_info = Vote.from_model(vote_model)
         realtime.add_active_vote(vote_model, c.story.channel_id)
     prepare_post(p, user_votes=False)
-    text = render_template('render_post.html', p=p, htmx=True)
+    text = render_template('render_post.html', p=p, htmx=True, chapter=p.chapter)
     websocket.pubsub.publish(f'chan:{channel_id}', text)
     return jsonify({ 'new_url': url_for('questing.view_chapter',
                                         story_id=p.story.id,

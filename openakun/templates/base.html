@@ -87,7 +87,7 @@
                             {{ message }}
                         </div>
                     {% endfor %}
-                    <div class="pl-5 pr-5">
+                    <div id="content-container" class="pl-5 pr-5" hx-history-elt>
                     {% block content %}
                     {% endblock %}
                     </div>

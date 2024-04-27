@@ -622,7 +622,8 @@ def set_vote_close_time(data) -> None:
             td = num * 3600
         else:
             return
-        vote.close_time = datetime.now(tz=timezone.utc) + timedelta(seconds=td)
+        vote.close_time = datetime.now(tz=timezone.utc).replace(microsecond=0) \
+            + timedelta(seconds=td)
 
     rd = {}
     rd['close_time'] = vote.to_redis_dict()['close_time']
