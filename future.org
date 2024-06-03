@@ -28,11 +28,34 @@
    - [X] Add htmx-ws implementation
    - [X] Ensure new posts only appear if viewing appropriate chapter
  - [ ] Get rid of the client-side fix_server_dates thing and moment.js
+ - [ ] Add functionality to edit posts and add posts to old chapters
+   - [ ] Edit post
+   - [ ] Add post to prior chapter
+   - [ ] Reorder posts within chapters
+ - [ ] Add appendix post functionality
+
+ - [ ] Post formatting:
+   - [ ] bold
+   - [ ] italic
+   - [ ] underline
+   - [ ] color
+   - [ ] strike
+   - [ ] superscript
+   - [ ] subscript
+   - [ ] headers
+   - [ ] ul
+   - [ ] blockquote
+   - [ ] code
+   - [ ] spoiler
+   - [ ] achievement
+   - [ ] audio
+
 *** DONE display posts better
  - include date of posting
 *** DONE set up UI for chapters
 *** TODO tune Quill editors for real markup abilities
  - incl. achievement links
+** TODO Add topics
 ** TODO Realtime engine: chat
  - [X] Allow chatting
  - [ ] Set up banlists and moderation
@@ -55,7 +78,7 @@
      (this doesn't actually delete off the server)
  - [X] allow adding writeins
  - [X] allow setting vote config on creation time
- - [ ] allow reconfiguring votes after-the-fact
+ - [X] allow reconfiguring votes after-the-fact
  - [X] handle voted-for for server-side-rendered votes
  - [X] reorder vote options as vote totals are updated
 
