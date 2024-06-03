@@ -51,6 +51,9 @@ def create_app(config):
     login_mgr.login_view = 'login'
     websocket.sock.init_app(app)
 
+    websocket.pubsub.set_redis_opts(config['openakun']['redis_url'],
+                                    True, True)
+
     # to make the proxy_fix apply to the socketio as well, this has to be done
     # after the socketio is connected to the app
     if config.getboolean('openakun', 'proxy_fix', fallback=False):

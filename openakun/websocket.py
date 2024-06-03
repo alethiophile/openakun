@@ -4,7 +4,7 @@ from flask_sock import Sock, ConnectionClosed
 from flask_login import current_user
 from flask import request
 
-import threading, queue, time, json
+import threading, queue, time, json, redis, os, traceback
 
 from . import realtime
 
@@ -52,14 +52,74 @@ class SubscriptionFanout:
     values, concurrency errors may result.
 
     """
-    def __init__(self) -> None:
+    REDIS_PS_CHAN = 'subscription-fanout'
+
+    def __init__(self, redis_url: t.Optional[str] = None,
+                 redis_send: bool = False,
+                 redis_recv: bool = False) -> None:
         self.queues: dict[str, dict[int, queue.SimpleQueue]] = {}
         self.locks: dict[str, threading.Lock] = {}
 
-    def publish(self, key: str, value: t.Any) -> None:
+        self.set_redis_opts(redis_url, redis_send, redis_recv)
+
+    def set_redis_opts(self, redis_url: t.Optional[str],
+                       redis_send: bool = False,
+                       redis_recv: bool = False) -> None:
+        if hasattr(self, 'redis_conn'):
+            raise RuntimeError("cannot set redis opts again")
+
+        if (redis_send or redis_recv) and not redis_url:
+            raise ValueError("must set redis_url if send or receive selected")
+
+        if not (redis_send or redis_recv):
+            return
+
+        assert redis_url is not None
+        self.redis_conn = redis.Redis.from_url(redis_url)
+        self.redis_send = redis_send
+        self.redis_recv = redis_recv
+        self._recv_thread = None
+        self.obj_id = f"{os.getpid()}-{id(self)}"
+
+        if redis_recv:
+            # we set this to daemon=True because this thread should just be
+            # terminated on program exit
+            self._recv_thread = \
+                threading.Thread(target=self._redis_msg_receiver, daemon=True)
+            self._recv_thread.start()
+
+    def _redis_msg_receiver(self):
+        ps = self.redis_conn.pubsub(ignore_subscribe_messages=True)
+        ps.subscribe(self.REDIS_PS_CHAN)
+        for message in ps.listen():
+            try:
+                key, val, sender = self._parse_redis_msg(message['data'])
+            except Exception:
+                traceback.print_exc()
+                continue
+            if sender == self.obj_id:
+                continue
+            self._internal_publish(key, val)
+
+    def _make_redis_msg(self, key: str, value: t.Any) -> str:
+        return json.dumps({ 'key': key, 'value': value,
+                            'sender': self.obj_id })
+
+    @staticmethod
+    def _parse_redis_msg(msg: str) -> tuple[str, t.Any, str]:
+        d = json.loads(msg)
+        return d['key'], d['value'], d['sender']
+
+    def _internal_publish(self, key: str, value: t.Any) -> None:
         with self.locks.setdefault(key, threading.Lock()):
             for q in self.queues.setdefault(key, {}).values():
                 q.put((key, value))
+
+    def publish(self, key: str, value: t.Any) -> None:
+        self._internal_publish(key, value)
+        if self.redis_send:
+            message = self._make_redis_msg(key, value)
+            self.redis_conn.publish(self.REDIS_PS_CHAN, message)
 
     def subscribe(self, *keys: str, timeout: t.Optional[float] = None) -> \
             t.Iterator[t.Tuple[str, t.Any]]:
@@ -125,7 +185,7 @@ def ws_endpoint(ws, channel: str) -> None:
 
     request.sid = ws_chan
 
-    dst = threading.Thread(target=downsender)
+    dst = threading.Thread(target=downsender, daemon=True)
     dst.start()
     while True:
         try:
