@@ -2,7 +2,7 @@ from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
                       ConfigError, db_setup, db, login_mgr, add_htmx_vary)
 
-import configparser, click, os, signal, traceback
+import configparser, click, os, signal, traceback, threading
 from flask import Flask, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sentry_sdk
@@ -96,6 +96,11 @@ def init_db(silent: bool = False) -> None:
 def sigterm(signum, frame):
     raise KeyboardInterrupt()
 
+def start_debug(signum, frame):
+    print("debug signal")
+    traceback.print_stack()
+    print(threading.enumerate())
+
 @click.command()
 @click.option('--host', '-h', type=str, default=None,
               help="Hostname to bind to (default 127.0.0.1)")
@@ -116,9 +121,11 @@ def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
     app = create_app(config)
     signal.signal(signal.SIGTERM, sigterm)
     signal.signal(signal.SIGINT, sigterm)
+    signal.signal(signal.SIGUSR1, start_debug)
     realtime.repopulate_from_db()
     try:
         app.run(host=host, port=port, debug=debug)
     finally:
         print("Closing out Redis data...")
         realtime.close_to_db()
+        print("done")

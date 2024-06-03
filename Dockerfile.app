@@ -12,7 +12,7 @@ WORKDIR /app
 FROM base AS builder
 
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get -y install curl gcc libpq-dev git
+    apt-get -y install curl gcc libpq-dev git procps
 RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.2.2
 
 RUN python -m venv /venv
@@ -48,5 +48,5 @@ ENV PATH="/venv/bin:$PATH" \
 RUN /opt/poetry/bin/poetry install
 STOPSIGNAL SIGINT
 COPY docker_run_with_worker.sh /app
-# CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0", "--debug", "--devel"]
-CMD ["bash", "/app/docker_run_with_worker.sh"]
+CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0", "--debug", "--devel"]
+# CMD ["bash", "/app/docker_run_with_worker.sh"]

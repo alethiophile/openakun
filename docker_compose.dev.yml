@@ -16,6 +16,8 @@ services:
       - redis
       - postgres
     stop_signal: SIGINT
+    stdin_open: true
+    tty: true
   redis:
     image: "redis:alpine"
   postgres:
