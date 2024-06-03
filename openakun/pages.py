@@ -187,10 +187,10 @@ def view_chapter(story_id: int, chapter_id: int) -> str:
                filter(models.Chapter.id == chapter_id,
                       models.Chapter.story_id == story_id).
                one_or_none())
-    chat_backlog = [i.to_browser_message() for i in
-                    realtime.get_back_messages(chapter.story.channel_id)]
     if chapter is None:
         abort(404)
+    chat_backlog = [i.to_browser_message() for i in
+                    realtime.get_back_messages(chapter.story.channel_id)]
     is_author = chapter.story.author == current_user
     if htmx and not htmx.history_restore_request:
         return render_block("view_chapter.html", "content", chapter=chapter,
@@ -323,7 +323,8 @@ def new_post() -> Response:
         # vote_info = Vote.from_model(vote_model)
         realtime.add_active_vote(vote_model, c.story.channel_id)
     prepare_post(p, user_votes=False)
-    text = render_template('render_post.html', p=p, htmx=True, chapter=p.chapter)
+    text = render_template('render_post.html', p=p, htmx=True,
+                           chapter=p.chapter)
     websocket.pubsub.publish(f'chan:{channel_id}', text)
     return jsonify({ 'new_url': url_for('questing.view_chapter',
                                         story_id=p.story.id,

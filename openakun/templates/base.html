@@ -30,8 +30,8 @@
             <script nonce="{{ get_script_nonce() }}" src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
             <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='moment.min.js') }}" integrity="sha384-2xoILS8hBHw+Atyv/qJLEdk8dFdW1hbGjfeQ3G0GU3pGNPlqck0chRqjMTZ5blGf" crossorigin="anonymous"></script>
             <!-- <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-1.9.10.min.js') }}" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"></script> -->
-            <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-1.9.10.js') }}" integrity="sha384-j1TtLExqttdT7C3Z/rJy8UZcCGiuqwwN9++coZ6up+5O/l2FHdp3IGfuJOvst6d1"></script>
-            <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-ws-1.9.10.js') }}" integrity="sha384-CbqBkJV6GwhMBqicktBl0upImEYueWq3NQGWrS4HI1niUlhXAEfe9KoSWrst6Y2q"></script>
+            <script defer nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-1.9.10.js') }}" integrity="sha384-j1TtLExqttdT7C3Z/rJy8UZcCGiuqwwN9++coZ6up+5O/l2FHdp3IGfuJOvst6d1"></script>
+            <script defer nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-ws-1.9.10.js') }}" integrity="sha384-CbqBkJV6GwhMBqicktBl0upImEYueWq3NQGWrS4HI1niUlhXAEfe9KoSWrst6Y2q"></script>
             <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='main.js') }}"></script>
             <script nonce="{{ get_script_nonce() }}" type="text/javascript">
              var settings_url = '{{ url_for('questing.change_settings') }}';

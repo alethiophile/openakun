@@ -16,7 +16,7 @@
     <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.13.2/dist/cdn.min.js" integrity="sha384-A9C2JjKWfJ7GKJhkIhUTpa/jalfF+hzkoiM2YX95YaB6rHh88BIaXcnyesPfR1RP" crossorigin="anonymous"></script>
     <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.13.2/dist/cdn.min.js" integrity="sha384-Kvcu4IyKbkJlMJBBeqfCSkRXDtb8JKDSqVp7CKslnzV7xN2n28tZQx2ty0Wcf0qh" crossorigin="anonymous"></script>
     <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.2/dist/cdn.min.js" integrity="sha384-tdcclI3qSCW7QMlm1wTf5aYctcwpxNqszsU+BJCA7HfXmWAxuNPBqWmJrnmZ4er7" crossorigin="anonymous"></script>
-    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-alpine-morph-1.9.10.js') }}" integrity="sha384-tOAHN1ROllxv+z4ALtsuolyJGGB0NnJbgZb+Zk4vH1y5uMfjG24CLWV1C2kJg6ex"></script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='htmx-alpine-morph-1.9.10.js') }}" defer integrity="sha384-tOAHN1ROllxv+z4ALtsuolyJGGB0NnJbgZb+Zk4vH1y5uMfjG24CLWV1C2kJg6ex"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
     {% if get_dark_mode() %}

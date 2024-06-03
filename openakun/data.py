@@ -306,7 +306,7 @@ class HTMLText(object):
 
 class ChapterHTMLText(HTMLText):
     allowed_tags = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
-                    'strike', 'ul']
+                    'strike', 'ul', 'u']
 
     def allowed_attributes(self, tag: str, name: str, value: str) -> bool:
         if tag == 'a':
@@ -379,5 +379,6 @@ class Message:
     def send(self, room: Optional[str] = None) -> None:
         if room is None:
             room = self.dest
+        assert room is not None
         self.data['type'] = self.message_type
         websocket.pubsub.publish(room, json.dumps(self.data))
