@@ -115,7 +115,7 @@ def add_csp(resp: Response) -> Response:
     report_only = current_app.config['csp_report_only']
     header_name = ('Content-Security-Policy-Report-Only' if report_only else
                    'Content-Security-Policy')
-    hval = f"script-src 'nonce-{nv}' 'unsafe-eval'"
+    hval = f"script-src 'self' 'nonce-{nv}' 'unsafe-eval'"
     # TODO report even in enforcing mode
     if report_only:
         hval += f"; report-uri {url_for('csp_report')}"

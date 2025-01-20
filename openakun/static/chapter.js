@@ -1,6 +1,6 @@
 /* global $, moment, is_author, csrf_token, Quill,
    fix_quill_html, post_url, Alpine, make_random_token,
-   ExpandingTextarea, htmx, ws_html_func */
+   ExpandingTextarea, htmx, ws_html_func, tinymce */
 $(function () {
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
@@ -163,81 +163,87 @@ document.addEventListener('alpine:init', () => {
     },
   }));
 
-  Alpine.data('post_editor', function() { return {
-    init() {
-      this.quill_instance = new Quill(this.$refs.quill, {
-        theme: 'snow',
-      });
-      let t = this;
-      this.quill_instance.root.innerHTML = this.post_text;
-      this.quill_instance.on('text-change', function () {
-        let html = t.quill_instance.root.innerHTML;
-        t.post_text = fix_quill_html(html);
-      });
-    },
-
-    post_type: this.$persist('Text'),
-    make_new_chapter: this.$persist(false),
-    new_chapter_title: this.$persist(''),
-    post_text: this.$persist(''),
-    vote_question: this.$persist(''),
-    vote_multivote: this.$persist(true),
-    vote_writein: this.$persist(true),
-    vote_hidden: this.$persist(false),
-    vote_options: this.$persist([]),
-
-    add_option() {
-      this.vote_options.push({ text: '' });
-    },
-
-    delete_option(ind) {
-      this.vote_options.splice(ind, 1);
-    },
-
-    reset() {
-      this.post_type = 'Text';
-      this.make_new_chapter = false;
-      this.new_chapter_title = '';
-      this.post_text = '';
-      this.vote_question = '';
-      this.vote_multivote = true;
-      this.vote_writein = true;
-      this.vote_hidden = false;
-      this.vote_options = [];
-      this.quill_instance.setText('');
-    },
-
-    submit() {
-      let chapter_id = document.querySelector("#story-content").getAttribute('data-chapter-id');
-      let msg = {
-        chapter_id: chapter_id,
-        _csrf_token: csrf_token,
-        post_type: this.post_type,
-        new_chapter: this.make_new_chapter,
-        chapter_title: this.new_chapter_title,
-        post_text: this.post_text,
-        vote_data: {
-          question: this.vote_question,
-          multivote: this.vote_multivote,
-          writein_allowed: this.vote_writein,
-          votes_hidden: this.vote_hidden,
-          votes: this.vote_options.map((v) => ({ ...v })),
-        },
-      };
-      console.log(msg);
-      fetch(post_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(msg)
-      }).then(
-        () => { this.reset(); },
-        (err) => {
-          var errstr = "Error: " + err;
-          console.log(errstr);
-          alert(errstr);
+  Alpine.data('post_editor', function() {
+    let tinymce_instance;
+    return {
+      init() {
+        tinymce.init({
+          target: this.$refs.rich_text_editor,
+          menubar: false,
+          statusbar: false,
+        }).then(([ed]) => {
+          tinymce_instance = ed;
+          ed.setContent(this.post_text);
+          ed.on('input', () => {
+            this.post_text = ed.getContent();
+          });
         });
-    },
-  };});
+      },
+
+      post_type: this.$persist('Text'),
+      make_new_chapter: this.$persist(false),
+      new_chapter_title: this.$persist(''),
+      post_text: this.$persist(''),
+      vote_question: this.$persist(''),
+      vote_multivote: this.$persist(true),
+      vote_writein: this.$persist(true),
+      vote_hidden: this.$persist(false),
+      vote_options: this.$persist([]),
+
+      add_option() {
+        this.vote_options.push({ text: '' });
+      },
+
+      delete_option(ind) {
+        this.vote_options.splice(ind, 1);
+      },
+
+      reset() {
+        this.post_type = 'Text';
+        this.make_new_chapter = false;
+        this.new_chapter_title = '';
+        this.post_text = '';
+        this.vote_question = '';
+        this.vote_multivote = true;
+        this.vote_writein = true;
+        this.vote_hidden = false;
+        this.vote_options = [];
+        // this.quill_instance.setText('');
+        tinymce_instance.setContent('');
+      },
+
+      submit() {
+        let chapter_id = document.querySelector("#story-content").getAttribute('data-chapter-id');
+        let msg = {
+          chapter_id: chapter_id,
+          _csrf_token: csrf_token,
+          post_type: this.post_type,
+          new_chapter: this.make_new_chapter,
+          chapter_title: this.new_chapter_title,
+          post_text: this.post_text,
+          vote_data: {
+            question: this.vote_question,
+            multivote: this.vote_multivote,
+            writein_allowed: this.vote_writein,
+            votes_hidden: this.vote_hidden,
+            votes: this.vote_options.map((v) => ({ ...v })),
+          },
+        };
+        console.log(msg);
+        fetch(post_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(msg)
+        }).then(
+          () => { this.reset(); },
+          (err) => {
+            var errstr = "Error: " + err;
+            console.log(errstr);
+            alert(errstr);
+          });
+      },
+    };
+  });
 });
