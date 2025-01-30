@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block head %}
+    {{ super() }}
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
+    {% if story.author == current_user %}
+        <script nonce="{{ get_script_nonce() }}">
+         var is_author = true;
+        </script>
+    {% else %}
+        <script nonce="{{ get_script_nonce() }}">
+         var is_author = false;
+        </script>
+    {% endif %}
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.13.2/dist/cdn.min.js" integrity="sha384-A9C2JjKWfJ7GKJhkIhUTpa/jalfF+hzkoiM2YX95YaB6rHh88BIaXcnyesPfR1RP" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.13.2/dist/cdn.min.js" integrity="sha384-Kvcu4IyKbkJlMJBBeqfCSkRXDtb8JKDSqVp7CKslnzV7xN2n28tZQx2ty0Wcf0qh" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.2/dist/cdn.min.js" integrity="sha384-tdcclI3qSCW7QMlm1wTf5aYctcwpxNqszsU+BJCA7HfXmWAxuNPBqWmJrnmZ4er7" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11" integrity="sha384-O1kBn1fdY7JEyTHMP/0shbUTh839VvXxg1t758rE9xIUuofX+tobxkHuDyVrMwJK" crossorigin="anonymous"></script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/htmx-alpine-morph-1.9.10.js') }}" defer integrity="sha384-tOAHN1ROllxv+z4ALtsuolyJGGB0NnJbgZb+Zk4vH1y5uMfjG24CLWV1C2kJg6ex"></script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
+    {% if get_dark_mode() %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='dark-mode.css') }}">
+    {% else %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='light-mode.css') }}">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}">
+    <script nonce="{{ get_script_nonce() }}">
+     var story_id = '{{ story.id }}';
+     var channel_id = '{{ story.channel_id }}';
+     var post_url = '{{ url_for('questing.new_post') }}';
+     var new_topic_url = '{{ url_for('questing.new_topic') }}'
+     var csrf_token = '{{ session['_csrf_token'] }}';
+     var anon_username = 'anon';
+    </script>
+    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='chapter.js') }}"></script>
+{% endblock %}
+{% block sidebar %}
+    <div style="display: flex; align-items: center" id="topic-header">
+        <h4 class="sidebar-title">topics</h4>
+        <button style="margin-left: auto; margin-right: 1em"
+                id="new-topic-button">+ New topic</button>
+    </div>
+    <div id="topic-bar">
+        <div id="new-post-form-container" style="display: none">
+            {# The response here will have the HX-Push-Url header set
+            in order to push the topic URL into the history; it isn't
+            set here because we don't yet know what topic ID will be
+            assigned to the new topic, so we can't generate a URL for
+            it #}
+            <form id="new-post-form" hx-post="{{ url_for('questing.new_topic') }}"
+                  hx-target="#content-container" hx-ext="json-enc">
+                <input type="hidden" name="story_id" value="{{ story.id }}">
+                <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
+                New post title: <input type="text" name="title"><button type="submit">Post</button>
+            </form></div>
+        {% include 'topic_list.html' %}
+    </div>
+    <h4 class="sidebar-title">chat</h4>
+    <div id="chat-messages">
+        {% include 'chat_backlog.html' %}
+    </div>
+    <div class="chat-controls form-inline mb-2">
+        <form id="chat-sender" class="chat-controls" ws-send>
+            <input type="hidden" name="type" value="chat_message">
+            <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1" placeholder="Chat" name="msg"></textarea>
+            <button type="submit" class="btn btn-sm">Send</button>
+        </form>
+    </div>
+    <!-- </div> -->
+{% endblock %}

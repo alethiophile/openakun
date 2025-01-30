@@ -1,37 +1,7 @@
-{% extends "base.html" %}
-{% block title %}{{ chapter.story.title }}{% endblock %}
+{% extends "story_view.html" %}
+{% block title %}{{ story.title }}{% endblock %}
 {% block head %}
     {{ super() }}
-    {% if chapter.story.author == current_user %}
-        <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
-        <script nonce="{{ get_script_nonce() }}">
-         var is_author = true;
-        </script>
-    {% else %}
-        <script nonce="{{ get_script_nonce() }}">
-         var is_author = false;
-        </script>
-    {% endif %}
-    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.13.2/dist/cdn.min.js" integrity="sha384-A9C2JjKWfJ7GKJhkIhUTpa/jalfF+hzkoiM2YX95YaB6rHh88BIaXcnyesPfR1RP" crossorigin="anonymous"></script>
-    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.13.2/dist/cdn.min.js" integrity="sha384-Kvcu4IyKbkJlMJBBeqfCSkRXDtb8JKDSqVp7CKslnzV7xN2n28tZQx2ty0Wcf0qh" crossorigin="anonymous"></script>
-    <script nonce="{{ get_script_nonce() }}" defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.2/dist/cdn.min.js" integrity="sha384-tdcclI3qSCW7QMlm1wTf5aYctcwpxNqszsU+BJCA7HfXmWAxuNPBqWmJrnmZ4er7" crossorigin="anonymous"></script>
-    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/htmx-alpine-morph-1.9.10.js') }}" defer integrity="sha384-tOAHN1ROllxv+z4ALtsuolyJGGB0NnJbgZb+Zk4vH1y5uMfjG24CLWV1C2kJg6ex"></script>
-    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
-    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
-    {% if get_dark_mode() %}
-      <link rel="stylesheet" href="{{ url_for('static', filename='dark-mode.css') }}">
-    {% else %}
-      <link rel="stylesheet" href="{{ url_for('static', filename='light-mode.css') }}">
-    {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}">
-    <script nonce="{{ get_script_nonce() }}">
-     var channel_id = '{{ chapter.story.channel_id }}';
-     var post_url = '{{ url_for('questing.new_post') }}';
-     var csrf_token = '{{ session['_csrf_token'] }}';
-     var anon_username = 'anon';
-    </script>
-    <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='chapter.js') }}"></script>
 {% endblock %}
 {% block inside_menubar %}
     <div class="navbar-nav">
@@ -111,18 +81,4 @@
       <button class="btn mt-2" @click="submit()">Post</button>
     </div>
   {% endif %}
-{% endblock %}
-{% block sidebar %}
-    <div class="chat-bar" id="chat-ws-target">
-        <div id="chat-messages">
-            {% include 'chat_backlog.html' %}
-        </div>
-        <div class="chat-controls form-inline mb-2">
-            <form id="chat-sender" class="chat-controls" ws-send>
-                <input type="hidden" name="type" value="chat_message">
-                <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1" placeholder="Chat" name="msg"></textarea>
-                <button type="submit" class="btn btn-sm">Send</button>
-            </form>
-        </div>
-    </div>
 {% endblock %}

@@ -1,0 +1,17 @@
+{% extends "story_view.html" %}
+{% block title %}{{ story.title }} — {{ topic.title }}{% endblock %}
+{% block content %}
+<h1 class="story-title">{{ story.title }}</h1>
+<div class="story-author">
+    <a href="{{ url_for('questing.user_profile', user_id=story.author.id) }}">{{ story.author.name }}</a>
+</div>
+<h2>{{ topic.title }}</h2>
+<div class="topic-poster"><a href="{{ url_for('questing.user_profile', user_id=topic.poster_id) }}">{{ topic.poster.name }}</a></div>
+{% for p in topic.messages %}
+    <div class="message">
+        <div class="message-poster"><a href="{{ url_for('questing.user_profile', user_id=p.poster_id) }}">{{ p.poster.name }}</a></div>
+        <div class="message-post-date">{{ p.post_date.isoformat() }}</div>
+        <div class="message-body">{{ p.text | safe }}</div>
+    </div>
+{% endfor %}
+{% endblock %}

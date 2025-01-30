@@ -248,6 +248,35 @@ class AddressIdentifier(Base):
     hash = Column(String, primary_key=True)
     ip = Column(String, nullable=False)
 
+class Topic(Base):
+    __tablename__ = 'topics'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    poster_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    post_date = Column(DateTime(timezone=True), nullable=False)
+
+    # if null, it's a "front page" topic accessible from the homepage
+    story_id = Column(Integer, ForeignKey('stories.id'), nullable=True)
+
+    story = relationship("Story", backref="topics")
+    poster = relationship("User")
+
+    messages = relationship("TopicMessage", back_populates="topic",
+                            order_by="TopicMessage.post_date")
+
+class TopicMessage(Base):
+    __tablename__ = 'topic_messages'
+
+    id = Column(Integer, primary_key=True)
+    topic_id = Column(Integer, ForeignKey('topics.id'), nullable=False)
+    poster_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    post_date = Column(DateTime(timezone=True), nullable=False)
+    text = Column(String)
+
+    topic = relationship("Topic", back_populates="messages")
+    poster = relationship("User")
+
 def init_db(engine, use_alembic=True):
     Base.metadata.create_all(engine)
 

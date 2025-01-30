@@ -1,5 +1,5 @@
-/* global $, moment, is_author, csrf_token, Quill,
-   fix_quill_html, post_url, Alpine, make_random_token,
+/* global $, moment, is_author, csrf_token, Swal, story_id,
+   post_url, Alpine, make_random_token, new_topic_url,
    ExpandingTextarea, htmx, ws_html_func, tinymce */
 $(function () {
   function fix_dates($el) {
@@ -43,7 +43,7 @@ $(function () {
     }
   });
 
-  htmx.on('form#chat-sender', 'htmx:wsAfterSend', (ev) => {
+  htmx.on('form#chat-sender', 'htmx:wsAfterSend', () => {
     let $ct = $('#chat-type');
     $ct.val('');
     $ct.attr('rows', $ct.data('min-rows'));
@@ -74,10 +74,38 @@ $(function () {
   // only chat messages do the scroll stuff
   htmx.on('#chat-messages', 'htmx:load', (ev) => {
     if (scroll_after_new) {
-      let cm = document.querySelector('#chat-messages');
       cm.scrollTop = cm.scrollHeight;
     }
     last_chat_message = ev.detail.elt;
+  });
+
+  let anim_running = false;
+  function scroll_for_anim() {
+    cm.scrollTop = cm.scrollHeight;
+    if (anim_running) {
+      requestAnimationFrame(scroll_for_anim);
+    }
+  }
+
+  htmx.on('#topic-bar', 'transitionstart', () => {
+    if (scroll_after_new) {
+      anim_running = true;
+      requestAnimationFrame(scroll_for_anim);
+    }
+  });
+
+  htmx.on('#topic-bar', 'transitionend', () => {
+    anim_running = false;
+  });
+
+  htmx.on('#new-topic-button', 'click', () => {
+    let el = document.querySelector('#new-post-form-container');
+    el.style.display = '';
+  });
+
+  htmx.on('#new-post-form', 'submit', () => {
+    let el = document.querySelector('#new-post-form-container');
+    el.style.display = 'none';
   });
 
   ws_html_func((node, ev) => {

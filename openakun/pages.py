@@ -5,14 +5,14 @@ from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
 from .general import csrf_check, make_csrf, login_mgr, db_connect
 
 from flask import (render_template, request, redirect, url_for, flash, abort,
-                   jsonify, session, current_app, Blueprint)
+                   jsonify, session, current_app, Blueprint, make_response)
 from flask_login import login_user, current_user, logout_user, login_required
 from flask_htmx import HTMX
 from werkzeug import Response
 from sentry_sdk import push_scope, capture_message, capture_exception
 from jinja2_fragments.flask import render_block
 
-import itsdangerous
+import itsdangerous, json
 from passlib.context import CryptContext
 
 from datetime import datetime, timezone
@@ -180,6 +180,19 @@ def full_vote_info(channel_id: int, vm: models.VoteInfo,
             o.user_voted = o.db_id in uv
     return v
 
+def get_topics(story_id: int):
+    s = db_connect()
+    msgs = (
+        s.query(models.TopicMessage.topic_id,
+                models.func.count(models.TopicMessage.id).label('num_msgs'),
+                models.func.max(models.TopicMessage.post_date).label('latest_post')).
+        group_by(models.TopicMessage.topic_id).subquery())
+    topics = (s.query(models.Topic).
+              outerjoin(msgs, models.Topic.id == msgs.c.topic_id).
+              filter(models.Topic.story_id == story_id).
+              order_by(msgs.c.latest_post.desc()).all())
+    return topics
+
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
 def view_chapter(story_id: int, chapter_id: int) -> str:
     s = db_connect()
@@ -192,13 +205,18 @@ def view_chapter(story_id: int, chapter_id: int) -> str:
     chat_backlog = [i.to_browser_message() for i in
                     realtime.get_back_messages(chapter.story.channel_id)]
     is_author = chapter.story.author == current_user
+    topics = get_topics(story_id)
     if htmx and not htmx.history_restore_request:
         return render_block("view_chapter.html", "content", chapter=chapter,
-                            msgs=chat_backlog, is_author=is_author)
+                            msgs=chat_backlog, is_author=is_author,
+                            topics=topics, story=chapter.story)
     else:
         return render_template("view_chapter.html", chapter=chapter,
-                               msgs=chat_backlog, is_author=is_author)
+                               msgs=chat_backlog, is_author=is_author,
+                               topics=topics, story=chapter.story)
 
+# this endpoint is used only when reopening a closed vote; it gets sent via the
+# standard HTMX path (hx-get on the voteblock element in render_vote.html)
 @questing.route('/vote/<int:vote_id>')
 def view_vote(vote_id: int) -> str:
     s = db_connect()
@@ -212,6 +230,17 @@ def view_vote(vote_id: int) -> str:
     vote = full_vote_info(channel_id, ve, True)
     return render_template("render_vote.html", chapter=chapter, vote=vote,
                            is_author=is_author)
+
+# used for updating the topic list over HTMX
+@questing.route("/story/<int:story_id>/topics")
+def view_topic_list(story_id: int) -> str:
+    s = db_connect()
+    story = (s.query(models.Story).filter(models.Story.id == story_id).
+             one_or_none())
+    if story is None:
+        abort(404)
+    topics = get_topics(story_id)
+    return render_template("topic_list.html", story=story, topics=topics)
 
 def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
                 order_idx: Optional[int] = None) -> models.Post:
@@ -357,3 +386,107 @@ def change_settings() -> str:
     dark_mode = int(request.form.get('dark_mode', 0))
     session['dark_mode'] = bool(dark_mode)
     return '', { 'HX-Refresh': "true" }
+
+@questing.route('/topic/<int:topic_id>')
+def view_topic(topic_id: int) -> str:
+    s = db_connect()
+    htmx_partial = htmx and not htmx.history_restore_request
+    topic = (s.query(models.Topic).filter(models.Topic.id == topic_id).
+             one_or_none())
+    if topic is None:
+        abort(404)
+    if not htmx_partial:
+        chat_backlog = [i.to_browser_message() for i in
+                realtime.get_back_messages(topic.story.channel_id)]
+        topics = get_topics(topic.story_id)
+    # posts = (s.query(models.TopicMessage).filter(models.TopicMessage.topic_id ==
+    #                                              topic_id).
+    #          order_by(models.TopicMessage.post_date).all())
+    if htmx_partial:
+        return render_block("view_topic.html", "content", topic=topic,
+                            story=topic.story)
+    else:
+        return render_template("view_topic.html", topic=topic,
+                               story=topic.story, topics=topics,
+                               msgs=chat_backlog)
+
+@questing.route('/new_topic', methods=['GET', 'POST'])
+@csrf_check
+def new_topic() -> str:
+    if request.method == 'GET':
+        # send template
+        story_id = request.args.get('story_id')
+        if story_id:
+            try:
+                story_id = int(story_id)
+            except ValueError:
+                abort(400)
+        return render_template("new_topic.html", story_id=story_id)
+    elif request.method == 'POST':
+        data = request.json
+        if data is None:
+            abort(400)
+        assert data is not None
+        s = db_connect()
+        if 'story_id' in data:
+            story_id = data['story_id']
+            story = (s.query(models.Story).filter(models.Story.id == story_id).
+                     one_or_none())
+            if story is None:
+                abort(400)
+        else:
+            story = None
+        # TODO check permissions/bans
+        title = data['title']
+
+        t = models.Topic(
+            title=title,
+            post_date=datetime.now(tz=timezone.utc))
+        t.poster = current_user
+        t.story = story
+        s.add(t)
+        s.commit()
+
+        if story is not None:
+            websocket.pubsub.publish(f'chan:{story.channel_id}',
+                                     json.dumps({ 'type': 'topic-update' }))
+
+        # since this is going straight to HTMX, we just return the text that
+        # view_topic would along with the appropriate URL header
+        res = make_response(view_topic(t.id))
+        res.headers['HX-Push-Url'] = url_for('questing.view_topic',
+                                             topic_id=t.id)
+        return res
+
+@questing.route('/new_topic_post', methods=['POST'])
+@csrf_check
+def new_topic_post() -> str:
+    s = db_connect()
+    data = request.json
+    if data is None:
+        abort(400)
+    topic_id = data['topic_id']
+    topic = (s.query(models.Topic).filter(models.Topic.id == topic_id).
+             one_or_none())
+    if topic is None:
+        abort(400)
+
+    try:
+        text = clean_html(data['text'])
+    except Exception:
+        abort(400)
+
+    message = models.TopicMessage(
+        topic_id=topic_id,
+        post_date=datetime.now(tz=timezone.utc),
+        text=text)
+    message.poster = current_user
+
+    s.add(message)
+    s.commit()
+
+    if topic.story is not None:
+        websocket.pubsub.publish(f'chan:{topic.story.channel_id}',
+                                 json.dumps({ 'type': 'topic-update' }))
+
+    return redirect(url_for('questing.view_topic', topic_id=topic_id))
