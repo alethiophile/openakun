@@ -168,6 +168,11 @@ def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     rds = json.dumps(rd)
     db.redis_conn.hset('vote_info', str(vote.db_id), rds)
 
+    if vote.close_time is not None:
+        db.redis_conn.zadd('vote_close_times',
+                           { f"{channel_id}:{vote.db_id}":
+                             vote.close_time.timestamp() * 1000 })
+
     channel_key = f"channel_votes:{channel_id}"
     db.redis_conn.sadd(channel_key, str(vote.db_id))
 
@@ -410,7 +415,8 @@ def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> s
 #  - the time_closed set on the vote_info row
 #  - the vote_closed event emitted to the frontend
 def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
-               s: Optional[orm.Session] = None) -> None:
+               emit_client_event: bool = True, s: Optional[orm.Session] = None
+               ) -> None:
     """This function trusts its input: caller must verify that the given vote
     is open on the given channel.
 
@@ -422,16 +428,18 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
     close time passes during the downtime, the vote will stay closed and not
     repopulate.
 
+    emit_client_event governs whether an event is emitted to the frontend
+    marking the vote close. It should usually be true if set_close_time is
+    true.
+
     """
     assert db.redis_conn is not None
 
     if not vote_is_active(channel_id, vote_id):
         return None
 
-    shutdown = True
     if s is None:
         s = db_connect()
-        shutdown = False
     vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     ve = Vote.from_model(vm)
 
@@ -439,7 +447,14 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
     print(f"closing vote {ve}")
 
     channel_key = f"channel_votes:{channel_id}"
-    db.redis_conn.srem(channel_key, str(vote_id))
+    removed = db.redis_conn.srem(channel_key, str(vote_id))
+    # srem() returns the number of items removed from the set; in this case
+    # that will be 1 or 0 depending on whether the ID was actually in the set
+
+    # if it's 0, that means we got a race condition where someone else beat us
+    # to removing the item, so just exit
+    if removed < 1:
+        return None
 
     # these parameters don't matter when the vote is closed but they're
     # preserved for if it opens again
@@ -472,9 +487,10 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
     print("vm:", vm)
     s.commit()
 
+    db.redis_conn.zrem('vote_close_times', f"{channel_id}:{ve.db_id}")
     db.redis_conn.hdel('vote_info', str(vote_id))
 
-    if not shutdown:
+    if emit_client_event:
         websocket.pubsub.publish(f'chan:{channel_id}',
                                  json.dumps({ 'type': 'set-vote-open',
                                               'vote_id': vote_id,
@@ -487,7 +503,8 @@ def close_to_db():
     for vid, vs in vd.items():
         vi = json.loads(vs)
         channel_id = vi['channel_id']
-        close_vote(channel_id, int(vid), set_close_time=False, s=s)
+        close_vote(channel_id, int(vid), set_close_time=False,
+                   emit_client_event=False, s=s)
 
 # This can just call add_active_vote again, unset time_closed on the vote
 # entry, and emit an event to the frontend
@@ -622,8 +639,8 @@ def set_vote_close_time(data) -> None:
             td = num * 3600
         else:
             return
-        vote.close_time = datetime.now(tz=timezone.utc).replace(microsecond=0) \
-            + timedelta(seconds=td)
+        vote.close_time = (datetime.now(tz=timezone.utc).replace(microsecond=0)
+                           + timedelta(seconds=td))
 
     rd = {}
     rd['close_time'] = vote.to_redis_dict()['close_time']
@@ -633,5 +650,12 @@ def set_vote_close_time(data) -> None:
                              vote_id, json.dumps(rd))
     if not rv:
         return None
+
+    if vote.close_time is not None:
+        db.redis_conn.zadd('vote_close_times',
+                           { f"{channel_id}:{vote.db_id}":
+                             vote.close_time.timestamp() * 1000 })
+    else:
+        db.redis_conn.zrem('vote_close_times', f"{channel_id}:{vote.db_id}")
 
     send_vote_html(channel_id, vote_id)

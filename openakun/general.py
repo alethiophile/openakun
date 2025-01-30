@@ -1,6 +1,6 @@
 from . import models
 
-import secrets, re, redis, sqlalchemy, importlib.resources
+import secrets, re, redis, sqlalchemy, importlib.resources, configparser
 from flask import session, request, abort, g, current_app, url_for
 from functools import wraps
 from base64 import b64encode
@@ -134,3 +134,11 @@ def csp_report() -> str:
             scope.set_extra('request', request.get_json())
             capture_message("CSP violation")
     return ''
+
+def get_config(config_fn: str):
+    config = configparser.ConfigParser()
+    rv = config.read(config_fn)
+    if len(rv) == 0:
+        raise RuntimeError(f"Couldn't find config file {config_fn}")
+
+    return config

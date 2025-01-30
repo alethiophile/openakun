@@ -1,9 +1,10 @@
 #!python3
 
-from .general import parse_redis_url
+from .general import parse_redis_url, db_setup, db
 from .app import get_config
 from .models import Base
-from .realtime import message_cache_len, ChatMessage
+from .realtime import message_cache_len, ChatMessage, close_vote
+from .websocket import pubsub
 
 import celery, redis, json, os
 from celery.signals import worker_process_init, worker_process_shutdown
@@ -30,17 +31,15 @@ queue.conf.update(
 @queue.on_after_configure.connect
 def setup_periodic(sender, **kwargs):
     sender.add_periodic_task(60.0, save_chat_messages.s())
-
-db_engine = None
-db_session = None
-redis_conn = None
+    sender.add_periodic_task(60.0, queue_vote_closures.s())
 
 @worker_process_init.connect
 def get_db_conn(**kwargs):
-    global db_engine, db_session, redis_conn
-    db_engine = create_engine(config['openakun']['database_url'], echo=True)
-    db_session = sessionmaker(bind=db_engine)
-    redis_conn = redis.StrictRedis(**parse_redis_url(redis_url))
+    config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
+    config = get_config(config_fn)
+    db_setup(config=config)
+    pubsub.set_redis_opts(redis_url=config['openakun']['redis_url'],
+                          redis_send=True, redis_recv=False)
 
 def get_value(v: Any) -> Any:
     if isinstance(v, bool):
@@ -98,16 +97,16 @@ def save_chat_messages():
     messages from Redis. Runs every minute.
 
     """
-    all_channels = redis_conn.smembers('all_channels')
+    all_channels = db.redis_conn.smembers('all_channels')
     all_messages = []
     print("save_chat_messages")
     # del_toks = []
     for c in all_channels:
-        msgs = [json.loads(i) for i in redis_conn.lrange(c, 0, -1)]
+        msgs = [json.loads(i) for i in db.redis_conn.lrange(c, 0, -1)]
         # del_toks.extend([i['browser_token'] for i in
         #                  msgs[:- message_cache_len]])
         all_messages.extend(msgs)
-        redis_conn.ltrim(c, - message_cache_len, -1)
+        db.redis_conn.ltrim(c, - message_cache_len, -1)
 
     # domain invariant: these two sets cover all of all_messages and do not
     # intersect
@@ -116,7 +115,7 @@ def save_chat_messages():
     anon_messages = [ChatMessage.from_dict(i) for i in all_messages
                      if i.get('anon_id', None) is not None]
 
-    with db_session() as s:
+    with db.Session() as s:
         insert_ignoring_duplicates(
             s,
             # [ChatMessage.from_dict(i).to_model() for i in all_messages])
@@ -130,4 +129,33 @@ def save_chat_messages():
 
     age_cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=1)
     cutoff_us = age_cutoff.timestamp() * 1000000
-    redis_conn.zremrangebyscore('messages_seen', 0, cutoff_us)
+    db.redis_conn.zremrangebyscore('messages_seen', 0, cutoff_us)
+
+@queue.task(ignore_result=True)
+def queue_vote_closures():
+    """This task runs every minute. It scans the DB for votes that are set to
+    close within the next minute, and spawns new tasks to close them. This
+    avoids the problem with passing far-future eta arguments to celery tasks.
+
+    """
+    now = datetime.now(tz=timezone.utc)
+    end = now + timedelta(minutes=1)
+    # we start from 0, i.e. 1970, to catch any votes with close times in the
+    # past
+    start = datetime.datetime.fromtimestamp(0.0)
+    print("queue_vote_closures", start, end)
+    vals = db.redis_conn.zrange('vote_close_times', start.timestamp() * 1000,
+                                end.timestamp() * 1000, withscores=True)
+    print("vals", vals)
+
+    for val, score in vals:
+        close_time = datetime.fromtimestamp(float(score) / 1000.0,
+                                            timezone.utc)
+        channel_id, vote_id = [int(i) for i in val.split(':')]
+        do_close_vote.apply_async((channel_id, vote_id), eta=close_time)
+
+@queue.task(ignore_result=True)
+def do_close_vote(channel_id: int, vote_id: int):
+    print("do_close_vote", channel_id, vote_id)
+    close_vote(channel_id, vote_id, set_close_time=True,
+               emit_client_event=True, s=db.Session())

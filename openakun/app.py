@@ -1,22 +1,15 @@
 from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
-                      ConfigError, db_setup, db, login_mgr, add_htmx_vary)
+                      ConfigError, db_setup, db, login_mgr, add_htmx_vary,
+                      get_config)
 
-import configparser, click, os, signal, traceback, threading
+import click, os, signal, traceback, threading
 from flask import Flask, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
 from sentry_sdk.integrations.flask import FlaskIntegration
 from sqlalchemy import inspect
-
-def get_config(config_fn: str):
-    config = configparser.ConfigParser()
-    rv = config.read(config_fn)
-    if len(rv) == 0:
-        raise RuntimeError(f"Couldn't find config file {config_fn}")
-
-    return config
 
 def close_db_session(err):
     if err:

@@ -8,6 +8,7 @@ services:
       - "4430:5000"
     environment:
       FLASK_DEBUG: 1
+      OPENAKUN_CONFIG: /app/openakun.cfg
     volumes:
       - type: bind
         source: ./
