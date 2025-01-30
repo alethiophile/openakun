@@ -142,16 +142,17 @@ def queue_vote_closures():
     end = now + timedelta(minutes=1)
     # we start from 0, i.e. 1970, to catch any votes with close times in the
     # past
-    start = datetime.datetime.fromtimestamp(0.0)
+    start = datetime.fromtimestamp(0.0)
     print("queue_vote_closures", start, end)
-    vals = db.redis_conn.zrange('vote_close_times', start.timestamp() * 1000,
-                                end.timestamp() * 1000, withscores=True)
+    vals = db.redis_conn.zrange('vote_close_times',
+                                int(start.timestamp() * 1000),
+                                int(end.timestamp() * 1000), withscores=True)
     print("vals", vals)
 
     for val, score in vals:
         close_time = datetime.fromtimestamp(float(score) / 1000.0,
                                             timezone.utc)
-        channel_id, vote_id = [int(i) for i in val.split(':')]
+        channel_id, vote_id = [int(i) for i in val.decode().split(':')]
         do_close_vote.apply_async((channel_id, vote_id), eta=close_time)
 
 @queue.task(ignore_result=True)

@@ -171,7 +171,7 @@ def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     if vote.close_time is not None:
         db.redis_conn.zadd('vote_close_times',
                            { f"{channel_id}:{vote.db_id}":
-                             vote.close_time.timestamp() * 1000 })
+                             int(vote.close_time.timestamp() * 1000) })
 
     channel_key = f"channel_votes:{channel_id}"
     db.redis_conn.sadd(channel_key, str(vote.db_id))
@@ -654,7 +654,7 @@ def set_vote_close_time(data) -> None:
     if vote.close_time is not None:
         db.redis_conn.zadd('vote_close_times',
                            { f"{channel_id}:{vote.db_id}":
-                             vote.close_time.timestamp() * 1000 })
+                             int(vote.close_time.timestamp() * 1000) })
     else:
         db.redis_conn.zrem('vote_close_times', f"{channel_id}:{vote.db_id}")
 
