@@ -7,10 +7,10 @@ import configparser
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-openakun_config = configparser.ConfigParser()
-openakun_config.read('openakun.cfg')
-config.set_main_option('sqlalchemy.url',
-                       openakun_config['openakun']['database_url'])
+#openakun_config = configparser.ConfigParser()
+#openakun_config.read('openakun.cfg')
+# config.set_main_option('sqlalchemy.url',
+#                        openakun_config['openakun']['database_url'])
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

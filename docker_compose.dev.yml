@@ -29,5 +29,7 @@ services:
     environment:
       POSTGRES_PASSWORD: password
       PGDATA: /data/pgdata
+    ports:
+      - "2345:5432"
 volumes:
   db-data:
