@@ -315,6 +315,9 @@ time the server will automatically close the vote (using Celery).
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
 ** TODO User profile, account management
+ - [X] View story list
+ - [ ] View author bio
+ - [ ] Change bio/details
 ** DONE Chapter UI
 ** DONE Fix UI arrangement
 ** TODO Log user actions
