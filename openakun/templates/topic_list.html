@@ -1,12 +1,12 @@
 <div id="topic-list" class="overflow-y-auto"
      hx-swap-oob="outerHTML">
     {% for t in topics %}
-        <div class="topic">
-            <span class="topic-title">
-                <a href="{{ url_for('questing.view_topic', topic_id=t.id) }}"
-                   hx-get="{{ url_for('questing.view_topic', topic_id=t.id) }}"
-                   hx-target="#content-container" hx-push-url="true"
-                   hx-swap="innerHTML">{{ t.title }}</a></span>
+        <div class="topic hover:bg-neutral-300 cursor-pointer"
+             hx-get="{{ url_for('questing.view_topic', topic_id=t.id) }}"
+             hx-target="#content-container" hx-push-url="true"
+            hx-swap="innerHTML">
+            <span class="topic-title font-bold">{{ t.title }}</span><br>
+            <span class="topic-poster">{{ t.poster.name }}</span>&nbsp;&nbsp;{% if t.messages|length > 0 %}{{ t.messages | length }} messages&nbsp;&nbsp;{{ t.messages[-1].post_date.date().isoformat() }}{% else %}{{ t.post_date.date().isoformat() }}{% endif %}
         </div>
     {% endfor %}
 </div>
