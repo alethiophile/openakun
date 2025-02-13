@@ -448,8 +448,8 @@ def new_topic() -> str:
         s.commit()
 
         if story is not None:
-            websocket.pubsub.publish(f'chan:{story.channel_id}',
-                                     json.dumps({ 'type': 'topic-update' }))
+            text = view_topic_list(story_id)
+            websocket.pubsub.publish(f'chan:{story.channel_id}', text)
 
         # since this is going straight to HTMX, we just return the text that
         # view_topic would along with the appropriate URL header
@@ -486,7 +486,8 @@ def new_topic_post() -> str:
     s.commit()
 
     if topic.story is not None:
-        websocket.pubsub.publish(f'chan:{topic.story.channel_id}',
-                                 json.dumps({ 'type': 'topic-update' }))
+        story_id = topic.story_id
+        text = view_topic_list(story_id)
+        websocket.pubsub.publish(f'chan:{topic.story.channel_id}', text)
 
     return redirect(url_for('questing.view_topic', topic_id=topic_id))
