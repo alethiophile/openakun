@@ -3,3 +3,5 @@ openakun.egg-info/
 openakun.cfg
 celerybeat-schedule
 dist/
+openakun_config.toml
+secrets.env

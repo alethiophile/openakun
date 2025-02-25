@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import attr, secrets, bleach, json
+import secrets, bleach, json
 from datetime import datetime, timezone
+from attrs import define, field, asdict
 
 from . import models, websocket
 
 from typing import Optional, Dict, Any, List
 
-@attr.s(auto_attribs=True)
+@define
 class ChatMessage:
     # we have two separate browser_token and server_token because browser_token
     # is used for communications between the browser and redis, and
@@ -111,11 +112,11 @@ class ChatMessage:
         return rv
 
     def to_dict(self) -> Dict[str, Any]:
-        rv = attr.asdict(self)
+        rv = asdict(self)
         rv['date'] = rv['date'].isoformat()
         return rv
 
-@attr.s(auto_attribs=True)
+@define
 class VoteEntry:
     text: str
     killed: bool = False
@@ -150,7 +151,7 @@ class VoteEntry:
             user_voted=user_voted)
 
     def to_dict(self) -> Dict[str, Any]:
-        return attr.asdict(self)
+        return asdict(self)
 
     def to_redis_dict(self) -> Dict[str, Any]:
         return {
@@ -195,7 +196,7 @@ class VoteEntry:
             self.set_model_votes(em)
         return em
 
-@attr.s(auto_attribs=True)
+@define
 class Vote:
     question: str
     multivote: bool
@@ -226,7 +227,7 @@ class Vote:
             db_id=m.id)
 
     def to_dict(self) -> Dict[str, Any]:
-        return attr.asdict(self)
+        return asdict(self)
 
     def to_redis_dict(self) -> Dict[str, Any]:
         vd = { str(i.db_id): i.to_redis_dict() for i in self.votes }
@@ -320,11 +321,11 @@ def clean_html(html_in: str) -> str:
         raise BadHTMLError(good_html=html.clean_html, bad_html=html.dirty_html)
     return html.clean_html
 
-@attr.s(auto_attribs=True)
+@define
 class Post:
-    text: Optional[str] = attr.ib()
+    text: Optional[str] = field()
     post_type: models.PostType
-    posted_date: datetime = attr.Factory(lambda: datetime.now(tz=timezone.utc))
+    posted_date: datetime = field(factory=lambda: datetime.now(tz=timezone.utc))
     order_idx: Optional[int] = None
 
     @text.validator
@@ -346,7 +347,7 @@ class Post:
         return cls(**d)
 
     def to_dict(self) -> Dict[str, Any]:
-        rv = attr.asdict(self)
+        rv = asdict(self)
         rv['post_type'] = rv['post_type'].name
         rv['posted_date'] = rv['posted_date'].isoformat()
         return rv
@@ -357,7 +358,7 @@ class Post:
             text=m.text,
             posted_date=m.posted_date,
             order_idx=m.order_idx,
-            post_type=m.post_type)
+            post_type=models.PostType(m.post_type))
 
     def create_model(self) -> models.Post:
         d: dict[str, Any] = {
@@ -370,7 +371,7 @@ class Post:
         # it's None, so that the model's default triggers
         return models.Post(**d)
 
-@attr.s(auto_attribs=True)
+@define
 class Message:
     message_type: str
     data: Dict[str, Any]
