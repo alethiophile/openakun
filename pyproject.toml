@@ -6,11 +6,11 @@ authors = ["alethiophile <mail@alethiophile.dev>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.12"
 passlib = "^1.7.2"
 fastpbkdf2 = "^0.2"
 alembic = "^1.4.3"
-sqlalchemy = "^2.0.19"
+sqlalchemy = "^2.0.38"
 psycopg2 = "^2.9.6"
 bleach = "^3.2.1"
 redis = "^5.0.1"
@@ -34,7 +34,6 @@ openakun_server = 'openakun.app:do_run'
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.4.1"
 flake8 = "^6.1.0"
-sqlalchemy-stubs = "^0.4"
 types-redis = "^4.6.0.10"
 types-bleach = "^6.1.0.0"
 types-passlib = "^1.7.7.13"

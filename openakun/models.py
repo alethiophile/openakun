@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # despite not a script...
 
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import (Column, Integer, String, ForeignKey, DateTime,
-                        MetaData, Boolean, CheckConstraint, UniqueConstraint,
-                        Index, Table, Enum)
+from __future__ import annotations
+
+from sqlalchemy import (Column, Integer, ForeignKey, DateTime, MetaData,
+                        CheckConstraint, UniqueConstraint, Index, Table)
 from sqlalchemy import create_engine, func  # noqa: F401
-from sqlalchemy.orm import relationship, sessionmaker, backref  # noqa: F401
+from sqlalchemy.orm import (relationship, sessionmaker,  # noqa: F401
+                            DeclarativeBase, Mapped, mapped_column)
 from sqlalchemy.sql import select
+from datetime import datetime
 
 import os, enum
 
@@ -23,9 +25,12 @@ naming = {
 # Disable naming convention if we're in the test suite; this allows doing it in
 # sqlite to work
 if os.environ.get('OPENAKUN_TESTING') == '1':
-    Base = declarative_base()
+    md = MetaData()
 else:
-    Base = declarative_base(metadata=MetaData(naming_convention=naming))
+    md = MetaData(naming_convention=naming)
+
+class Base(DeclarativeBase):
+    metadata = md
 
 user_with_role = Table('user_with_role', Base.metadata,
                        Column('user_id', Integer, ForeignKey('users.id')),
@@ -35,15 +40,15 @@ user_with_role = Table('user_with_role', Base.metadata,
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    email = Column(String)
-    email_verified = Column(Boolean, nullable=False, default=False)
-    password_hash = Column(String)
-    joined_date = Column(DateTime(timezone=True))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+    email: Mapped[str | None]
+    email_verified: Mapped[bool] = mapped_column(default=False)
+    password_hash: Mapped[str]
+    joined_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    roles = relationship("UserRole", secondary=user_with_role,
-                         backref='users')
+    roles: Mapped[list[UserRole]] = relationship(secondary=user_with_role)
+    stories: Mapped[list[Story]] = relationship(back_populates="author")
 
     def __repr__(self):
         return "<User '{}' (id {})>".format(self.name, self.id)
@@ -67,20 +72,28 @@ class User(Base):
 class UserRole(Base):
     __tablename__ = 'user_roles'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str]
 
 class Story(Base):
     __tablename__ = 'stories'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    description = Column(String)
-    author_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str]
+    description: Mapped[str]
+    author_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    channel_id: Mapped[int] = mapped_column(ForeignKey('channels.id'))
 
-    author = relationship("User", backref="stories")
-    channel = relationship("Channel", uselist=False)
+    author: Mapped[User] = relationship(back_populates="stories")
+    channel: Mapped[Channel] = relationship(uselist=False)
+    posts: Mapped[Post] = relationship(back_populates="story",
+                                       order_by='Post.order_idx')
+    topics: Mapped[list[Topic]] = relationship(back_populates='story')
+
+    chapters: Mapped[list[Chapter]] = relationship(
+        back_populates='story',
+        order_by='Chapter.is_appendix,Chapter.order_idx',
+        uselist=True)
 
     def __repr__(self):
         return "<Story '{}' (id {}) by {}>".format(self.title, self.id,
@@ -89,16 +102,14 @@ class Story(Base):
 class Chapter(Base):
     __tablename__ = 'chapters'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
-    is_appendix = Column(Boolean, nullable=False, default=False)
-    order_idx = Column(Integer, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str]
+    story_id: Mapped[int] = mapped_column(ForeignKey('stories.id'))
+    is_appendix: Mapped[bool] = mapped_column(default=False)
+    order_idx: Mapped[int]
 
-    story = relationship("Story", backref=backref(
-        "chapters",
-        order_by='Chapter.is_appendix,Chapter.order_idx'
-    ))
+    story: Mapped[Story] = relationship(back_populates='chapters')
+    posts: Mapped[list[Post]] = relationship(back_populates='chapter')
 
     def __repr__(self):
         return ("<Chapter '{}' (id {}, idx {}) of '{}', appendix={}>".
@@ -122,38 +133,38 @@ def order_idx_default(context):
 class Post(Base):
     __tablename__ = 'posts'
 
-    id = Column(Integer, primary_key=True)
-    text = Column(String)
-    posted_date = Column(DateTime(timezone=True), nullable=False)
-    story_id = Column(Integer, ForeignKey('stories.id'), nullable=False)
-    chapter_id = Column(Integer, ForeignKey('chapters.id'), nullable=False)
-    order_idx = Column(Integer, nullable=False, default=order_idx_default)
-    post_type = Column(Enum(PostType), default=PostType.Text, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    text: Mapped[str]
+    posted_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    story_id: Mapped[int] = mapped_column(ForeignKey('stories.id'))
+    chapter_id: Mapped[int] = mapped_column(ForeignKey('chapters.id'))
+    order_idx: Mapped[int] = mapped_column(default=order_idx_default)
+    post_type: Mapped[PostType] = mapped_column(default=PostType.Text)
     # null unless type is Vote
     # vote_id = Column(Integer, ForeignKey('vote_info.id'))
 
-    story = relationship("Story", backref=backref(
-        "posts",
-        order_by='Post.order_idx'
-    ))
-    chapter = relationship("Chapter", backref="posts")
-    vote_info = relationship("VoteInfo", uselist=False, back_populates="post")
+    story: Mapped[Story] = relationship(back_populates="posts")
+    chapter: Mapped[Chapter] = relationship(back_populates="posts")
+    vote_info: Mapped[VoteInfo] = relationship(uselist=False,
+                                               back_populates="post")
 
 class VoteInfo(Base):
     __tablename__ = 'vote_info'
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     # unique is True to enforce one-to-one relationship with Post
-    post_id = Column(Integer, ForeignKey('posts.id'), nullable=False,
-                     unique=True)
-    vote_question = Column(String, nullable=False)
-    multivote = Column(Boolean, default=True, nullable=False)
-    writein_allowed = Column(Boolean, default=True, nullable=False)
-    votes_hidden = Column(Boolean, default=False, nullable=False)
-    time_closed = Column(DateTime(timezone=True))
+    post_id: Mapped[int] = mapped_column(ForeignKey('posts.id'),
+                                         unique=True)
+    vote_question: Mapped[str]
+    multivote: Mapped[bool] = mapped_column(default=True)
+    writein_allowed: Mapped[bool] = mapped_column(default=True)
+    votes_hidden: Mapped[bool] = mapped_column(default=False)
+    time_closed: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True))
 
-    votes = relationship('VoteEntry', uselist=True, back_populates='vote_info')
-    post = relationship('Post', back_populates='vote_info')
+    votes: Mapped[list[VoteEntry]] = relationship(uselist=True,
+                                                  back_populates='vote_info')
+    post: Mapped[Post] = relationship(back_populates='vote_info')
 
     def __repr__(self) -> str:
         return (f"VoteInfo(id={self.id}, post_id={self.post_id}, "
@@ -166,14 +177,16 @@ class VoteInfo(Base):
 class VoteEntry(Base):
     __tablename__ = 'vote_entries'
 
-    id = Column(Integer, primary_key=True)
-    vote_id = Column(Integer, ForeignKey('vote_info.id'), nullable=False)
-    vote_text = Column(String, nullable=False)
-    killed = Column(Boolean, default=False, nullable=False)
-    killed_text = Column(String)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vote_id: Mapped[int] = mapped_column(ForeignKey('vote_info.id'))
+    vote_text: Mapped[str]
+    killed: Mapped[bool] = mapped_column(default=False)
+    killed_text: Mapped[str | None]
 
-    votes = relationship('UserVote', uselist=True, cascade='all, delete-orphan')
-    vote_info = relationship('VoteInfo', uselist=False, back_populates='votes')
+    votes: Mapped[list[UserVote]] = relationship(uselist=True,
+                                                 cascade='all, delete-orphan')
+    vote_info: Mapped[VoteInfo] = relationship(uselist=False,
+                                               back_populates='votes')
 
     def __repr__(self) -> str:
         return (f"VoteEntry(id={self.id}, vote_id={self.vote_id}, "
@@ -188,12 +201,10 @@ class UserVote(Base):
         UniqueConstraint('entry_id', 'user_id', 'anon_id'),
     )
 
-    id = Column(Integer, primary_key=True)
-    entry_id = Column(Integer, ForeignKey('vote_entries.id'), nullable=False,
-                      )
-    user_id = Column(Integer, ForeignKey('users.id'),
-                     nullable=True)
-    anon_id = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey('vote_entries.id'))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
+    anon_id: Mapped[str | None]
 
     def __repr__(self) -> str:
         return (f'UserVote(entry_id={self.entry_id}, ' +
@@ -207,19 +218,20 @@ class WriteinEntry(Base):
                         name='user_or_anon'),
     )
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    anon_id = Column(String)
-    text = Column(String)
-    date_added = Column(DateTime(timezone=True), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    anon_id: Mapped[str]
+    text: Mapped[str]
+    date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 class Channel(Base):
     __tablename__ = 'channels'
 
-    id = Column(Integer, primary_key=True)
-    private = Column(Boolean, default=False, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    private: Mapped[bool] = mapped_column(default=False)
 
-    story = relationship("Story", back_populates='channel')
+    story: Mapped[Story] = relationship(back_populates='channel')
+    messages: Mapped[list[ChatMessage]] = relationship(back_populates='channel')
 
 class ChatMessage(Base):
     __tablename__ = 'chat_messages'
@@ -229,53 +241,54 @@ class ChatMessage(Base):
         Index('channel_idx', 'channel_id', 'date')
     )
 
-    id = Column(Integer, primary_key=True)
-    id_token = Column(String, nullable=False, unique=True)
-    channel_id = Column(Integer, ForeignKey('channels.id'), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    anon_id = Column(String)
-    date = Column(DateTime(timezone=True), nullable=False)
-    text = Column(String)
-    special = Column(Boolean, default=False, nullable=False)
-    image = Column(Boolean, default=False, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_token: Mapped[str] = mapped_column(unique=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey('channels.id'))
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    anon_id: Mapped[str]
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    text: Mapped[str]
+    special: Mapped[bool] = mapped_column(default=False)
+    image: Mapped[bool] = mapped_column(default=False)
 
-    user = relationship("User")
-    channel = relationship("Channel", backref="messages")
+    user: Mapped[User] = relationship()
+    channel: Mapped[Channel] = relationship(back_populates="messages")
 
 class AddressIdentifier(Base):
     __tablename__ = 'address_identifier'
 
-    hash = Column(String, primary_key=True)
-    ip = Column(String, nullable=False)
+    hash: Mapped[str] = mapped_column(primary_key=True)
+    ip: Mapped[str]
 
 class Topic(Base):
     __tablename__ = 'topics'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String, nullable=False)
-    poster_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    post_date = Column(DateTime(timezone=True), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str]
+    poster_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    post_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     # if null, it's a "front page" topic accessible from the homepage
-    story_id = Column(Integer, ForeignKey('stories.id'), nullable=True)
+    story_id: Mapped[int | None] = mapped_column(ForeignKey('stories.id'))
 
-    story = relationship("Story", backref="topics")
-    poster = relationship("User")
+    story: Mapped[Story] = relationship(back_populates="topics")
+    poster: Mapped[User] = relationship()
 
-    messages = relationship("TopicMessage", back_populates="topic",
-                            order_by="TopicMessage.post_date")
+    messages: Mapped[list[TopicMessage]] = relationship(
+        back_populates="topic",
+        order_by="TopicMessage.post_date")
 
 class TopicMessage(Base):
     __tablename__ = 'topic_messages'
 
-    id = Column(Integer, primary_key=True)
-    topic_id = Column(Integer, ForeignKey('topics.id'), nullable=False)
-    poster_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    post_date = Column(DateTime(timezone=True), nullable=False)
-    text = Column(String)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey('topics.id'))
+    poster_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    post_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    text: Mapped[str]
 
-    topic = relationship("Topic", back_populates="messages")
-    poster = relationship("User")
+    topic: Mapped[Topic] = relationship(back_populates="messages")
+    poster: Mapped[User] = relationship()
 
 def init_db(engine, use_alembic=True):
     Base.metadata.create_all(engine)
