@@ -7,6 +7,7 @@ from base64 import b64encode
 from werkzeug import Response
 from sentry_sdk import push_scope, capture_message
 from flask_login import LoginManager
+from .config import Config
 
 from typing import Callable, Optional
 
@@ -56,18 +57,17 @@ def decode_redis_dict(l):
     return dict(to_pairs(l))
 
 # TODO make this per-request?
-def db_setup(config=None, force_redis=False) -> None:
+def db_setup(config: Config | None = None, force_redis: bool = False) -> None:
     # global db_engine, Session, redis_conn
     if config is None:
-        config = current_app.config_data
+        config = current_app.config['data_obj']
     global db
     if db.db_engine is None:
-        db.db_engine = models.create_engine(config['openakun']['database_url'],
-                                            echo=config.getboolean('openakun',
-                                                                   'echo_sql'))
+        db.db_engine = models.create_engine(config.database_url,
+                                            echo=config.echo_sql)
         db.Session = models.sessionmaker(bind=db.db_engine)
     if db.redis_conn is None:
-        redis_info = parse_redis_url(config['openakun']['redis_url'])
+        redis_info = parse_redis_url(config.redis_url)
         db.redis_conn = redis.StrictRedis(**redis_info)
         fl = db.redis_conn.function_list()
         for i in fl:
@@ -134,11 +134,3 @@ def csp_report() -> str:
             scope.set_extra('request', request.get_json())
             capture_message("CSP violation")
     return ''
-
-def get_config(config_fn: str):
-    config = configparser.ConfigParser()
-    rv = config.read(config_fn)
-    if len(rv) == 0:
-        raise RuntimeError(f"Couldn't find config file {config_fn}")
-
-    return config

@@ -1,7 +1,7 @@
 #!python3
 
 from .general import parse_redis_url, db_setup, db
-from .app import get_config
+from .config import Config
 from .models import Base
 from .realtime import message_cache_len, ChatMessage, close_vote
 from .websocket import pubsub
@@ -18,10 +18,9 @@ from datetime import datetime, timezone, timedelta
 
 from typing import Dict, Any, List
 
-config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
-config = get_config(config_fn)
+config = Config.get_config()
 
-redis_url = config['openakun']['redis_url']
+redis_url = config.redis_url
 queue = celery.Celery()
 queue.conf.update(
     broker_url=redis_url,
@@ -35,10 +34,9 @@ def setup_periodic(sender, **kwargs):
 
 @worker_process_init.connect
 def get_db_conn(**kwargs):
-    config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
-    config = get_config(config_fn)
+    config = Config.get_config()
     db_setup(config=config)
-    pubsub.set_redis_opts(redis_url=config['openakun']['redis_url'],
+    pubsub.set_redis_opts(redis_url=config.redis_url,
                           redis_send=True, redis_recv=False)
 
 def get_value(v: Any) -> Any:

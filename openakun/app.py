@@ -1,7 +1,7 @@
 from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
-                      ConfigError, db_setup, db, login_mgr, add_htmx_vary,
-                      get_config)
+                      ConfigError, db_setup, db, login_mgr, add_htmx_vary)
+from .config import Config, CSPLevel
 
 import click, os, signal, traceback, threading
 from flask import Flask, g
@@ -22,40 +22,34 @@ def close_db_session(err):
         print("error in close_db_session()")
         traceback.print_exc()
 
-def create_app(config):
     app = Flask('openakun')
+def create_app(config: Config):
 
-    app.config['using_sentry'] = False
-    if 'sentry_dsn' in config['openakun']:
-        app.config['using_sentry'] = True
+    if config.sentry_dsn is not None:
         sentry_sdk.init(
-            dsn=config['openakun']['sentry_dsn'],
+            dsn=config.sentry_dsn,
             send_default_pii=True,
             integrations=[FlaskIntegration()]
         )
 
-    if ('secret_key' not in config['openakun'] or
-        len(config['openakun']['secret_key']) == 0):  # noqa: E129
-        raise ConfigError("Secret key not provided")
-
-    app.config['SECRET_KEY'] = config['openakun']['secret_key']
+    app.config['SECRET_KEY'] = config.secret_key
     global login_mgr
     login_mgr.init_app(app)
     login_mgr.login_view = 'login'
     websocket.sock.init_app(app)
 
-    websocket.pubsub.set_redis_opts(config['openakun']['redis_url'],
+    websocket.pubsub.set_redis_opts(config.redis_url,
                                     True, True)
 
     # to make the proxy_fix apply to the socketio as well, this has to be done
     # after the socketio is connected to the app
-    if config.getboolean('openakun', 'proxy_fix', fallback=False):
+    if config.proxy_fix:
         print("adding ProxyFix")
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
-    app.config['csp_report_only'] = config['openakun']['csp_level'] == 'report'
+    app.config['csp_report_only'] = config.csp_level == CSPLevel.Report
     # TODO merge this with the default .config attr properly
-    app.config_data = config
+    app.config['data_obj'] = config
 
     app.jinja_env.add_extension('jinja2.ext.do')
 
@@ -77,14 +71,13 @@ def create_app(config):
     return app
 
 def init_db(silent: bool = False) -> None:
-    config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
-    config = get_config(config_fn)
+    config = Config.get_config()
     db_setup(config)
     assert db.db_engine is not None
     if not silent:
         print("Initializing DB in {}".format(db.db_engine.url))
     models.init_db(db.db_engine,
-                   config.getboolean('openakun', 'use_alembic', fallback=True))
+                   config.use_alembic)
 
 def sigterm(signum, frame):
     raise KeyboardInterrupt()
@@ -104,8 +97,7 @@ def start_debug(signum, frame):
 @click.option('--devel/--no-devel', type=bool, default=False,
               help="Use development server")
 def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
-    config_fn = os.environ.get("OPENAKUN_CONFIG", 'openakun.cfg')
-    config = get_config(config_fn)
+    config = Config.get_config()
     db_setup(config, force_redis=True)
     assert db.db_engine is not None
     # TODO figure out the real way to ensure DB versioning here, alembic?
