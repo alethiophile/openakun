@@ -4,20 +4,24 @@ from . import models, realtime, websocket
 from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
 from .general import csrf_check, make_csrf, login_mgr, db_connect
 
-from flask import (render_template, request, redirect, url_for, flash, abort,
+from quart import (render_template, request, redirect, url_for, flash, abort,
                    jsonify, session, current_app, Blueprint, make_response)
 from flask_login import login_user, current_user, logout_user, login_required
 from flask_htmx import HTMX
-from werkzeug import Response
+from quart import Response as QuartResponse
+from werkzeug import Response as WerkzeugResponse
 from sentry_sdk import push_scope, capture_message, capture_exception
-from jinja2_fragments.flask import render_block
+from jinja2_fragments.quart import render_block
+from sqlalchemy.sql.expression import select
 
 import itsdangerous, json
 from passlib.context import CryptContext
 
 from datetime import datetime, timezone
 
-from typing import Optional, Union
+from typing import Optional
+
+ResponseType = str | QuartResponse | WerkzeugResponse
 
 htmx = HTMX()
 
@@ -45,34 +49,37 @@ def get_signer():
     return itsdangerous.TimestampSigner(current_app.config['SECRET_KEY'])
 
 @questing.route('/')
-def main():
-    s = db_connect()
-    stories = s.query(models.Story).limit(10).all()
-    return render_template("main.html", stories=stories)
+async def main():
+    async with db_connect().begin() as s:
+        stories = s.scalars(
+            select(models.Story).limit(10)).all()
+    return await render_template("main.html", stories=stories)
 
 @questing.route('/login', methods=['GET', 'POST'])
 @csrf_check
-def login() -> Union[str, Response]:
+async def login() -> ResponseType:
     if request.method == 'POST':
-        s = db_connect()
+        form = await request.form
         hasher = make_hasher()
-        user = (s.query(models.User).
-                filter(models.User.name == request.form['user']).one_or_none())
-        if user is not None and hasher.verify(request.form['pass'],
+        async with db_connect().begin() as s:
+            user = (s.scalars(
+                select(models.User).
+                filter(models.User.name == form['user'])).one_or_none())
+        if user is not None and hasher.verify(form['pass'],
                                               user.password_hash):
             login_user(user)
             make_csrf(force=True)
-            next_url = request.form.get('next', url_for('questing.main'))
+            next_url = form.get('next', url_for('questing.main'))
             return redirect(next_url)
         else:
-            flash("Login failed")
+            await flash("Login failed")
             return redirect(url_for('questing.login'))
     else:
-        return render_template("login.html")
+        return await render_template("login.html")
 
 @questing.route('/logout', methods=['POST'])
 @csrf_check
-def logout() -> Response:
+async def logout() -> ResponseType:
     if not current_user.is_anonymous:
         logout_user()
         make_csrf(force=True)
@@ -90,7 +97,7 @@ def create_user(name: str, email: str, password: str) -> models.User:
         joined_date=datetime.now(tz=timezone.utc)
     )
 
-def add_user(name: str, email: str, password: str) -> models.User:
+async def add_user(name: str, email: str, password: str) -> models.User:
     s = db_connect()
     u = create_user(name, email, password)
     s.add(u)
@@ -99,25 +106,26 @@ def add_user(name: str, email: str, password: str) -> models.User:
 
 @questing.route('/signup', methods=['GET', 'POST'])
 @csrf_check
-def register() -> Union[str, Response]:
+async def register() -> ResponseType:
     if request.method == 'POST':
         s = db_connect()
-        if request.form['pass1'] != request.form['pass2']:
-            flash("Passwords did not match")
+        form = await request.form
+        if form['pass1'] != form['pass2']:
+            await flash("Passwords did not match")
             return redirect(url_for('questing.register'))
         tu = (s.query(models.User).
-              filter(models.User.name == request.form['user']).one_or_none())
+              filter(models.User.name == form['user']).one_or_none())
         if tu is not None:
-            flash("Username not available")
+            await flash("Username not available")
             return redirect(url_for('questing.register'))
-        u = add_user(request.form['user'], request.form['email'],
-                     request.form['pass1'])
+        u = add_user(form['user'], form['email'],
+                     form['pass1'])
         login_user(u)
         return redirect(url_for('questing.main'))
     else:
-        return render_template("signup.html")
+        return await render_template("signup.html")
 
-def add_story(title: str, desc: str, author: models.User) -> models.Story:
+async def add_story(title: str, desc: str, author: models.User) -> models.Story:
     s = db_connect()
     desc_clean = clean_html(desc)
     ns = models.Story(title=title, description=desc_clean, author=author)
@@ -133,11 +141,12 @@ def add_story(title: str, desc: str, author: models.User) -> models.Story:
 @questing.route('/new_story', methods=['GET', 'POST'])
 @login_required
 @csrf_check
-def post_story() -> Union[str, Response]:
+async def post_story() -> ResponseType:
     if request.method == 'POST':
         try:
-            ns = add_story(request.form['title'], request.form['description'],
-                           current_user)
+            form = await request.form
+            ns = await add_story(form['title'], form['description'],
+                                 current_user)
         except BadHTMLError as e:
             if current_app.config['using_sentry']:
                 with push_scope() as scope:
@@ -148,17 +157,17 @@ def post_story() -> Union[str, Response]:
             abort(400)
         return redirect(url_for('questing.view_story', story_id=ns.id))
     else:
-        return render_template("post_story.html")
+        return await render_template("post_story.html")
 
 @questing.route('/story/<int:story_id>')
-def view_story(story_id) -> Response:
+async def view_story(story_id) -> ResponseType:
     s = db_connect()
     story = s.query(models.Story).filter(models.Story.id == story_id).one()
     return redirect(url_for('questing.view_chapter', story_id=story.id,
                             chapter_id=story.chapters[0].id))
 
 @questing.app_template_global()
-def prepare_post(p: models.Post, user_votes: bool = False) -> None:
+async def prepare_post(p: models.Post, user_votes: bool = False) -> None:
     if getattr(p, 'prepared', False):
         return
     p.prepared = True
@@ -169,18 +178,18 @@ def prepare_post(p: models.Post, user_votes: bool = False) -> None:
         channel_id = p.story.channel_id
         p.vote = full_vote_info(channel_id, p.vote_info, user_votes)
 
-def full_vote_info(channel_id: int, vm: models.VoteInfo,
-                   user_votes: bool = False) -> Vote:
+async def full_vote_info(channel_id: int, vm: models.VoteInfo,
+                         user_votes: bool = False) -> Vote:
     uid = realtime.get_user_identifier() if user_votes else None
     v = Vote.from_model(vm, uid)
-    realtime.populate_vote(channel_id, v)
+    await realtime.populate_vote(channel_id, v)
     if user_votes and v.active:
-        uv = realtime.get_user_votes(vm.id)
+        uv = await realtime.get_user_votes(vm.id)
         for o in v.votes:
             o.user_voted = o.db_id in uv
     return v
 
-def get_topics(story_id: int):
+async def get_topics(story_id: int):
     s = db_connect()
     msgs = (
         s.query(models.TopicMessage.topic_id,
@@ -194,7 +203,7 @@ def get_topics(story_id: int):
     return topics
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
-def view_chapter(story_id: int, chapter_id: int) -> str:
+async def view_chapter(story_id: int, chapter_id: int) -> str:
     s = db_connect()
     chapter = (s.query(models.Chapter).
                filter(models.Chapter.id == chapter_id,
@@ -203,22 +212,22 @@ def view_chapter(story_id: int, chapter_id: int) -> str:
     if chapter is None:
         abort(404)
     chat_backlog = [i.to_browser_message() for i in
-                    realtime.get_back_messages(chapter.story.channel_id)]
+                    await realtime.get_back_messages(chapter.story.channel_id)]
     is_author = chapter.story.author == current_user
     topics = get_topics(story_id)
     if htmx and not htmx.history_restore_request:
-        return render_block("view_chapter.html", "content", chapter=chapter,
-                            msgs=chat_backlog, is_author=is_author,
-                            topics=topics, story=chapter.story)
+        return await render_block("view_chapter.html", "content", chapter=chapter,
+                                  msgs=chat_backlog, is_author=is_author,
+                                  topics=topics, story=chapter.story)
     else:
-        return render_template("view_chapter.html", chapter=chapter,
-                               msgs=chat_backlog, is_author=is_author,
-                               topics=topics, story=chapter.story)
+        return await render_template("view_chapter.html", chapter=chapter,
+                                     msgs=chat_backlog, is_author=is_author,
+                                     topics=topics, story=chapter.story)
 
 # this endpoint is used only when reopening a closed vote; it gets sent via the
 # standard HTMX path (hx-get on the voteblock element in render_vote.html)
 @questing.route('/vote/<int:vote_id>')
-def view_vote(vote_id: int) -> str:
+async def view_vote(vote_id: int) -> str:
     s = db_connect()
     ve = (s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).
           one_or_none())
@@ -228,21 +237,21 @@ def view_vote(vote_id: int) -> str:
     chapter = ve.post.chapter
     is_author = chapter.story.author == current_user
     vote = full_vote_info(channel_id, ve, True)
-    return render_template("render_vote.html", chapter=chapter, vote=vote,
-                           is_author=is_author)
+    return await render_template("render_vote.html", chapter=chapter, vote=vote,
+                                 is_author=is_author)
 
 # used for updating the topic list over HTMX
 @questing.route("/story/<int:story_id>/topics")
-def view_topic_list(story_id: int) -> str:
+async def view_topic_list(story_id: int) -> str:
     s = db_connect()
     story = (s.query(models.Story).filter(models.Story.id == story_id).
              one_or_none())
     if story is None:
         abort(404)
     topics = get_topics(story_id)
-    return render_template("topic_list.html", story=story, topics=topics)
+    return await render_template("topic_list.html", story=story, topics=topics)
 
-def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
+async def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
                 order_idx: Optional[int] = None) -> models.Post:
     s = db_connect()
     if ptype == models.PostType.Text:
@@ -278,7 +287,7 @@ def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
     s.commit()
     return np
 
-def create_chapter(story: models.Story, title: str,
+async def create_chapter(story: models.Story, title: str,
                    order_idx: Optional[int] = None) -> models.Chapter:
     s = db_connect()
     if order_idx is None:
@@ -298,10 +307,10 @@ def create_chapter(story: models.Story, title: str,
 
 @questing.route('/new_post', methods=['POST'])
 @csrf_check
-def new_post() -> Response:
+async def new_post() -> ResponseType:
     s = db_connect()
     print('new_post')
-    data = request.json
+    data = await request.json
     assert data is not None
     print(data)
     c = (s.query(models.Chapter).
@@ -350,18 +359,18 @@ def new_post() -> Response:
     # chapter that failed DB write
     if p.post_type == models.PostType.Vote:
         # vote_info = Vote.from_model(vote_model)
-        realtime.add_active_vote(vote_model, c.story.channel_id)
+        await realtime.add_active_vote(vote_model, c.story.channel_id)
     prepare_post(p, user_votes=False)
-    text = render_template('render_post.html', p=p, htmx=True,
-                           chapter=p.chapter)
-    websocket.pubsub.publish(f'chan:{channel_id}', text)
+    text = await render_template('render_post.html', p=p, htmx=True,
+                                 chapter=p.chapter)
+    await websocket.pubsub.publish(f'chan:{channel_id}', text)
     return jsonify({ 'new_url': url_for('questing.view_chapter',
                                         story_id=p.story.id,
                                         chapter_id=p.chapter.id) })
 
 @questing.route('/reopen_vote/<int:channel_id>/<int:vote_id>', methods=['POST'])
 @csrf_check
-def reopen_vote(channel_id: int, vote_id: int) -> str:
+async def reopen_vote(channel_id: int, vote_id: int) -> str:
     # this just passes on to set_vote_active(), which handles authentication
     # and verification
     msg = { 'channel': channel_id, 'vote': vote_id, 'active': True }
@@ -369,26 +378,26 @@ def reopen_vote(channel_id: int, vote_id: int) -> str:
     return ''
 
 @questing.route('/user/<int:user_id>')
-def user_profile(user_id: int) -> str:
+async def user_profile(user_id: int) -> str:
     s = db_connect()
     u = (s.query(models.User).filter(models.User.id == user_id).one_or_none())
     if u is None:
         abort(404)
     sl = (s.query(models.Story).filter(models.Story.author == u).all())
-    return render_template("user_profile.html", user=u, stories=sl)
+    return await render_template("user_profile.html", user=u, stories=sl)
 
 @questing.app_template_global()
 def get_dark_mode() -> bool:
     return session.get('dark_mode', False)
 
 @questing.route('/settings', methods=['POST'])
-def change_settings() -> str:
-    dark_mode = int(request.form.get('dark_mode', 0))
+async def change_settings() -> str:
+    dark_mode = int((await request.form).get('dark_mode', 0))
     session['dark_mode'] = bool(dark_mode)
     return '', { 'HX-Refresh': "true" }
 
 @questing.route('/topic/<int:topic_id>')
-def view_topic(topic_id: int) -> str:
+async def view_topic(topic_id: int) -> str:
     s = db_connect()
     htmx_partial = htmx and not htmx.history_restore_request
     topic = (s.query(models.Topic).filter(models.Topic.id == topic_id).
@@ -396,34 +405,35 @@ def view_topic(topic_id: int) -> str:
     if topic is None:
         abort(404)
     if not htmx_partial:
-        chat_backlog = [i.to_browser_message() for i in
-                realtime.get_back_messages(topic.story.channel_id)]
+        chat_backlog = [
+            i.to_browser_message() for i in
+            await realtime.get_back_messages(topic.story.channel_id)]
         topics = get_topics(topic.story_id)
     # posts = (s.query(models.TopicMessage).filter(models.TopicMessage.topic_id ==
     #                                              topic_id).
     #          order_by(models.TopicMessage.post_date).all())
     if htmx_partial:
-        return render_block("view_topic.html", "content", topic=topic,
-                            story=topic.story)
+        return await render_block("view_topic.html", "content", topic=topic,
+                                  story=topic.story)
     else:
-        return render_template("view_topic.html", topic=topic,
-                               story=topic.story, topics=topics,
-                               msgs=chat_backlog)
+        return await render_template("view_topic.html", topic=topic,
+                                     story=topic.story, topics=topics,
+                                     msgs=chat_backlog)
 
 @questing.route('/new_topic', methods=['GET', 'POST'])
 @csrf_check
-def new_topic() -> str:
+async def new_topic() -> ResponseType:
     if request.method == 'GET':
         # send template
-        story_id = request.args.get('story_id')
-        if story_id:
+        story_id_s = request.args.get('story_id')
+        if story_id_s:
             try:
-                story_id = int(story_id)
+                story_id = int(story_id_s)
             except ValueError:
                 abort(400)
-        return render_template("new_topic.html", story_id=story_id)
+        return await render_template("new_topic.html", story_id=story_id)
     elif request.method == 'POST':
-        data = request.json
+        data = await request.json
         if data is None:
             abort(400)
         assert data is not None
@@ -448,21 +458,22 @@ def new_topic() -> str:
         s.commit()
 
         if story is not None:
-            text = view_topic_list(story_id)
-            websocket.pubsub.publish(f'chan:{story.channel_id}', text)
+            assert story_id is not None
+            text = await view_topic_list(story_id)
+            await websocket.pubsub.publish(f'chan:{story.channel_id}', text)
 
         # since this is going straight to HTMX, we just return the text that
         # view_topic would along with the appropriate URL header
-        res = make_response(view_topic(t.id))
+        res = await make_response(view_topic(t.id))
         res.headers['HX-Push-Url'] = url_for('questing.view_topic',
                                              topic_id=t.id)
         return res
 
 @questing.route('/new_topic_post', methods=['POST'])
 @csrf_check
-def new_topic_post() -> str:
+async def new_topic_post() -> ResponseType:
     s = db_connect()
-    data = request.json
+    data = await request.json
     if data is None:
         abort(400)
     topic_id = data['topic_id']
@@ -487,7 +498,7 @@ def new_topic_post() -> str:
 
     if topic.story is not None:
         story_id = topic.story_id
-        text = view_topic_list(story_id)
-        websocket.pubsub.publish(f'chan:{topic.story.channel_id}', text)
+        text = await view_topic_list(story_id)
+        await websocket.pubsub.publish(f'chan:{topic.story.channel_id}', text)
 
     return redirect(url_for('questing.view_topic', topic_id=topic_id))

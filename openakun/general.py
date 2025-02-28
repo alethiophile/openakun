@@ -1,7 +1,8 @@
 from . import models
 
-import secrets, re, redis, sqlalchemy, importlib.resources, configparser
-from flask import session, request, abort, g, current_app, url_for
+import secrets, re, sqlalchemy, importlib.resources
+import redis.asyncio as redis
+from quart import session, request, abort, g, current_app, url_for
 from functools import wraps
 from base64 import b64encode
 from werkzeug import Response
@@ -18,11 +19,11 @@ login_mgr = LoginManager()
 
 # creates an empty object, since object() can't be written to
 class DbObj:
-    db_engine: Optional[sqlalchemy.engine.Engine]
-    Session: Optional[sqlalchemy.orm.sessionmaker]
-    redis_conn: Optional[redis.Redis]
+    db_engine: sqlalchemy.engine.Engine
+    Session: sqlalchemy.orm.sessionmaker
+    redis_conn: redis.Redis
 db = DbObj()
-db.db_engine, db.Session, db.redis_conn = None, None, None
+db.db_engine, db.Session, db.redis_conn = None, None, None  # type: ignore
 
 redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?"
                           r"(:(?P<port>\d+))?"
@@ -57,19 +58,18 @@ def decode_redis_dict(l):
     return dict(to_pairs(l))
 
 # TODO make this per-request?
-def db_setup(config: Config | None = None, force_redis: bool = False) -> None:
+async def db_setup(config: Config | None = None, force_redis: bool = False) -> None:
     # global db_engine, Session, redis_conn
     if config is None:
         config = current_app.config['data_obj']
     global db
     if db.db_engine is None:
-        db.db_engine = models.create_engine(config.database_url,
-                                            echo=config.echo_sql)
-        db.Session = models.sessionmaker(bind=db.db_engine)
+        db.db_engine = models.create_async_engine(config.database_url,
+                                                  echo=config.echo_sql)
+        db.Session = models.async_sessionmaker(bind=db.db_engine)
     if db.redis_conn is None:
-        redis_info = parse_redis_url(config.redis_url)
-        db.redis_conn = redis.StrictRedis(**redis_info)
-        fl = db.redis_conn.function_list()
+        db.redis_conn = redis.Redis.from_url(config.redis_url)
+        fl = await db.redis_conn.function_list()
         for i in fl:
             d = decode_redis_dict(i)
             if d['library_name'] == 'votes' and not force_redis:
@@ -78,12 +78,17 @@ def db_setup(config: Config | None = None, force_redis: bool = False) -> None:
             print("adding lua function")
             lua_code = (importlib.resources.files('openakun').
                         joinpath('redisvotes.lua').read_text())
-            db.redis_conn.function_load(lua_code, replace=True)
+            await db.redis_conn.function_load(lua_code, replace=True)
 
-def db_connect() -> sqlalchemy.orm.Session:
+def db_connect() -> sqlalchemy.ext.asyncio.AsyncSession:
     if not hasattr(g, 'db_session'):
         g.db_session = db.Session()
     return g.db_session
+
+async def db_close(r: Response) -> Response:
+    if hasattr(g, 'db_session'):
+        await g.db_session.close()
+    return r
 
 def make_csrf(force: bool = False) -> None:
     if force or '_csrf_token' not in session:
@@ -91,16 +96,16 @@ def make_csrf(force: bool = False) -> None:
 
 def csrf_check(view: Callable) -> Callable:
     @wraps(view)
-    def csrf_wrapper(*args, **kwargs):
+    async def csrf_wrapper(*args, **kwargs):
         if request.method == 'POST':
-            data = request.get_json(silent=True)
+            data = await request.get_json(silent=True)
             tok = (data.get('_csrf_token', '') if data else
                    request.form.get('_csrf_token', ''))
             # constant-time compare operation
             if not secrets.compare_digest(tok,
                                           session['_csrf_token']):
                 abort(400)
-        return view(*args, **kwargs)
+        return await view(*args, **kwargs)
     return csrf_wrapper
 
 def get_script_nonce() -> str:

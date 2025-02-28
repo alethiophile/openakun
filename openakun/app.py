@@ -1,14 +1,14 @@
+import quart_flask_patch
+
 from . import models, realtime, pages, websocket
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
-                      ConfigError, db_setup, db, login_mgr, add_htmx_vary)
+                      db_setup, db, login_mgr, add_htmx_vary, db_close)
 from .config import Config, CSPLevel
 
-import click, os, signal, traceback, threading
-from flask import Flask, g
-from werkzeug.middleware.proxy_fix import ProxyFix
+import click, signal, traceback, threading
+from quart import Quart, g
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
-from sentry_sdk.integrations.flask import FlaskIntegration
 from sqlalchemy import inspect
 
 def close_db_session(err):
@@ -22,30 +22,22 @@ def close_db_session(err):
         print("error in close_db_session()")
         traceback.print_exc()
 
-    app = Flask('openakun')
 def create_app(config: Config):
+    app = Quart('openakun')
 
     if config.sentry_dsn is not None:
         sentry_sdk.init(
             dsn=config.sentry_dsn,
             send_default_pii=True,
-            integrations=[FlaskIntegration()]
         )
 
     app.config['SECRET_KEY'] = config.secret_key
-    global login_mgr
+    # global login_mgr
     login_mgr.init_app(app)
     login_mgr.login_view = 'login'
-    websocket.sock.init_app(app)
 
     websocket.pubsub.set_redis_opts(config.redis_url,
                                     True, True)
-
-    # to make the proxy_fix apply to the socketio as well, this has to be done
-    # after the socketio is connected to the app
-    if config.proxy_fix:
-        print("adding ProxyFix")
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
     app.config['csp_report_only'] = config.csp_level == CSPLevel.Report
     # TODO merge this with the default .config attr properly
@@ -60,9 +52,11 @@ def create_app(config: Config):
     app.before_request(make_csrf)
     app.after_request(add_csp)
     app.after_request(add_htmx_vary)
+    app.after_request(db_close)
     app.route('/csp_violation_report', methods=['POST'])(csp_report)
 
     app.register_blueprint(pages.questing)
+    app.register_blueprint(websocket.rtb)
 
     app.teardown_appcontext(close_db_session)
 

@@ -9,31 +9,30 @@ license = "MIT"
 python = "^3.12"
 passlib = "^1.7.2"
 fastpbkdf2 = "^0.2"
-alembic = "^1.4.3"
-sqlalchemy = "^2.0.38"
+alembic = "^1.14.1"
+sqlalchemy = {version = "^2.0.38", extras = ["asyncio"]}
 psycopg2 = "^2.9.6"
 bleach = "^3.2.1"
-redis = "^5.0.1"
+redis = "^5.2.1"
 click = "^8.1.3"
 attrs = "^25.1.0"
 celery = {extras = ["redis"], version = "^5.2.0"}
-sentry-sdk = {extras = ["flask"], version = "^1.34.0"}
-flask = "^2.3.2"
-flask-login = "^0.6.2"
-gevent = "^23.7.0"
-gevent-websocket = "^0.10.1"
-flask-sock = "^0.7.0"
+sentry-sdk = {extras = ["quart"], version = "^2.22.0"}
+flask-login = "^0.6.3"
 flask-htmx = "^0.3.2"
-jinja2-fragments = "^1.3.0"
+jinja2-fragments = "^1.7.0"
 cattrs = "^24.1.2"
+quart = "^0.20.0"
+quart-flask-patch = "^0.3.0"
+uvicorn = "^0.34.0"
 
 [tool.poetry.scripts]
 openakun_initdb = 'openakun.app:init_db'
 openakun_server = 'openakun.app:do_run'
 
 [tool.poetry.group.dev.dependencies]
-mypy = "^1.4.1"
-flake8 = "^6.1.0"
+mypy = "^1.15.0"
+flake8 = "^7.1.2"
 types-redis = "^4.6.0.10"
 types-bleach = "^6.1.0.0"
 types-passlib = "^1.7.7.13"

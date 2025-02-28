@@ -6,7 +6,7 @@ from . import models, websocket
 from .general import db, db_connect, db_setup, decode_redis_dict
 from .data import ChatMessage, Vote, VoteEntry, Message
 from flask_login import current_user
-from flask import request, render_template
+from quart import request, render_template
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone, timedelta
@@ -14,7 +14,7 @@ from sqlalchemy import sql, orm
 import hashlib, json
 from .websocket import handle_message
 
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Any, Union, cast
 
 def get_channel(channel_id):
     s = db_connect()
@@ -47,29 +47,29 @@ def check_channel_auth(channel_id, user_id):
 def with_channel_auth(err_val=None):
     def return_func(f):
         @wraps(f)
-        def auth_wrapper(data):
+        async def auth_wrapper(data):
             uid = 'anon' if current_user.is_anonymous else current_user.id
             if not check_channel_auth(data['channel'], uid):
                 return err_val
-            return f(data)
+            return await f(data)
         return auth_wrapper
     return return_func
 
 @handle_message('backlog')
-#@with_channel_auth({ 'success': False, 'error': 'Channel is private' })
-def handle_backlog(data):
+# @with_channel_auth({ 'success': False, 'error': 'Channel is private' })
+async def handle_backlog(data):
     print("Sending backlog for channel", data['channel'])
     bl = get_back_messages(data['channel'])
     send_back_messages(bl, request.sid)
     return { 'success': True }
 
-def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
+async def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
     for i in msgs:
         mo = i.to_browser_message()
         if mo['is_anon']:
             mo['username'] = 'anon'
-        html = render_template('render_chatmsg.html', c=mo, htmx=True)
-        websocket.pubsub.publish(to, html)
+        html = await render_template('render_chatmsg.html', c=mo, htmx=True)
+        await websocket.pubsub.publish(to, html)
 
 def register_ip(addr):
     # TODO make this use Redis and a periodic sweep, like chat messages
@@ -85,11 +85,11 @@ def register_ip(addr):
 
 message_cache_len = 60
 
-def get_back_messages(cid: int) -> List[ChatMessage]:
+async def get_back_messages(cid: int) -> List[ChatMessage]:
     assert db.redis_conn is not None
     rkey = f"channel_messages:{cid}"
     msgs = [ChatMessage.from_dict(json.loads(i.decode())) for i in
-            db.redis_conn.lrange(rkey, - message_cache_len, -1)]
+            await db.redis_conn.lrange(rkey, - message_cache_len, -1)]
     redis_msg_count = len(msgs)
     if redis_msg_count < message_cache_len:
         s = db_connect()
@@ -110,7 +110,7 @@ def get_back_messages(cid: int) -> List[ChatMessage]:
 
 @handle_message('chat_message')
 @with_channel_auth()
-def handle_chat(data) -> None:
+async def handle_chat(data) -> None:
     print("Chat message", data, request.remote_addr, current_user)
     if len(data['msg']) == 0:
         return
@@ -125,7 +125,7 @@ def handle_chat(data) -> None:
         return
     c_ts = datetime.now(tz=timezone.utc)
     us_now = c_ts.timestamp() * 1000000
-    db.redis_conn.zadd('messages_seen', { token: us_now })
+    await db.redis_conn.zadd('messages_seen', { token: us_now })
 
     channel_id = data['channel']
     if current_user.is_anonymous:
@@ -142,18 +142,18 @@ def handle_chat(data) -> None:
 
     rkey = f"channel_messages:{channel_id}"
     val = json.dumps(msg.to_dict())
-    db.redis_conn.rpush(rkey, val)
+    await db.redis_conn.rpush(rkey, val)
 
-    db.redis_conn.sadd('all_channels', rkey)
+    await db.redis_conn.sadd('all_channels', rkey)
 
     mo = msg.to_browser_message()
     if mo['is_anon']:
         # TODO eventually set this to the story-configured anon username
         mo['username'] = 'anon'
-    html = render_template('render_chatmsg.html', c=mo, htmx=True)
-    websocket.pubsub.publish(f'chan:{channel_id}', html)
+    html = await render_template('render_chatmsg.html', c=mo, htmx=True)
+    await websocket.pubsub.publish(f'chan:{channel_id}', html)
 
-def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
+async def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     """This function takes trusted input: it gets called when a new vote is
     created, and its parameters come from pages.new_post(), which verifies the
     data.
@@ -166,15 +166,15 @@ def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     rd = vote.to_redis_dict()
     rd['channel_id'] = channel_id
     rds = json.dumps(rd)
-    db.redis_conn.hset('vote_info', str(vote.db_id), rds)
+    await db.redis_conn.hset('vote_info', str(vote.db_id), rds)
 
     if vote.close_time is not None:
-        db.redis_conn.zadd('vote_close_times',
-                           { f"{channel_id}:{vote.db_id}":
-                             int(vote.close_time.timestamp() * 1000) })
+        await db.redis_conn.zadd('vote_close_times',
+                                 { f"{channel_id}:{vote.db_id}":
+                                   int(vote.close_time.timestamp() * 1000) })
 
     channel_key = f"channel_votes:{channel_id}"
-    db.redis_conn.sadd(channel_key, str(vote.db_id))
+    await db.redis_conn.sadd(channel_key, str(vote.db_id))
 
 def repopulate_from_db():
     s = db.Session()
@@ -186,12 +186,12 @@ def repopulate_from_db():
         channel_id = vm.post.story.channel_id
         add_active_vote(vm, channel_id)
 
-def vote_is_active(channel_id: int, vote_id: int) -> bool:
+async def vote_is_active(channel_id: int, vote_id: int) -> bool:
     assert db.redis_conn is not None
     channel_key = f"channel_votes:{channel_id}"
-    return db.redis_conn.sismember(channel_key, vote_id)
+    return await db.redis_conn.sismember(channel_key, vote_id)
 
-def populate_vote(channel_id: int, vote: Vote) -> Vote:
+async def populate_vote(channel_id: int, vote: Vote) -> Vote:
     """Takes a vote, populates its options with the killed/killed_text/vote_count
     items and it with active. vote is populated in-place, return value is
     always the same object. This is called by the Web endpoints in order to
@@ -207,7 +207,8 @@ def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
     vote.active = True
 
-    rds = db.redis_conn.hget('vote_info', str(vote.db_id))
+    rds: str = cast(str,
+                    await db.redis_conn.hget('vote_info', str(vote.db_id)))
     rd = json.loads(rds)
     vote.update_redis_dict(rd)
 
@@ -219,17 +220,17 @@ def get_user_identifier() -> str:
     else:
         return f"user:{current_user.id}"
 
-def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
+async def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
     s = db_connect()
     vm = (s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).
           one_or_none())
     if vm is None:
         return None
     v = Vote.from_model(vm)
-    populate_vote(channel_id, v)
+    await populate_vote(channel_id, v)
     return v
 
-def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
+async def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     """Render a vote in user-agnostic form (i.e. no voted-for annotations) and
     send the resulting HTML over the channel. This is called every time a vote
     is altered (votes added or removed, options added, config changed, etc.) in
@@ -239,23 +240,24 @@ def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
     s = db_connect()
     m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     v = Vote.from_model(m)
-    populate_vote(channel_id, v)
+    await populate_vote(channel_id, v)
     # this is a dummy chapter object used only to get the channel ID
     dummy_chapter = { 'story': { 'channel_id': channel_id }}
     # in this case the public update will have vote totals hidden; we draw a
     # special update with totals shown, and send it only to the story author
     if v.votes_hidden and v.active:
         author_id = f"user:{m.post.story.author_id}"
-        html = render_template('render_vote.html', vote=v, morph_swap=True,
-                               is_author=True, chapter=dummy_chapter)
-        websocket.pubsub.publish(author_id, html)
-    html = render_template('render_vote.html', vote=v, morph_swap=True,
-                           chapter=dummy_chapter)
-    websocket.pubsub.publish(f'chan:{channel_id}', html)
+        html = await render_template('render_vote.html', vote=v,
+                                     morph_swap=True, is_author=True,
+                                     chapter=dummy_chapter)
+        await websocket.pubsub.publish(author_id, html)
+    html = await render_template('render_vote.html', vote=v, morph_swap=True,
+                                 chapter=dummy_chapter)
+    await websocket.pubsub.publish(f'chan:{channel_id}', html)
 
 @handle_message('add_vote')
 @with_channel_auth()
-def handle_add_vote(data) -> None:
+async def handle_add_vote(data) -> None:
     """Takes an info dictionary of the form:
     { 'channel': channel_id, 'vote': vote_id, 'option': option_id }
 
@@ -268,24 +270,26 @@ def handle_add_vote(data) -> None:
         return None
 
     uid = get_user_identifier()
-    rv = db.redis_conn.fcall('add_vote', 2, f'channel_votes:{channel_id}',
+    rv = db.redis_conn.fcall('add_vote', 2,
+                             f'channel_votes:{channel_id}',
                              'vote_info', vote_id, option_id, uid)
     if not rv:
         return
 
-    conf = json.loads(db.redis_conn.hget('vote_info', str(vote_id)))
+    conf = json.loads(
+        cast(str, await db.redis_conn.hget('vote_info', str(vote_id))))
     print(conf)
     pl = { 'vote': vote_id, 'option': option_id, 'value': True,
            'clear': False }
     if not conf['multivote']:
         pl['clear'] = True
     m = Message(message_type='user-vote', data=pl, dest=uid)
-    m.send()
-    send_vote_html(int(channel_id), int(vote_id))
+    await m.send()
+    await send_vote_html(int(channel_id), int(vote_id))
 
 @handle_message('remove_vote')
 @with_channel_auth()
-def handle_remove_vote(data) -> None:
+async def handle_remove_vote(data) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
@@ -297,7 +301,8 @@ def handle_remove_vote(data) -> None:
 
     uid = get_user_identifier()
 
-    rv = db.redis_conn.fcall('remove_vote', 2, f'channel_votes:{channel_id}',
+    rv = db.redis_conn.fcall('remove_vote', 2,
+                             f'channel_votes:{channel_id}',
                              'vote_info', vote_id, option_id, uid)
     if not rv:
         return
@@ -305,12 +310,12 @@ def handle_remove_vote(data) -> None:
     m = Message(message_type='user-vote',
                 data={ 'vote': vote_id, 'option': option_id, 'value': False,
                        'clear': False }, dest=uid)
-    m.send()
-    send_vote_html(int(channel_id), int(vote_id))
+    await m.send()
+    await send_vote_html(int(channel_id), int(vote_id))
 
 @handle_message('new_vote_entry')
 @with_channel_auth()
-def handle_new_vote_entry(data) -> None:
+async def handle_new_vote_entry(data) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
@@ -321,7 +326,8 @@ def handle_new_vote_entry(data) -> None:
     if not vote_is_active(channel_id, vote_id):
         return None
 
-    conf = json.loads(db.redis_conn.hget('vote_info', str(vote_id)))
+    conf = json.loads(
+        cast(str, await db.redis_conn.hget('vote_info', str(vote_id))))
     if not conf['writein_allowed']:
         return None
 
@@ -371,10 +377,11 @@ def handle_new_vote_entry(data) -> None:
     m = Message(message_type='user-vote',
                 data={ 'vote': vote_id, 'option': option.db_id, 'value': True,
                        'clear': False }, dest=uid)
-    m.send()
-    send_vote_html(int(channel_id), int(vote_id))
+    await m.send()
+    await send_vote_html(int(channel_id), int(vote_id))
 
-def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> set[int]:
+async def get_user_votes(
+        vote_id: Union[int, str], user_id: Optional[str] = None) -> set[int]:
     """Takes a vote ID and a user identifier, which is either a string with
     "user:<userid>", or a hex IP hash. Returns a set of option IDs."""
     assert db.redis_conn is not None
@@ -383,8 +390,8 @@ def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> s
         user_id = get_user_identifier()
     user_id = str(user_id)
 
-    rv = set()
-    vis = db.redis_conn.hget('vote_info', str(vote_id))
+    rv: set[int] = set()
+    vis = await db.redis_conn.hget('vote_info', str(vote_id))
     if not vis:
         return rv
     vote = json.loads(vis)
@@ -414,9 +421,10 @@ def get_user_votes(vote_id: Union[int, str], user_id: Optional[str] = None) -> s
 #  - the vote removed from the channel_votes set
 #  - the time_closed set on the vote_info row
 #  - the vote_closed event emitted to the frontend
-def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
-               emit_client_event: bool = True, s: Optional[orm.Session] = None
-               ) -> None:
+async def close_vote(
+        channel_id: int, vote_id: int, set_close_time: bool = True,
+        emit_client_event: bool = True, s: Optional[orm.Session] = None
+) -> None:
     """This function trusts its input: caller must verify that the given vote
     is open on the given channel.
 
@@ -443,11 +451,11 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
     vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
     ve = Vote.from_model(vm)
 
-    populate_vote(channel_id, ve)
+    await populate_vote(channel_id, ve)
     print(f"closing vote {ve}")
 
     channel_key = f"channel_votes:{channel_id}"
-    removed = db.redis_conn.srem(channel_key, str(vote_id))
+    removed = await db.redis_conn.srem(channel_key, str(vote_id))
     # srem() returns the number of items removed from the set; in this case
     # that will be 1 or 0 depending on whether the ID was actually in the set
 
@@ -475,6 +483,7 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
         v.killed_text = ed[v.id].killed_text
 
         vl = ed[v.id].users_voted_for
+        assert vl is not None
         v.votes.clear()
         for u in vl:
             if u.startswith('user:'):
@@ -487,14 +496,14 @@ def close_vote(channel_id: int, vote_id: int, set_close_time: bool = True,
     print("vm:", vm)
     s.commit()
 
-    db.redis_conn.zrem('vote_close_times', f"{channel_id}:{ve.db_id}")
-    db.redis_conn.hdel('vote_info', str(vote_id))
+    await db.redis_conn.zrem('vote_close_times', f"{channel_id}:{ve.db_id}")
+    await db.redis_conn.hdel('vote_info', str(vote_id))
 
     if emit_client_event:
-        websocket.pubsub.publish(f'chan:{channel_id}',
-                                 json.dumps({ 'type': 'set-vote-open',
-                                              'vote_id': vote_id,
-                                              'open': False }))
+        await websocket.pubsub.publish(f'chan:{channel_id}',
+                                       json.dumps({ 'type': 'set-vote-open',
+                                                    'vote_id': vote_id,
+                                                    'open': False }))
 
 def close_to_db():
     s = db.Session()
@@ -508,20 +517,21 @@ def close_to_db():
 
 # This can just call add_active_vote again, unset time_closed on the vote
 # entry, and emit an event to the frontend
-def open_vote(channel_id: int, vote_id: int) -> None:
+async def open_vote(channel_id: int, vote_id: int) -> None:
     s = db_connect()
     vm = s.query(models.VoteInfo).where(models.VoteInfo.id == vote_id).one()
     channel_id = vm.post.story.channel_id
     vm.time_closed = None
-    add_active_vote(vm, channel_id)
+    await add_active_vote(vm, channel_id)
     s.commit()
 
-    websocket.pubsub.publish(f'chan:{channel_id}',
-                             json.dumps({ 'type': 'set-vote-open',
-                                          'vote_id': vote_id, 'open': True }))
+    await websocket.pubsub.publish(
+        f'chan:{channel_id}',
+        json.dumps({ 'type': 'set-vote-open',
+                     'vote_id': vote_id, 'open': True }))
 
 @handle_message('set_vote_active')
-def set_vote_active(data) -> None:
+async def set_vote_active(data) -> None:
     channel_id = int(data['channel'])
     story = get_story(channel_id)
 
@@ -537,12 +547,12 @@ def set_vote_active(data) -> None:
         return
 
     if not set_active:
-        close_vote(channel_id, vote_id)
+        await close_vote(channel_id, vote_id)
     else:
-        open_vote(channel_id, vote_id)
+        await open_vote(channel_id, vote_id)
 
 @handle_message('set_option_killed')
-def set_option_killed(data) -> None:
+async def set_option_killed(data) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
@@ -566,10 +576,10 @@ def set_option_killed(data) -> None:
     if not rv:
         return None
 
-    send_vote_html(int(channel_id), int(vote_id))
+    await send_vote_html(int(channel_id), int(vote_id))
 
 @handle_message('set_vote_options')
-def set_vote_options(data) -> None:
+async def set_vote_options(data) -> None:
     # TODO factor out this authentication code
     channel_id = int(data['channel'])
     story = get_story(channel_id)
@@ -589,7 +599,8 @@ def set_vote_options(data) -> None:
     # possible keys are ['multivote', 'writein_allowed', 'votes_hidden',
     # 'close_time']
 
-    vote = get_vote_object(channel_id, vote_id)
+    vote = await get_vote_object(channel_id, vote_id)
+    assert vote is not None
 
     # attempts to turn multivote off are ignored, since this could require
     # deleting user votes
@@ -605,10 +616,10 @@ def set_vote_options(data) -> None:
     if not rv:
         return None
 
-    send_vote_html(channel_id, vote_id)
+    await send_vote_html(channel_id, vote_id)
 
 @handle_message('set_vote_close_time')
-def set_vote_close_time(data) -> None:
+async def set_vote_close_time(data) -> None:
     # TODO factor out this authentication code
     channel_id = int(data['channel'])
     story = get_story(channel_id)
@@ -623,7 +634,8 @@ def set_vote_close_time(data) -> None:
     # TODO handle close time here as well
     print(data)
 
-    vote = get_vote_object(channel_id, vote_id)
+    vote = await get_vote_object(channel_id, vote_id)
+    assert vote is not None
 
     if data.get('clear'):
         vote.close_time = None
@@ -652,10 +664,11 @@ def set_vote_close_time(data) -> None:
         return None
 
     if vote.close_time is not None:
-        db.redis_conn.zadd('vote_close_times',
-                           { f"{channel_id}:{vote.db_id}":
-                             int(vote.close_time.timestamp() * 1000) })
+        await db.redis_conn.zadd('vote_close_times',
+                                 { f"{channel_id}:{vote.db_id}":
+                                   int(vote.close_time.timestamp() * 1000) })
     else:
-        db.redis_conn.zrem('vote_close_times', f"{channel_id}:{vote.db_id}")
+        await db.redis_conn.zrem('vote_close_times',
+                                 f"{channel_id}:{vote.db_id}")
 
-    send_vote_html(channel_id, vote_id)
+    await send_vote_html(channel_id, vote_id)

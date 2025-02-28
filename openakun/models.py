@@ -5,10 +5,12 @@ from __future__ import annotations
 
 from sqlalchemy import (Column, Integer, ForeignKey, DateTime, MetaData,
                         CheckConstraint, UniqueConstraint, Index, Table)
-from sqlalchemy import create_engine, func  # noqa: F401
-from sqlalchemy.orm import (relationship, sessionmaker,  # noqa: F401
-                            DeclarativeBase, Mapped, mapped_column)
+from sqlalchemy import func
+from sqlalchemy.orm import (relationship, DeclarativeBase, Mapped,
+                            mapped_column)
 from sqlalchemy.sql import select
+from sqlalchemy.ext.asyncio import \
+    (AsyncAttrs, async_sessionmaker, AsyncSession, create_async_engine)
 from datetime import datetime
 
 import os, enum
@@ -29,7 +31,7 @@ if os.environ.get('OPENAKUN_TESTING') == '1':
 else:
     md = MetaData(naming_convention=naming)
 
-class Base(DeclarativeBase):
+class Base(AsyncAttrs, DeclarativeBase):
     metadata = md
 
 user_with_role = Table('user_with_role', Base.metadata,
@@ -271,7 +273,7 @@ class Topic(Base):
     # if null, it's a "front page" topic accessible from the homepage
     story_id: Mapped[int | None] = mapped_column(ForeignKey('stories.id'))
 
-    story: Mapped[Story] = relationship(back_populates="topics")
+    story: Mapped[Story | None] = relationship(back_populates="topics")
     poster: Mapped[User] = relationship()
 
     messages: Mapped[list[TopicMessage]] = relationship(

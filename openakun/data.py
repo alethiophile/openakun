@@ -377,9 +377,9 @@ class Message:
     data: Dict[str, Any]
     dest: Optional[str] = None
 
-    def send(self, room: Optional[str] = None) -> None:
+    async def send(self, room: Optional[str] = None) -> None:
         if room is None:
             room = self.dest
         assert room is not None
         self.data['type'] = self.message_type
-        websocket.pubsub.publish(room, json.dumps(self.data))
+        await websocket.pubsub.publish(room, json.dumps(self.data))
