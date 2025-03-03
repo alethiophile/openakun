@@ -37,19 +37,19 @@ questing = Blueprint('questing', __name__)
 
 @login_mgr.user_loader
 async def load_user(user_id: int | str) -> models.User | None:
-    async with db_connect() as s:
-        return (await s.scalars(
-            select(models.User).filter(models.User.id == int(user_id))
-        )).one_or_none()
+    s = db_connect()
+    return (await s.scalars(
+        select(models.User).filter(models.User.id == int(user_id))
+    )).one_or_none()
 
 def get_signer() -> itsdangerous.TimestampSigner:
     return itsdangerous.TimestampSigner(current_app.config['SECRET_KEY'])
 
 @questing.route('/')
 async def main() -> ResponseType:
-    async with db_connect() as s:
-        stories = (await s.scalars(
-            select(models.Story).limit(10))).all()
+    s = db_connect()
+    stories = (await s.scalars(
+        select(models.Story).limit(10))).all()
     return await render_template("main.html", stories=stories)
 
 @questing.route('/login', methods=['GET', 'POST'])
@@ -59,10 +59,10 @@ async def login() -> ResponseType:
         form = await request.form
         next_url = form.get('next', url_for('questing.main'))
         hasher = make_hasher()
-        async with db_connect() as s:
-            user = (await s.scalars(
-                select(models.User).
-                filter(models.User.name == form['user']))).one_or_none()
+        s = db_connect()
+        user = (await s.scalars(
+            select(models.User).
+            filter(models.User.name == form['user']))).one_or_none()
         if user is not None and hasher.verify(form['pass'],
                                               user.password_hash):
             login_user(user)
@@ -95,10 +95,10 @@ def create_user(name: str, email: str, password: str) -> models.User:
     )
 
 async def add_user(name: str, email: str, password: str) -> models.User:
-    async with db_connect() as s:
-        async with s.begin():
-            u = create_user(name, email, password)
-            s.add(u)
+    s = db_connect()
+    async with s.begin():
+        u = create_user(name, email, password)
+        s.add(u)
     return u
 
 @questing.route('/signup', methods=['GET', 'POST'])
@@ -109,10 +109,10 @@ async def register() -> ResponseType:
         if form['pass1'] != form['pass2']:
             await flash("Passwords did not match")
             return redirect(url_for('questing.register'))
-        async with db_connect() as s:
-            tu = (await s.scalars(
-                select(models.User).filter(models.User.name == form['user'])
-            )).one_or_none()
+        s = db_connect()
+        tu = (await s.scalars(
+            select(models.User).filter(models.User.name == form['user'])
+        )).one_or_none()
         if tu is not None:
             await flash("Username not available")
             return redirect(url_for('questing.register'))
@@ -129,11 +129,11 @@ async def add_story(title: str, desc: str, author: models.User) -> models.Story:
     nc = models.Chapter(order_idx=0, story=ns, title='Chapter 1')
     chan = models.Channel()
     ns.channel = chan
-    async with db_connect() as s:
-        async with s.begin():
-            s.add(ns)
-            s.add(nc)
-            s.add(chan)
+    s = db_connect()
+    async with s.begin():
+        s.add(ns)
+        s.add(nc)
+        s.add(chan)
     return ns
 
 @questing.route('/new_story', methods=['GET', 'POST'])
@@ -159,9 +159,9 @@ async def post_story() -> ResponseType:
 
 @questing.route('/story/<int:story_id>')
 async def view_story(story_id: int) -> ResponseType:
-    async with db_connect() as s:
-        story = (await s.scalars(
-            select(models.Story).filter(models.Story.id == story_id))).one()
+    s = db_connect()
+    story = (await s.scalars(
+        select(models.Story).filter(models.Story.id == story_id))).one()
     return redirect(url_for('questing.view_chapter', story_id=story.id,
                             chapter_id=story.chapters[0].id))
 
@@ -242,10 +242,10 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
 # standard HTMX path (hx-get on the voteblock element in render_vote.html)
 @questing.route('/vote/<int:vote_id>')
 async def view_vote(vote_id: int) -> str:
-    async with db_connect() as s:
-        ve = (await s.scalars(
-            select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
-        )).one_or_none()
+    s = db_connect()
+    ve = (await s.scalars(
+        select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
+    )).one_or_none()
     if ve is None:
         abort(404)
     channel_id = ve.post.chapter.story.channel_id
@@ -259,10 +259,10 @@ async def view_vote(vote_id: int) -> str:
 # used for updating the topic list over HTMX
 @questing.route("/story/<int:story_id>/topics")
 async def view_topic_list(story_id: int) -> str:
-    async with db_connect() as s:
-        story = (await s.scalars(
-            select(models.Story).filter(models.Story.id == story_id)
-        )).one_or_none()
+    s = db_connect()
+    story = (await s.scalars(
+        select(models.Story).filter(models.Story.id == story_id)
+    )).one_or_none()
     if story is None:
         abort(404)
     topics = await get_topics(story_id)
@@ -287,11 +287,11 @@ async def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[
     # if no explicit order given, it's the last in the current
     # chapter, plus 10
     if order_idx is None:
-        async with db_connect() as s:
-            order_idx = (await s.scalars(
-                select(models.func.max(models.Post.order_idx).
-                       label('max')).
-                filter(models.Post.chapter == c))).one()
+        s = db_connect()
+        order_idx = (await s.scalars(
+            select(models.func.max(models.Post.order_idx).
+                   label('max')).
+            filter(models.Post.chapter == c))).one()
         if order_idx is None:
             order_idx = 0
         else:
@@ -301,20 +301,20 @@ async def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[
         posted_date=datetime.now(tz=timezone.utc),
         post_type=ptype,
         chapter=c, story=c.story, order_idx=order_idx)
-    async with db_connect() as s:
-        async with s.begin():
-            s.add(np)
+    s = db_connect()
+    async with s.begin():
+        s.add(np)
     return np
 
 async def create_chapter(story: models.Story, title: str,
                          order_idx: Optional[int] = None) -> models.Chapter:
     if order_idx is None:
-        async with db_connect() as s:
-            order_idx = (await s.scalars(
-                select(models.func.max(models.Chapter.order_idx).
-                       label('max')).
-                filter(models.Chapter.story == story)
-            )).one()
+        s = db_connect()
+        order_idx = (await s.scalars(
+            select(models.func.max(models.Chapter.order_idx).
+                   label('max')).
+            filter(models.Chapter.story == story)
+        )).one()
         if order_idx is None:
             order_idx = 0
         else:
@@ -322,9 +322,9 @@ async def create_chapter(story: models.Story, title: str,
     nc = models.Chapter(
         title=title, story=story, order_idx=order_idx,
         is_appendix=False)
-    async with db_connect() as s:
-        async with s.begin():
-            s.add(nc)
+    s = db_connect()
+    async with s.begin():
+        s.add(nc)
     return nc
 
 @questing.route('/new_post', methods=['POST'])
@@ -402,14 +402,14 @@ async def reopen_vote(channel_id: int, vote_id: int) -> str:
 
 @questing.route('/user/<int:user_id>')
 async def user_profile(user_id: int) -> str:
-    async with db_connect() as s:
-        u = (await s.scalars(
-            select(models.User).filter(models.User.id == user_id)
-        )).one_or_none()
-        if u is None:
-            abort(404)
-        sl = (await s.scalars(
-            select(models.Story).filter(models.Story.author == u))).all()
+    s = db_connect()
+    u = (await s.scalars(
+        select(models.User).filter(models.User.id == user_id)
+    )).one_or_none()
+    if u is None:
+        abort(404)
+    sl = (await s.scalars(
+        select(models.Story).filter(models.Story.author == u))).all()
     return await render_template("user_profile.html", user=u, stories=sl)
 
 @questing.app_template_global()
@@ -425,10 +425,10 @@ async def change_settings() -> ResponseType:
 @questing.route('/topic/<int:topic_id>')
 async def view_topic(topic_id: int) -> str:
     htmx_partial = htmx and not htmx.history_restore_request
-    async with db_connect() as s:
-        topic = (await s.scalars(
-            select(models.Topic).filter(models.Topic.id == topic_id)
-        )).one_or_none()
+    s = db_connect()
+    topic = (await s.scalars(
+        select(models.Topic).filter(models.Topic.id == topic_id)
+    )).one_or_none()
     if topic is None:
         abort(404)
     if not htmx_partial:
@@ -467,10 +467,10 @@ async def new_topic() -> ResponseType:
         assert data is not None
         if 'story_id' in data:
             story_id = data['story_id']
-            async with db_connect() as s:
-                story = (await s.scalars(
-                    select(models.Story).filter(models.Story.id == story_id)
-                )).one_or_none()
+            s = db_connect()
+            story = (await s.scalars(
+                select(models.Story).filter(models.Story.id == story_id)
+            )).one_or_none()
             if story is None:
                 abort(400)
         else:
@@ -483,9 +483,9 @@ async def new_topic() -> ResponseType:
             post_date=datetime.now(tz=timezone.utc))
         t.poster = g.current_user
         t.story = story
-        async with db_connect() as s:
-            async with s.begin():
-                s.add(t)
+        s = db_connect()
+        async with s.begin():
+            s.add(t)
 
         if story is not None:
             assert story_id is not None
@@ -509,10 +509,10 @@ async def new_topic_post() -> ResponseType:
     if data is None:
         abort(400)
     topic_id = data['topic_id']
-    async with db_connect() as s:
-        topic = (await s.scalars(
-            select(models.Topic).filter(models.Topic.id == topic_id)
-        )).one_or_none()
+    s = db_connect()
+    topic = (await s.scalars(
+        select(models.Topic).filter(models.Topic.id == topic_id)
+    )).one_or_none()
     if topic is None:
         abort(400)
 
@@ -527,9 +527,9 @@ async def new_topic_post() -> ResponseType:
         text=text)
     message.poster = g.current_user
 
-    async with db_connect() as s:
-        async with s.begin():
-            s.add(message)
+    s = db_connect()
+    async with s.begin():
+        s.add(message)
 
     if topic.story is not None:
         story_id = topic.story_id
