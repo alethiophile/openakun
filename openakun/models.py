@@ -91,8 +91,8 @@ class Story(Base):
 
     author: Mapped[User] = relationship(back_populates="stories")
     channel: Mapped[Channel] = relationship(uselist=False)
-    posts: Mapped[Post] = relationship(back_populates="story",
-                                       order_by='Post.order_idx')
+    posts: Mapped[list[Post]] = relationship(back_populates="story",
+                                             order_by='Post.order_idx')
     topics: Mapped[list[Topic]] = relationship(back_populates='story')
 
     chapters: Mapped[list[Chapter]] = relationship(
