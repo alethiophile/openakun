@@ -85,7 +85,7 @@ def start_debug(signum: Any, frame: Any) -> None:
 @click.command()
 @click.option('--host', '-h', type=str, default=None,
               help="Hostname to bind to (default 127.0.0.1)")
-@click.option('--port', '-p', type=int, default=None,
+@click.option('--port', '-p', type=int, default=5000,
               help="Port to listen on (default 5000)")
 @click.option('--debug/--no-debug', type=bool, default=False,
               help="Debug mode")
