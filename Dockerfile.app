@@ -47,6 +47,6 @@ ENV PATH="/venv/bin:$PATH" \
     VIRTUAL_ENV=/venv
 RUN /opt/poetry/bin/poetry install
 STOPSIGNAL SIGINT
-COPY docker_run_with_worker.sh /app
-# CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0", "--debug", "--devel"]
-CMD ["bash", "/app/docker_run_with_worker.sh"]
+# COPY docker_run_with_worker.sh /app
+CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0", "--debug", "--devel"]
+# CMD ["bash", "/app/docker_run_with_worker.sh"]
