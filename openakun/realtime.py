@@ -674,9 +674,10 @@ async def set_vote_close_time(data: dict[str, Any]) -> None:
     rd = {}
     rd['close_time'] = vote.to_redis_dict()['close_time']
 
-    rv = db.redis_conn.fcall('set_vote_config', 2,
-                             f'channel_votes:{channel_id}', 'vote_info',
-                             vote_id, json.dumps(rd))
+    rv = db.redis_conn.fcall(
+        'set_vote_config', 2,
+        f'channel_votes:{channel_id}', 'vote_info',  # type: ignore
+        vote_id, json.dumps(rd))  # type: ignore
     if not rv:
         return None
 

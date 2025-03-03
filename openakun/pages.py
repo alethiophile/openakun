@@ -226,7 +226,8 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
     is_author = chapter.story.author == g.current_user
     topics = get_topics(story_id)
     if htmx and not htmx.history_restore_request:
-        return await render_block("view_chapter.html", "content", chapter=chapter,
+        return await render_block("view_chapter.html", "content",
+                                  chapter=chapter,
                                   msgs=chat_backlog, is_author=is_author,
                                   topics=topics, story=chapter.story)
     else:
@@ -248,8 +249,9 @@ async def view_vote(vote_id: int) -> str:
     chapter = ve.post.chapter
     is_author = chapter.story.author == g.current_user
     vote = full_vote_info(channel_id, ve, True)
-    return await render_template("render_vote.html", chapter=chapter, vote=vote,
-                                 is_author=is_author)
+    return await render_template(
+        "render_vote.html", chapter=chapter, vote=vote,
+        is_author=is_author)
 
 # used for updating the topic list over HTMX
 @questing.route("/story/<int:story_id>/topics")
@@ -448,6 +450,7 @@ async def new_topic() -> ResponseType:
     if request.method == 'GET':
         # send template
         story_id_s = request.args.get('story_id')
+        story_id = None
         if story_id_s:
             try:
                 story_id = int(story_id_s)
@@ -492,6 +495,9 @@ async def new_topic() -> ResponseType:
         res.headers['HX-Push-Url'] = url_for('questing.view_topic',
                                              topic_id=t.id)
         return res
+    # control never reaches here, since we assume the request method is either
+    # GET or POST; this is just to satisfy mypy
+    abort(400)
 
 @questing.route('/new_topic_post', methods=['POST'])
 @csrf_check

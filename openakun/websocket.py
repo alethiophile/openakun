@@ -5,7 +5,7 @@ from __future__ import annotations
 from quart import request, Blueprint, websocket, g
 
 import threading, json, os, traceback, secrets, asyncio
-from asyncio import Queue
+from asyncio import Queue, Task
 import redis.asyncio as redis
 
 from . import realtime
@@ -194,7 +194,7 @@ async def ws_endpoint(channel: str) -> None:
                 break
             await websocket.send(msg)
 
-    request.sid = ws_chan
+    g.websocket_id = ws_chan
 
     dst = threading.Thread(target=downsender, daemon=True)
     dst.start()
