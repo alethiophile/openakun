@@ -42,6 +42,7 @@ def create_app(config: Config):
     app.config['csp_report_only'] = config.csp_level == CSPLevel.Report
     # TODO merge this with the default .config attr properly
     app.config['data_obj'] = config
+    app.config.update(config.merge_dict)
 
     app.jinja_env.add_extension('jinja2.ext.do')
 

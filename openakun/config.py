@@ -8,6 +8,8 @@ from enum import Enum
 from pathlib import Path
 import tomllib, os
 
+from typing import Any
+
 class CSPLevel(Enum):
     Report = 'report'
     Enforce = 'enforce'
@@ -23,6 +25,7 @@ class Config:
     csp_level: CSPLevel
     proxy_fix: bool
     main_origin: str
+    merge_dict: dict[str, Any]
 
     @classmethod
     def get_config(cls, fn: Path | None = None) -> Config:
@@ -40,5 +43,7 @@ class Config:
         if len(cdata['secret_key']) < 40:
             raise ValueError("invalid OPENAKUN_SECRET_KEY")
         cdata['sentry_dsn'] = os.environ.get('OPENAKUN_SENTRY_DSN')
+
+        cdata['merge_dict'] = cdata.pop('quart', {})
 
         return structure(cdata, Config)
