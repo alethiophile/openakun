@@ -15,6 +15,8 @@ from datetime import datetime
 
 import os, enum
 
+from typing import Any
+
 # for Alembic
 naming = {
     "ix": 'ix_%(column_0_label)s',
@@ -52,23 +54,23 @@ class User(Base):
     roles: Mapped[list[UserRole]] = relationship(secondary=user_with_role)
     stories: Mapped[list[Story]] = relationship(back_populates="author")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<User '{}' (id {})>".format(self.name, self.id)
 
     # Methods for flask_login
     @property
-    def is_authenticated(self):
+    def is_authenticated(self) -> bool:
         return True
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
         return True
 
     @property
-    def is_anonymous(self):
+    def is_anonymous(self) -> bool:
         return False
 
-    def get_id(self):
+    def get_id(self) -> str:
         return str(self.id)
 
 class UserRole(Base):
@@ -97,7 +99,7 @@ class Story(Base):
         order_by='Chapter.is_appendix,Chapter.order_idx',
         uselist=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Story '{}' (id {}) by {}>".format(self.title, self.id,
                                                    self.author.name)
 
@@ -113,7 +115,7 @@ class Chapter(Base):
     story: Mapped[Story] = relationship(back_populates='chapters')
     posts: Mapped[list[Post]] = relationship(back_populates='chapter')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ("<Chapter '{}' (id {}, idx {}) of '{}', appendix={}>".
                 format(self.title, self.id, self.order_idx, self.story.title,
                        self.is_appendix))
@@ -123,7 +125,7 @@ class PostType(enum.Enum):
     Vote = 2
     Writein = 3
 
-def order_idx_default(context):
+def order_idx_default(context: Any) -> int:
     cid = context.get_current_parameters()['chapter_id']
     rv = context.connection.execute(select(
         func.coalesce(

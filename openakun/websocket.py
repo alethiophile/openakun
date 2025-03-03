@@ -77,19 +77,23 @@ class SubscriptionFanout[T]:
         self.redis_url = redis_url
         self.redis_send = redis_send
         self.redis_recv = redis_recv
-        self._recv_task = None
+        self._recv_task: Task | None = None
         self.obj_id = f"{os.getpid()}-{id(self)}"
 
-    def __enter__(self):
+    def __enter__(self) -> SubscriptionFanout[T]:
         self.redis_conn = redis.Redis.from_url(self.redis_url)
         if self.redis_recv:
             self._recv_task = asyncio.create_task(self._redis_msg_receiver())
 
-    def __exit__(self, exc_type, exc_value, traceback):
+        return self
+
+    def __exit__(
+            self, exc_type: t.Any, exc_value: t.Any, traceback: t.Any
+    ) -> None:
         if self._recv_task is not None:
             self._recv_task.cancel()
 
-    async def _redis_msg_receiver(self):
+    async def _redis_msg_receiver(self) -> t.NoReturn:
         ps = self.redis_conn.pubsub(ignore_subscribe_messages=True)
         await ps.subscribe(self.REDIS_PS_CHAN)
         async for message in ps.listen():
@@ -101,6 +105,8 @@ class SubscriptionFanout[T]:
             if sender == self.obj_id:
                 continue
             await self._internal_publish(key, val)
+        # should never reach here
+        raise RuntimeError()
 
     def _make_redis_msg(self, key: str, value: t.Any) -> str:
         return json.dumps({ 'key': key, 'value': value,
@@ -124,7 +130,7 @@ class SubscriptionFanout[T]:
 
     async def subscribe(
             self, *keys: str, timeout: t.Optional[float] = None
-    ) -> t.AsyncGenerator[t.Tuple[str, T]]:
+    ) -> t.AsyncGenerator[t.Tuple[str, T], None]:
         """Subscribes to a set of channels, then yields all the messages that
         come in over those channels.
 
@@ -166,8 +172,8 @@ rtb = Blueprint('realtime', __name__)
 
 handlers = {}
 
-def handle_message(which):
-    def deco(fn):
+def handle_message(which: str) -> t.Callable:
+    def deco(fn: t.Callable) -> t.Callable:
         handlers[which] = fn
         return fn
     return deco

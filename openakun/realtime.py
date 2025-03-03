@@ -14,22 +14,22 @@ from sqlalchemy import sql, orm
 import hashlib, json
 from .websocket import handle_message
 
-from typing import List, Dict, Optional, Any, Union, cast
+from typing import List, Dict, Optional, Any, Union, cast, Callable
 
-def get_channel(channel_id):
+async def get_channel(channel_id: int) -> models.Channel:
     s = db_connect()
     channel = (s.query(models.Channel).
                filter(models.Channel.id == channel_id).one())
     return channel
 
-def get_story(channel_id):
+async def get_story(channel_id: int) -> models.Story:
     s = db_connect()
     story = (s.query(models.Story).
              filter(models.Story.channel_id == channel_id).one())
     return story
 
 # user_id can be string ID or 'anon'
-def check_channel_auth(channel_id, user_id):
+async def check_channel_auth(channel_id: int, user_id: int | str) -> bool:
     assert db.redis_conn is not None
     auth_hkey = '{}:{}'.format(user_id, channel_id)
     cv = db.redis_conn.hget('channel_auth', auth_hkey)
@@ -44,11 +44,11 @@ def check_channel_auth(channel_id, user_id):
         cv = cv.decode()
     return cv == '1'
 
-def with_channel_auth(err_val=None):
-    def return_func(f):
+def with_channel_auth(err_val: Any = None) -> Callable:
+    def return_func(f: Callable) -> Callable:
         @wraps(f)
-        async def auth_wrapper(data):
             uid = 'anon' if current_user.is_anonymous else current_user.id
+        async def auth_wrapper(data: dict[str, Any]) -> Any:
             if not check_channel_auth(data['channel'], uid):
                 return err_val
             return await f(data)
@@ -57,7 +57,7 @@ def with_channel_auth(err_val=None):
 
 @handle_message('backlog')
 # @with_channel_auth({ 'success': False, 'error': 'Channel is private' })
-async def handle_backlog(data):
+async def handle_backlog(data: dict[str, Any]) -> Any:
     print("Sending backlog for channel", data['channel'])
     bl = get_back_messages(data['channel'])
     send_back_messages(bl, request.sid)
@@ -71,7 +71,7 @@ async def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
         html = await render_template('render_chatmsg.html', c=mo, htmx=True)
         await websocket.pubsub.publish(to, html)
 
-def register_ip(addr):
+async def register_ip(addr: str) -> str:
     # TODO make this use Redis and a periodic sweep, like chat messages
     hashval = hashlib.sha256(addr.encode()).hexdigest()
     s = db_connect()
@@ -230,7 +230,9 @@ async def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
     await populate_vote(channel_id, v)
     return v
 
-async def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
+async def send_vote_html(
+        channel_id: int, vote_id: int, reopen: bool = False
+) -> None:
     """Render a vote in user-agnostic form (i.e. no voted-for annotations) and
     send the resulting HTML over the channel. This is called every time a vote
     is altered (votes added or removed, options added, config changed, etc.) in
@@ -257,7 +259,7 @@ async def send_vote_html(channel_id: int, vote_id: int, reopen: bool = False):
 
 @handle_message('add_vote')
 @with_channel_auth()
-async def handle_add_vote(data) -> None:
+async def handle_add_vote(data: dict[str, Any]) -> None:
     """Takes an info dictionary of the form:
     { 'channel': channel_id, 'vote': vote_id, 'option': option_id }
 
@@ -289,7 +291,7 @@ async def handle_add_vote(data) -> None:
 
 @handle_message('remove_vote')
 @with_channel_auth()
-async def handle_remove_vote(data) -> None:
+async def handle_remove_vote(data: dict[str, Any]) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
@@ -315,7 +317,7 @@ async def handle_remove_vote(data) -> None:
 
 @handle_message('new_vote_entry')
 @with_channel_auth()
-async def handle_new_vote_entry(data) -> None:
+async def handle_new_vote_entry(data: dict[str, Any]) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
@@ -505,7 +507,7 @@ async def close_vote(
                                                     'vote_id': vote_id,
                                                     'open': False }))
 
-def close_to_db():
+async def close_to_db() -> None:
     s = db.Session()
     vl = db.redis_conn.hgetall('vote_info')
     vd = decode_redis_dict(vl)
@@ -531,7 +533,7 @@ async def open_vote(channel_id: int, vote_id: int) -> None:
                      'vote_id': vote_id, 'open': True }))
 
 @handle_message('set_vote_active')
-async def set_vote_active(data) -> None:
+async def set_vote_active(data: dict[str, Any]) -> None:
     channel_id = int(data['channel'])
     story = get_story(channel_id)
 
@@ -552,7 +554,7 @@ async def set_vote_active(data) -> None:
         await open_vote(channel_id, vote_id)
 
 @handle_message('set_option_killed')
-async def set_option_killed(data) -> None:
+async def set_option_killed(data: dict[str, Any]) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
@@ -579,7 +581,7 @@ async def set_option_killed(data) -> None:
     await send_vote_html(int(channel_id), int(vote_id))
 
 @handle_message('set_vote_options')
-async def set_vote_options(data) -> None:
+async def set_vote_options(data: dict[str, Any]) -> None:
     # TODO factor out this authentication code
     channel_id = int(data['channel'])
     story = get_story(channel_id)
@@ -619,7 +621,7 @@ async def set_vote_options(data) -> None:
     await send_vote_html(channel_id, vote_id)
 
 @handle_message('set_vote_close_time')
-async def set_vote_close_time(data) -> None:
+async def set_vote_close_time(data: dict[str, Any]) -> None:
     # TODO factor out this authentication code
     channel_id = int(data['channel'])
     story = get_story(channel_id)

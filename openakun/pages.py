@@ -25,7 +25,7 @@ ResponseType = str | QuartResponse | WerkzeugResponse
 
 htmx = HTMX()
 
-def make_hasher():
+def make_hasher() -> CryptContext:
     pwd_context = CryptContext(
         schemes=['pbkdf2_sha256'],
         deprecated='auto',
@@ -45,14 +45,14 @@ def load_user(user_id: int) -> Optional[models.User]:
     return (s.query(models.User).
             filter(models.User.id == int(user_id)).one_or_none())
 
-def get_signer():
+def get_signer() -> itsdangerous.TimestampSigner:
     return itsdangerous.TimestampSigner(current_app.config['SECRET_KEY'])
 
 @questing.route('/')
-async def main():
-    async with db_connect().begin() as s:
-        stories = s.scalars(
-            select(models.Story).limit(10)).all()
+async def main() -> ResponseType:
+    async with db_connect() as s:
+        stories = (await s.scalars(
+            select(models.Story).limit(10))).all()
     return await render_template("main.html", stories=stories)
 
 @questing.route('/login', methods=['GET', 'POST'])
@@ -391,7 +391,7 @@ def get_dark_mode() -> bool:
     return session.get('dark_mode', False)
 
 @questing.route('/settings', methods=['POST'])
-async def change_settings() -> str:
+async def change_settings() -> ResponseType:
     dark_mode = int((await request.form).get('dark_mode', 0))
     session['dark_mode'] = bool(dark_mode)
     return '', { 'HX-Refresh': "true" }

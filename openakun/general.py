@@ -10,7 +10,7 @@ from sentry_sdk import push_scope, capture_message
 from flask_login import LoginManager
 from .config import Config
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Any, Iterator
 
 class ConfigError(Exception):
     pass
@@ -39,10 +39,10 @@ def parse_redis_url(url):
     rv['db'] = int(o.group('db') or '0')
     return rv
 
-def decode_redis_dict(l):
+def decode_redis_dict(l: list | dict) -> dict[str, Any]:
     if not isinstance(l, list):
         return l
-    def to_pairs(l):
+    def to_pairs(l: list) -> Iterator[tuple[str, Any]]:
         i = iter(l)
         while True:
             try:
@@ -96,7 +96,7 @@ def make_csrf(force: bool = False) -> None:
 
 def csrf_check(view: Callable) -> Callable:
     @wraps(view)
-    async def csrf_wrapper(*args, **kwargs):
+    async def csrf_wrapper(*args: Any, **kwargs: Any) -> Any:
         if request.method == 'POST':
             data = await request.get_json(silent=True)
             tok = (data.get('_csrf_token', '') if data else

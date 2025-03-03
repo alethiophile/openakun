@@ -44,7 +44,7 @@ class ChatMessage:
     user_id: Optional[int] = None
     user_name: Optional[str] = None
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if (self.anon_id is None) == (self.user_id is None):
             raise ValueError("must provide exactly one of user_id or anon_id")
         if (self.user_id is None) != (self.user_name is None):
@@ -97,7 +97,9 @@ class ChatMessage:
             rv.user_id = self.user_id
         return rv
 
-    def to_browser_message(self, anon_username='anon', admin=False) -> Dict[str, Any]:
+    def to_browser_message(
+            self, anon_username: str = 'anon', admin: bool = False
+    ) -> Dict[str, Any]:
         rv = { 'is_anon': (self.user_id is None),
                'text': self.msg_text, 'date': self.date,
                'rendered_date': (self.date.astimezone(timezone.utc).
@@ -170,7 +172,7 @@ class VoteEntry:
         self.users_voted_for = list(set(d.get('users_voted_for', [])))
         self.vote_count = len(self.users_voted_for)
 
-    def set_model_votes(self, em):
+    def set_model_votes(self, em: models.VoteEntry) -> None:
         """Given a model, update the votes on it to match the current
         users_voted_for. This clears out the existing data in Postgres; make
         sure this is what you want.
@@ -276,12 +278,14 @@ class Vote:
         return rv
 
 class BadHTMLError(Exception):
-    def __init__(self, *args, good_html: str, bad_html: str, **kwargs) -> None:
+    def __init__(
+            self, *args: Any, good_html: str, bad_html: str, **kwargs: Any
+    ) -> None:
         self.good_html = good_html
         self.bad_html = bad_html
         super().__init__(*args, **kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"BadHTMLError(good_html={repr(self.good_html)}, "
                 f"bad_html={repr(self.bad_html)})")
 
@@ -329,7 +333,7 @@ class Post:
     order_idx: Optional[int] = None
 
     @text.validator
-    def _cleck_clean_html(self, attrib, val):
+    def _cleck_clean_html(self, attrib: Any, val: str | None) -> None:
         if val is None:
             return
         html = ChapterHTMLText(val)

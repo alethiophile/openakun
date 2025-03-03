@@ -22,7 +22,7 @@ def close_db_session(err):
         print("error in close_db_session()")
         traceback.print_exc()
 
-def create_app(config: Config):
+def create_app(config: Config) -> Quart:
     app = Quart('openakun')
 
     if config.sentry_dsn is not None:
@@ -74,10 +74,10 @@ def init_db(silent: bool = False) -> None:
     models.init_db(db.db_engine,
                    config.use_alembic)
 
-def sigterm(signum, frame):
+def sigterm(signum: Any, frame: Any) -> NoReturn:
     raise KeyboardInterrupt()
 
-def start_debug(signum, frame):
+def start_debug(signum: Any, frame: Any) -> None:
     print("debug signal")
     traceback.print_stack()
     print(threading.enumerate())
