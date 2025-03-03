@@ -34,7 +34,7 @@ def create_app(config: Config):
     app.config['SECRET_KEY'] = config.secret_key
     # global login_mgr
     login_mgr.init_app(app)
-    login_mgr.login_view = 'login'
+    login_mgr.login_view = 'questing.login'
 
     websocket.pubsub.set_redis_opts(config.redis_url,
                                     True, True)
