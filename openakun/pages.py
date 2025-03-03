@@ -163,7 +163,7 @@ async def view_story(story_id: int) -> ResponseType:
     story = (await s.scalars(
         select(models.Story).filter(models.Story.id == story_id))).one()
     return redirect(url_for('questing.view_chapter', story_id=story.id,
-                            chapter_id=story.chapters[0].id))
+                            chapter_id=(await story.awaitable_attrs.chapters)[0].id))
 
 @questing.app_template_global()
 async def prepare_post(p: models.Post, user_votes: bool = False) -> None:
@@ -175,11 +175,16 @@ async def prepare_post(p: models.Post, user_votes: bool = False) -> None:
     p.date_millis = (p.posted_date.timestamp() * 1000)
     if p.post_type == models.PostType.Vote:
         channel_id = p.story.channel_id
-        p.vote = full_vote_info(channel_id, p.vote_info, user_votes)
+        p.vote = await full_vote_info(
+            channel_id, await p.awaitable_attrs.vote_info, user_votes)
 
 async def full_vote_info(channel_id: int, vm: models.VoteInfo,
                          user_votes: bool = False) -> Vote:
     uid = (await realtime.get_user_identifier()) if user_votes else None
+    s = db_connect()
+    await s.refresh(vm, ["votes"])
+    for ve in vm.votes:
+        await s.refresh(ve, ["votes"])
     v = Vote.from_model(vm, uid)
     await realtime.populate_vote(channel_id, v)
     if user_votes and v.active:
@@ -212,13 +217,7 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
         select(models.Chapter).
         options(
             selectinload(models.Chapter.story).
-            selectinload(models.Story.author),
-            selectinload(models.Chapter.story).
-            selectinload(models.Story.chapters).
-            selectinload(models.Chapter.posts).
-            selectinload(models.Post.vote_info).
-            selectinload(models.VoteInfo.votes).
-            selectinload(models.VoteEntry.votes)).
+            selectinload(models.Story.author)).
         filter(models.Chapter.id == chapter_id,
                models.Chapter.story_id == story_id)
     )).one_or_none()
@@ -251,7 +250,7 @@ async def view_vote(vote_id: int) -> str:
     channel_id = ve.post.chapter.story.channel_id
     chapter = ve.post.chapter
     is_author = chapter.story.author == g.current_user
-    vote = full_vote_info(channel_id, ve, True)
+    vote = await full_vote_info(channel_id, ve, True)
     return await render_template(
         "render_vote.html", chapter=chapter, vote=vote,
         is_author=is_author)
@@ -335,9 +334,13 @@ async def new_post() -> ResponseType:
     data = await request.json
     assert data is not None
     print(data)
+    chapter_id = int(data['chapter_id'])
     c = (await s.scalars(
         select(models.Chapter).
-        filter(models.Chapter.id == data['chapter_id']))).one_or_none()
+        options(
+            selectinload(models.Chapter.story).
+            selectinload(models.Story.author)).
+        filter(models.Chapter.id == chapter_id))).one_or_none()
     if c is None:
         abort(404)
     if g.current_user != c.story.author:
@@ -441,7 +444,7 @@ async def view_topic(topic_id: int) -> str:
     #          order_by(models.TopicMessage.post_date).all())
     if htmx_partial:
         return await render_block("view_topic.html", "content", topic=topic,
-                                  story=topic.story)
+                                  story=await topic.awaitable_attrs.story)
     else:
         return await render_template("view_topic.html", topic=topic,
                                      story=topic.story, topics=topics,
