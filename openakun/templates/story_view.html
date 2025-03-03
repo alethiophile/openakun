@@ -2,7 +2,7 @@
 {% block head %}
     {{ super() }}
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
-    {% if story.author == current_user %}
+    {% if story.author == g.current_user %}
         <script nonce="{{ get_script_nonce() }}">
          var is_author = true;
         </script>
