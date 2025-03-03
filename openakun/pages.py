@@ -194,12 +194,15 @@ async def get_topics(story_id: int) -> list[models.Topic]:
         models.func.count(models.TopicMessage.id).label('num_msgs'),
         models.func.max(models.TopicMessage.post_date).label('latest_post')
     ).group_by(models.TopicMessage.topic_id).subquery()
-    async with db_connect() as s:
-        topics = (await s.scalars(
-            select(models.Topic).
-            outerjoin(msgs, models.Topic.id == msgs.c.topic_id).
-            filter(models.Topic.story_id == story_id).
-            order_by(msgs.c.latest_post.desc()))).all()
+    s = db_connect()
+    topics = (await s.scalars(
+        select(models.Topic).
+        options(
+            selectinload(models.Topic.poster),
+            selectinload(models.Topic.messages)).
+        outerjoin(msgs, models.Topic.id == msgs.c.topic_id).
+        filter(models.Topic.story_id == story_id).
+        order_by(msgs.c.latest_post.desc()))).all()
     return list(topics)
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
@@ -224,7 +227,7 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
     chat_backlog = [i.to_browser_message() for i in
                     await realtime.get_back_messages(chapter.story.channel_id)]
     is_author = chapter.story.author == g.current_user
-    topics = get_topics(story_id)
+    topics = await get_topics(story_id)
     if htmx and not htmx.history_restore_request:
         return await render_block("view_chapter.html", "content",
                                   chapter=chapter,
@@ -262,7 +265,7 @@ async def view_topic_list(story_id: int) -> str:
         )).one_or_none()
     if story is None:
         abort(404)
-    topics = get_topics(story_id)
+    topics = await get_topics(story_id)
     return await render_template("topic_list.html", story=story, topics=topics)
 
 async def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
@@ -432,7 +435,7 @@ async def view_topic(topic_id: int) -> str:
         chat_backlog = [
             i.to_browser_message() for i in
             await realtime.get_back_messages(topic.story.channel_id)]
-        topics = get_topics(topic.story_id)
+        topics = await get_topics(topic.story_id)
     # posts = (s.query(models.TopicMessage).filter(models.TopicMessage.topic_id ==
     #                                              topic_id).
     #          order_by(models.TopicMessage.post_date).all())

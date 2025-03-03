@@ -6,6 +6,7 @@ from . import models, websocket
 from .general import db, db_connect, db_setup, decode_redis_dict
 from .data import ChatMessage, Vote, VoteEntry, Message
 from quart import request, render_template, g
+from quart import websocket as ws
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone, timedelta
@@ -52,7 +53,7 @@ def with_channel_auth(err_val: Any = None) -> Callable:
         @wraps(f)
         async def auth_wrapper(data: dict[str, Any]) -> Any:
             uid = 'anon' if g.current_user is None else g.current_user.id
-            if not check_channel_auth(data['channel'], uid):
+            if not await check_channel_auth(data['channel'], uid):
                 return err_val
             return await f(data)
         return auth_wrapper
@@ -116,7 +117,7 @@ async def get_back_messages(cid: int) -> List[ChatMessage]:
 @handle_message('chat_message')
 @with_channel_auth()
 async def handle_chat(data: dict[str, Any]) -> None:
-    print("Chat message", data, request.remote_addr, g.current_user)
+    print("Chat message", data, ws.remote_addr, g.current_user)
     if len(data['msg']) == 0:
         return
 
@@ -126,7 +127,7 @@ async def handle_chat(data: dict[str, Any]) -> None:
     # this uses a sorted set where the sort value is the timestamp, allowing us
     # to quickly drop old data
     token = data['id_token']
-    if db.redis_conn.zscore('messages_seen', token) is not None:
+    if await db.redis_conn.zscore('messages_seen', token) is not None:
         return
     c_ts = datetime.now(tz=timezone.utc)
     us_now = c_ts.timestamp() * 1000000
@@ -134,8 +135,8 @@ async def handle_chat(data: dict[str, Any]) -> None:
 
     channel_id = data['channel']
     if g.current_user is None:
-        assert request.remote_addr is not None
-        hashval = await register_ip(request.remote_addr)
+        assert ws.remote_addr is not None
+        hashval = await register_ip(ws.remote_addr)
     user_info = (
         { 'anon_id': hashval } if g.current_user is None else
         { 'user_id': g.current_user.id, 'user_name': g.current_user.name })
@@ -208,7 +209,7 @@ async def populate_vote(channel_id: int, vote: Vote) -> Vote:
     assert db.redis_conn is not None
     assert vote.db_id is not None
 
-    if not vote_is_active(channel_id, vote.db_id):
+    if not await vote_is_active(channel_id, vote.db_id):
         vote.active = False
         return vote
 
@@ -223,8 +224,12 @@ async def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
 async def get_user_identifier() -> str:
     if g.current_user is None:
-        assert request.remote_addr is not None
-        return 'anon:' + await register_ip(request.remote_addr)
+        try:
+            assert request.remote_addr is not None
+            return 'anon:' + await register_ip(request.remote_addr)
+        except RuntimeError:
+            assert ws.remote_addr is not None
+            return 'anon:' + await register_ip(ws.remote_addr)
     else:
         return f"user:{g.current_user.id}"
 
@@ -279,14 +284,14 @@ async def handle_add_vote(data: dict[str, Any]) -> None:
     vote_id = data['vote']
     option_id = data['option']
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return None
 
     uid = await get_user_identifier()
-    rv = db.redis_conn.fcall(
+    rv = await db.redis_conn.fcall(
         'add_vote', 2,
-        f'channel_votes:{channel_id}',  # type: ignore
-        'vote_info', vote_id, option_id, uid)  # type: ignore
+        f'channel_votes:{channel_id}',
+        'vote_info', vote_id, option_id, uid)
     if not rv:
         return
 
@@ -310,14 +315,15 @@ async def handle_remove_vote(data: dict[str, Any]) -> None:
     vote_id = data['vote']
     option_id = data['option']
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return None
 
     uid = await get_user_identifier()
 
-    rv = db.redis_conn.fcall('remove_vote', 2,
-                             f'channel_votes:{channel_id}',
-                             'vote_info', vote_id, option_id, uid)
+    rv = await db.redis_conn.fcall(
+        'remove_vote', 2,
+        f'channel_votes:{channel_id}',
+        'vote_info', vote_id, option_id, uid)
     if not rv:
         return
 
@@ -337,7 +343,7 @@ async def handle_new_vote_entry(data: dict[str, Any]) -> None:
     # voteinfo = data['vote_info']
     option_text = data['option_text']
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return None
 
     conf = json.loads(
@@ -371,10 +377,10 @@ async def handle_new_vote_entry(data: dict[str, Any]) -> None:
     assert option.db_id is not None
 
     uid = await get_user_identifier()
-    rv = db.redis_conn.fcall(
+    rv = await db.redis_conn.fcall(
         'new_vote_entry', 2,
-        f'channel_votes:{channel_id}',  # type: ignore
-        'vote_info', vote_id, option.db_id, uid)  # type: ignore
+        f'channel_votes:{channel_id}',
+        'vote_info', vote_id, option.db_id, uid)
 
     # we check whether writeins are allowed within the Redis function, to
     # ensure atomicity; a false value means that that check (or another
@@ -458,7 +464,7 @@ async def close_vote(
     """
     assert db.redis_conn is not None
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return None
 
     if s is None:
@@ -558,7 +564,7 @@ async def set_vote_active(data: dict[str, Any]) -> None:
 
     vote_id = int(data['vote'])
     set_active = data['active']
-    now_active = vote_is_active(channel_id, vote_id)
+    now_active = await vote_is_active(channel_id, vote_id)
 
     if now_active == set_active:
         return
@@ -583,13 +589,14 @@ async def set_option_killed(data: dict[str, Any]) -> None:
     killed = '1' if data['killed'] else '0'
     kill_string = data.get('message', '')
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return
 
-    rv = db.redis_conn.fcall('set_option_killed', 2,
-                             f'channel_votes:{channel_id}',
-                             'vote_info', vote_id, option_id, killed,
-                             kill_string)
+    rv = await db.redis_conn.fcall(
+        'set_option_killed', 2,
+        f'channel_votes:{channel_id}',
+        'vote_info', vote_id, option_id, killed,
+        kill_string)
     if not rv:
         return None
 
@@ -605,7 +612,7 @@ async def set_vote_options(data: dict[str, Any]) -> None:
     if story.author != g.current_user:
         return
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return
 
     # TODO handle close time here as well
@@ -627,9 +634,10 @@ async def set_vote_options(data: dict[str, Any]) -> None:
     vote.writein_allowed = writein_allowed
     vote.votes_hidden = votes_hidden
 
-    rv = db.redis_conn.fcall('set_vote_config', 2,
-                             f'channel_votes:{channel_id}', 'vote_info',
-                             vote_id, json.dumps(vote.to_redis_dict()))
+    rv = await db.redis_conn.fcall(
+        'set_vote_config', 2,
+        f'channel_votes:{channel_id}', 'vote_info',
+        vote_id, json.dumps(vote.to_redis_dict()))
     if not rv:
         return None
 
@@ -645,7 +653,7 @@ async def set_vote_close_time(data: dict[str, Any]) -> None:
     if story.author != g.current_user:
         return
 
-    if not vote_is_active(channel_id, vote_id):
+    if not await vote_is_active(channel_id, vote_id):
         return
 
     # TODO handle close time here as well
@@ -658,7 +666,9 @@ async def set_vote_close_time(data: dict[str, Any]) -> None:
         vote.close_time = None
     else:
         try:
-            num = int(data.get('value'))
+            val = data.get('value')
+            assert isinstance(val, (str, int))
+            num = int(val)
         except Exception:
             return
         unit = data.get('unit')
@@ -674,10 +684,10 @@ async def set_vote_close_time(data: dict[str, Any]) -> None:
     rd = {}
     rd['close_time'] = vote.to_redis_dict()['close_time']
 
-    rv = db.redis_conn.fcall(
+    rv = await db.redis_conn.fcall(
         'set_vote_config', 2,
-        f'channel_votes:{channel_id}', 'vote_info',  # type: ignore
-        vote_id, json.dumps(rd))  # type: ignore
+        f'channel_votes:{channel_id}', 'vote_info',
+        vote_id, json.dumps(rd))
     if not rv:
         return None
 

@@ -196,8 +196,7 @@ async def ws_endpoint(channel: str) -> None:
 
     g.websocket_id = ws_chan
 
-    dst = threading.Thread(target=downsender, daemon=True)
-    dst.start()
+    asyncio.create_task(downsender())
     while True:
         try:
             data = await websocket.receive()

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from quart import (g, session, current_app, Response, request, redirect,
-                   url_for, abort, Quart)
+                   url_for, abort, Quart, websocket)
 from itsdangerous import Signer
 import inspect, base64
 from datetime import datetime, timedelta
@@ -117,7 +117,10 @@ class LoginManager:
         uid = session.get('_user_id')
 
         if uid is None:
-            cval = request.cookies.get('remember_user')
+            try:
+                cval = request.cookies.get('remember_user')
+            except RuntimeError:
+                cval = websocket.cookies.get('remember_user')
             if cval is not None:
                 uid = _check_signed_cookie(current_app.config['SECRET_KEY'],
                                            cval)
