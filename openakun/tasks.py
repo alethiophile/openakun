@@ -1,6 +1,6 @@
 #!python3
 
-from .general import parse_redis_url, db_setup, db
+from .general import db_setup, db
 from .config import Config
 from .models import Base
 from .realtime import message_cache_len, ChatMessage, close_vote

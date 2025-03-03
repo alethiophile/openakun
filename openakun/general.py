@@ -25,20 +25,6 @@ class DbObj:
 db = DbObj()
 db.db_engine, db.Session, db.redis_conn = None, None, None  # type: ignore
 
-redis_url_re = re.compile(r"^redis://(?P<hostname>[a-zA-Z1-9.-]+)?"
-                          r"(:(?P<port>\d+))?"
-                          r"(/(?P<db>\d+))?$")
-
-def parse_redis_url(url):
-    o = redis_url_re.match(url)
-    if o is None:
-        raise ConfigError("Couldn't parse Redis url '{}'".format(url))
-    rv = {}
-    rv['host'] = o.group('hostname') or '127.0.0.1'
-    rv['port'] = int(o.group('port') or '6379')
-    rv['db'] = int(o.group('db') or '0')
-    return rv
-
 def decode_redis_dict(l: list | dict) -> dict[str, Any]:
     if not isinstance(l, list):
         return l

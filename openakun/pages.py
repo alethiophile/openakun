@@ -35,11 +35,6 @@ def make_hasher() -> CryptContext:
 
 questing = Blueprint('questing', __name__)
 
-@questing.app_template_global()
-def include_raw(filename):
-    return (current_app.jinja_loader.
-            get_source(current_app.jinja_env, filename)[0])
-
 @login_mgr.user_loader
 async def load_user(user_id: int | str) -> models.User | None:
     async with db_connect() as s:
