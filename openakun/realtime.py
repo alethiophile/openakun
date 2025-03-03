@@ -11,6 +11,8 @@ from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import sql, orm
+from sqlalchemy.sql.expression import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 import hashlib, json
 from .websocket import handle_message
 
@@ -18,28 +20,30 @@ from typing import List, Dict, Optional, Any, Union, cast, Callable
 
 async def get_channel(channel_id: int) -> models.Channel:
     s = db_connect()
-    channel = (s.query(models.Channel).
-               filter(models.Channel.id == channel_id).one())
+    channel = (await s.scalars(
+        select(models.Channel).
+        filter(models.Channel.id == channel_id))).one()
     return channel
 
 async def get_story(channel_id: int) -> models.Story:
     s = db_connect()
-    story = (s.query(models.Story).
-             filter(models.Story.channel_id == channel_id).one())
+    story = (await s.scalars(
+        select(models.Story).
+        filter(models.Story.channel_id == channel_id))).one()
     return story
 
 # user_id can be string ID or 'anon'
 async def check_channel_auth(channel_id: int, user_id: int | str) -> bool:
     assert db.redis_conn is not None
     auth_hkey = '{}:{}'.format(user_id, channel_id)
-    cv = db.redis_conn.hget('channel_auth', auth_hkey)
+    cv = await db.redis_conn.hget('channel_auth', auth_hkey)
     if cv is None:
-        c = get_channel(channel_id)
+        c = await get_channel(channel_id)
         if c.private:
             cv = '0'
         else:
             cv = '1'
-        db.redis_conn.hset('channel_auth', auth_hkey, cv)
+        await db.redis_conn.hset('channel_auth', auth_hkey, cv)
     else:
         cv = cv.decode()
     return cv == '1'
@@ -59,8 +63,8 @@ def with_channel_auth(err_val: Any = None) -> Callable:
 # @with_channel_auth({ 'success': False, 'error': 'Channel is private' })
 async def handle_backlog(data: dict[str, Any]) -> Any:
     print("Sending backlog for channel", data['channel'])
-    bl = get_back_messages(data['channel'])
-    send_back_messages(bl, request.sid)
+    bl = await get_back_messages(data['channel'])
+    await send_back_messages(bl, g.websocket_id)
     return { 'success': True }
 
 async def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
@@ -75,12 +79,14 @@ async def register_ip(addr: str) -> str:
     # TODO make this use Redis and a periodic sweep, like chat messages
     hashval = hashlib.sha256(addr.encode()).hexdigest()
     s = db_connect()
-    q_num = (s.query(models.AddressIdentifier).
-             filter(models.AddressIdentifier.hash == hashval).count())
+    q_num = (await s.scalar(
+        select(func.count()).
+        select_from(models.AddressIdentifier).
+        filter(models.AddressIdentifier.hash == hashval)))
     if (q_num == 0):
         ai = models.AddressIdentifier(hash=hashval, ip=addr)
         s.add(ai)
-    s.commit()
+    await s.commit()
     return hashval
 
 message_cache_len = 60
@@ -93,11 +99,11 @@ async def get_back_messages(cid: int) -> List[ChatMessage]:
     redis_msg_count = len(msgs)
     if redis_msg_count < message_cache_len:
         s = db_connect()
-        rv = (s.query(models.ChatMessage).
-              filter(models.ChatMessage.channel_id == cid).
-              order_by(models.ChatMessage.date.desc()).
-              limit(message_cache_len).
-              all())
+        rv = (await s.scalars(
+            select(models.ChatMessage).
+            filter(models.ChatMessage.channel_id == cid).
+            order_by(models.ChatMessage.date.desc()).
+            limit(message_cache_len))).all()
         toks = set(i.server_token for i in msgs)
         db_msgs = [ChatMessage.from_model(i) for i in rv
                    if i.id_token not in toks]
@@ -176,15 +182,16 @@ async def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
     channel_key = f"channel_votes:{channel_id}"
     await db.redis_conn.sadd(channel_key, str(vote.db_id))
 
-def repopulate_from_db():
-    s = db.Session()
-    votes = (s.query(models.VoteInfo).
-             where((models.VoteInfo.time_closed > sql.functions.now()) |
-                   (models.VoteInfo.time_closed == None)).all())
-    for vm in votes:
-        print(vm)
-        channel_id = vm.post.story.channel_id
-        add_active_vote(vm, channel_id)
+async def repopulate_from_db() -> None:
+    async with db.Session() as s:
+        votes = (await s.scalars(
+            select(models.VoteInfo).
+            where((models.VoteInfo.time_closed > sql.functions.now()) |
+                  (models.VoteInfo.time_closed == None)))).all()
+        for vm in votes:
+            print(vm)
+            channel_id = vm.post.story.channel_id
+            await add_active_vote(vm, channel_id)
 
 async def vote_is_active(channel_id: int, vote_id: int) -> bool:
     assert db.redis_conn is not None
@@ -214,16 +221,18 @@ async def populate_vote(channel_id: int, vote: Vote) -> Vote:
 
     return vote
 
-def get_user_identifier() -> str:
-    if current_user.is_anonymous:
-        return 'anon:' + register_ip(request.remote_addr)
+async def get_user_identifier() -> str:
+    if g.current_user is None:
+        assert request.remote_addr is not None
+        return 'anon:' + await register_ip(request.remote_addr)
     else:
         return f"user:{current_user.id}"
 
 async def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
     s = db_connect()
-    vm = (s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).
-          one_or_none())
+    vm = (await s.scalars(
+        select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
+    )).one_or_none()
     if vm is None:
         return None
     v = Vote.from_model(vm)
@@ -240,7 +249,9 @@ async def send_vote_html(
 
     """
     s = db_connect()
-    m = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
+    m = (await s.scalars(
+        select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
+    )).one()
     v = Vote.from_model(m)
     await populate_vote(channel_id, v)
     # this is a dummy chapter object used only to get the channel ID
@@ -271,10 +282,11 @@ async def handle_add_vote(data: dict[str, Any]) -> None:
     if not vote_is_active(channel_id, vote_id):
         return None
 
-    uid = get_user_identifier()
-    rv = db.redis_conn.fcall('add_vote', 2,
-                             f'channel_votes:{channel_id}',
-                             'vote_info', vote_id, option_id, uid)
+    uid = await get_user_identifier()
+    rv = db.redis_conn.fcall(
+        'add_vote', 2,
+        f'channel_votes:{channel_id}',  # type: ignore
+        'vote_info', vote_id, option_id, uid)  # type: ignore
     if not rv:
         return
 
@@ -301,7 +313,7 @@ async def handle_remove_vote(data: dict[str, Any]) -> None:
     if not vote_is_active(channel_id, vote_id):
         return None
 
-    uid = get_user_identifier()
+    uid = await get_user_identifier()
 
     rv = db.redis_conn.fcall('remove_vote', 2,
                              f'channel_votes:{channel_id}',
@@ -352,16 +364,17 @@ async def handle_new_vote_entry(data: dict[str, Any]) -> None:
     om.vote_id = vote_id
     s = db_connect()
     s.add(om)
-    s.commit()
+    await s.commit()
 
     # this picks up the db_id just set by Postgres
     option = VoteEntry.from_model(om)
     assert option.db_id is not None
 
-    uid = get_user_identifier()
-    rv = db.redis_conn.fcall('new_vote_entry', 2,
-                             f'channel_votes:{channel_id}',
-                             'vote_info', vote_id, option.db_id, uid)
+    uid = await get_user_identifier()
+    rv = db.redis_conn.fcall(
+        'new_vote_entry', 2,
+        f'channel_votes:{channel_id}',  # type: ignore
+        'vote_info', vote_id, option.db_id, uid)  # type: ignore
 
     # we check whether writeins are allowed within the Redis function, to
     # ensure atomicity; a false value means that that check (or another
@@ -372,8 +385,8 @@ async def handle_new_vote_entry(data: dict[str, Any]) -> None:
     # creating a new entry when writein_allowed is false will be fenced out by
     # the within-Python check above
     if not rv:
-        s.delete(om)
-        s.commit()
+        await s.delete(om)
+        await s.commit()
         return
 
     m = Message(message_type='user-vote',
@@ -389,7 +402,7 @@ async def get_user_votes(
     assert db.redis_conn is not None
 
     if user_id is None:
-        user_id = get_user_identifier()
+        user_id = await get_user_identifier()
     user_id = str(user_id)
 
     rv: set[int] = set()
@@ -425,7 +438,7 @@ async def get_user_votes(
 #  - the vote_closed event emitted to the frontend
 async def close_vote(
         channel_id: int, vote_id: int, set_close_time: bool = True,
-        emit_client_event: bool = True, s: Optional[orm.Session] = None
+        emit_client_event: bool = True, s: AsyncSession | None = None
 ) -> None:
     """This function trusts its input: caller must verify that the given vote
     is open on the given channel.
@@ -450,7 +463,8 @@ async def close_vote(
 
     if s is None:
         s = db_connect()
-    vm = s.query(models.VoteInfo).filter(models.VoteInfo.id == vote_id).one()
+    vm = (await s.scalars(
+        select(models.VoteInfo).filter(models.VoteInfo.id == vote_id))).one()
     ve = Vote.from_model(vm)
 
     await populate_vote(channel_id, ve)
@@ -496,7 +510,7 @@ async def close_vote(
                 um = models.UserVote(anon_id=anon_id)
             v.votes.append(um)
     print("vm:", vm)
-    s.commit()
+    await s.commit()
 
     await db.redis_conn.zrem('vote_close_times', f"{channel_id}:{ve.db_id}")
     await db.redis_conn.hdel('vote_info', str(vote_id))
@@ -509,23 +523,24 @@ async def close_vote(
 
 async def close_to_db() -> None:
     s = db.Session()
-    vl = db.redis_conn.hgetall('vote_info')
+    vl = await db.redis_conn.hgetall('vote_info')
     vd = decode_redis_dict(vl)
     for vid, vs in vd.items():
         vi = json.loads(vs)
         channel_id = vi['channel_id']
-        close_vote(channel_id, int(vid), set_close_time=False,
-                   emit_client_event=False, s=s)
+        await close_vote(channel_id, int(vid), set_close_time=False,
+                         emit_client_event=False, s=s)
 
 # This can just call add_active_vote again, unset time_closed on the vote
 # entry, and emit an event to the frontend
 async def open_vote(channel_id: int, vote_id: int) -> None:
     s = db_connect()
-    vm = s.query(models.VoteInfo).where(models.VoteInfo.id == vote_id).one()
+    vm = (await s.scalars(
+        select(models.VoteInfo).where(models.VoteInfo.id == vote_id))).one()
     channel_id = vm.post.story.channel_id
     vm.time_closed = None
     await add_active_vote(vm, channel_id)
-    s.commit()
+    await s.commit()
 
     await websocket.pubsub.publish(
         f'chan:{channel_id}',
@@ -535,7 +550,7 @@ async def open_vote(channel_id: int, vote_id: int) -> None:
 @handle_message('set_vote_active')
 async def set_vote_active(data: dict[str, Any]) -> None:
     channel_id = int(data['channel'])
-    story = get_story(channel_id)
+    story = await get_story(channel_id)
 
     # TODO do we want to think about multiple authors?
     if story.author != current_user:
@@ -558,7 +573,7 @@ async def set_option_killed(data: dict[str, Any]) -> None:
     assert db.redis_conn is not None
 
     channel_id = data['channel']
-    story = get_story(channel_id)
+    story = await get_story(channel_id)
 
     if story.author != current_user:
         return
@@ -584,7 +599,7 @@ async def set_option_killed(data: dict[str, Any]) -> None:
 async def set_vote_options(data: dict[str, Any]) -> None:
     # TODO factor out this authentication code
     channel_id = int(data['channel'])
-    story = get_story(channel_id)
+    story = await get_story(channel_id)
     vote_id = int(data['vote'])
 
     if story.author != current_user:
@@ -624,7 +639,7 @@ async def set_vote_options(data: dict[str, Any]) -> None:
 async def set_vote_close_time(data: dict[str, Any]) -> None:
     # TODO factor out this authentication code
     channel_id = int(data['channel'])
-    story = get_story(channel_id)
+    story = await get_story(channel_id)
     vote_id = int(data['vote'])
 
     if story.author != current_user:

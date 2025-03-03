@@ -19,8 +19,8 @@ login_mgr = LoginManager()
 
 # creates an empty object, since object() can't be written to
 class DbObj:
-    db_engine: sqlalchemy.engine.Engine
-    Session: sqlalchemy.orm.sessionmaker
+    db_engine: sqlalchemy.ext.asyncio.AsyncEngine
+    Session: sqlalchemy.ext.asyncio.async_sessionmaker
     redis_conn: redis.Redis
 db = DbObj()
 db.db_engine, db.Session, db.redis_conn = None, None, None  # type: ignore
@@ -64,9 +64,12 @@ async def db_setup(config: Config | None = None, force_redis: bool = False) -> N
         config = current_app.config['data_obj']
     global db
     if db.db_engine is None:
-        db.db_engine = models.create_async_engine(config.database_url,
+        async_url = config.database_url.replace("postgresql://",
+                                                "postgresql+asyncpg://", 1)
+        db.db_engine = models.create_async_engine(async_url,
                                                   echo=config.echo_sql)
-        db.Session = models.async_sessionmaker(bind=db.db_engine)
+        db.Session = models.async_sessionmaker(bind=db.db_engine,
+                                               expire_on_commit=False)
     if db.redis_conn is None:
         db.redis_conn = redis.Redis.from_url(config.redis_url)
         fl = await db.redis_conn.function_list()
@@ -100,7 +103,7 @@ def csrf_check(view: Callable) -> Callable:
         if request.method == 'POST':
             data = await request.get_json(silent=True)
             tok = (data.get('_csrf_token', '') if data else
-                   request.form.get('_csrf_token', ''))
+                   (await request.form).get('_csrf_token', ''))
             # constant-time compare operation
             if not secrets.compare_digest(tok,
                                           session['_csrf_token']):

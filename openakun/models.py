@@ -10,7 +10,8 @@ from sqlalchemy.orm import (relationship, DeclarativeBase, Mapped,
                             mapped_column)
 from sqlalchemy.sql import select
 from sqlalchemy.ext.asyncio import \
-    (AsyncAttrs, async_sessionmaker, AsyncSession, create_async_engine)
+    (AsyncAttrs, async_sessionmaker, AsyncSession, create_async_engine,
+     AsyncEngine)
 from datetime import datetime
 
 import os, enum
@@ -294,11 +295,19 @@ class TopicMessage(Base):
     topic: Mapped[Topic] = relationship(back_populates="messages")
     poster: Mapped[User] = relationship()
 
-def init_db(engine, use_alembic=True):
-    Base.metadata.create_all(engine)
+async def ensure_updated_db() -> None:
+    from alembic.config import Config
+    from alembic import command
+    
 
-    if use_alembic:
-        from alembic.config import Config
-        from alembic import command
-        alembic_cfg = Config("alembic.ini")
-        command.stamp(alembic_cfg, "head")
+async def init_db(engine: AsyncEngine) -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # the Alembic operations are sync, so theoretically bad to run from async
+    # code; this should be fine as long as it's contained to the setup phases
+    # only
+    from alembic.config import Config
+    from alembic import command
+    alembic_cfg = Config("alembic.ini")
+    command.stamp(alembic_cfg, "head")

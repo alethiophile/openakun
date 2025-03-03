@@ -184,10 +184,11 @@ async def ws_endpoint(channel: str) -> None:
 
     ws_chan = f'ws:{secrets.token_urlsafe()}'
     channel_chan = f'chan:{channel}'
-    user_chan = realtime.get_user_identifier()
+    user_chan = await realtime.get_user_identifier()
 
-    async def downsender():
-        for chan, msg in pubsub.subscribe(channel_chan, ws_chan, user_chan):
+    async def downsender() -> None:
+        async for chan, msg in pubsub.subscribe(
+                channel_chan, ws_chan, user_chan):
             if chan == ws_chan and msg == 'ws_quit':
                 break
             await websocket.send(msg)

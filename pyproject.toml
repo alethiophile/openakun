@@ -25,6 +25,7 @@ cattrs = "^24.1.2"
 quart = "^0.20.0"
 quart-flask-patch = "^0.3.0"
 uvicorn = "^0.34.0"
+asyncpg = "^0.30.0"
 
 [tool.poetry.scripts]
 openakun_initdb = 'openakun.app:init_db'

@@ -5,19 +5,21 @@ from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
                       db_setup, db, login_mgr, add_htmx_vary, db_close)
 from .config import Config, CSPLevel
 
-import click, signal, traceback, threading
+import click, signal, traceback, threading, asyncio, uvicorn
 from quart import Quart, g
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
 from sqlalchemy import inspect
 
-def close_db_session(err):
+from typing import Any, NoReturn
+
+async def close_db_session(err: Any) -> None:
     if err:
         print(err)
     if not hasattr(g, 'db_session'):
         return
     try:
-        g.db_session.close()
+        await g.db_session.close()
     except Exception:
         print("error in close_db_session()")
         traceback.print_exc()
@@ -65,14 +67,13 @@ def create_app(config: Config) -> Quart:
 
     return app
 
-def init_db(silent: bool = False) -> None:
+async def init_db(silent: bool = False) -> None:
     config = Config.get_config()
-    db_setup(config)
+    await db_setup(config)
     assert db.db_engine is not None
     if not silent:
         print("Initializing DB in {}".format(db.db_engine.url))
-    models.init_db(db.db_engine,
-                   config.use_alembic)
+    await models.init_db(db.db_engine)
 
 def sigterm(signum: Any, frame: Any) -> NoReturn:
     raise KeyboardInterrupt()
@@ -92,20 +93,27 @@ def start_debug(signum: Any, frame: Any) -> None:
 @click.option('--devel/--no-devel', type=bool, default=False,
               help="Use development server")
 def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
-    config = Config.get_config()
-    db_setup(config, force_redis=True)
-    assert db.db_engine is not None
-    # TODO figure out the real way to ensure DB versioning here, alembic?
-    if not inspect(db.db_engine).has_table('user_with_role'):
-        init_db()
-    app = create_app(config)
-    signal.signal(signal.SIGTERM, sigterm)
-    signal.signal(signal.SIGINT, sigterm)
-    signal.signal(signal.SIGUSR1, start_debug)
-    realtime.repopulate_from_db()
-    try:
-        app.run(host=host, port=port, debug=debug)
-    finally:
-        print("Closing out Redis data...")
-        realtime.close_to_db()
-        print("done")
+    async def runner() -> None:
+        config = Config.get_config()
+        await db_setup(config, force_redis=True)
+        assert db.db_engine is not None
+        # TODO figure out the real way to ensure DB versioning here, alembic?
+        # if not inspect(db.db_engine).has_table('user_with_role'):
+        #     await init_db()
+        app = create_app(config)
+        # signal.signal(signal.SIGTERM, sigterm)
+        # signal.signal(signal.SIGINT, sigterm)
+        # signal.signal(signal.SIGUSR1, start_debug)
+        await realtime.repopulate_from_db()
+        if not devel:
+            ucfg = uvicorn.Config(app)
+        try:
+            with websocket.pubsub:
+                # TODO figure out the reloader logic in this context
+                await app.run_task(host=host, port=port, debug=debug)
+                                   # use_reloader=debug)
+        finally:
+            print("Closing out Redis data...")
+            await realtime.close_to_db()
+            print("done")
+    asyncio.run(runner())
