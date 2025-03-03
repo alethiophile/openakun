@@ -139,7 +139,7 @@ class Post(Base):
     __tablename__ = 'posts'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    text: Mapped[str]
+    text: Mapped[str | None]
     posted_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     story_id: Mapped[int] = mapped_column(ForeignKey('stories.id'))
     chapter_id: Mapped[int] = mapped_column(ForeignKey('chapters.id'))
@@ -224,8 +224,8 @@ class WriteinEntry(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
-    anon_id: Mapped[str]
+    user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
+    anon_id: Mapped[str | None]
     text: Mapped[str]
     date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -249,8 +249,8 @@ class ChatMessage(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     id_token: Mapped[str] = mapped_column(unique=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey('channels.id'))
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
-    anon_id: Mapped[str]
+    user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
+    anon_id: Mapped[str | None]
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     text: Mapped[str]
     special: Mapped[bool] = mapped_column(default=False)
