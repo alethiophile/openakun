@@ -60,7 +60,7 @@
                         <a class="dropdown-item" href="{{ url_for('questing.main') }}">Home</a>
                         <a class="dropdown-item todo" href="#">Tags</a>
                         <a class="dropdown-item todo" href="#">About</a>
-                        {% if not current_user.is_anonymous %}<a class="dropdown-item" href="{{ url_for('questing.post_story') }}">Post a story</a>{% endif %}
+                        {% if g.current_user != None %}<a class="dropdown-item" href="{{ url_for('questing.post_story') }}">Post a story</a>{% endif %}
                         <a class="dropdown-item" hx-post="{{ url_for('questing.change_settings') }}"
                            hx-vals='{ "dark_mode": "{{ '0' if get_dark_mode() else '1' }}" }'>Use {% if get_dark_mode() %}light{% else %}dark{% endif %} mode</a>
                         {% block inside_mainmenu %}{% endblock %}
@@ -70,7 +70,7 @@
             {% block inside_menubar %}{% endblock %}
             <div class="navbar-nav mr-auto"></div>
             <div class="navbar-nav">
-                {% if current_user.is_anonymous %}
+                {% if g.current_user == None %}
                     <a class="nav-item nav-link" href="{{ url_for('questing.login', next=request.path) }}">Log in</a>
                 {% else %}
                     <span class="navbar-text mr-lg-3">Welcome, {{ current_user.name }}</span>

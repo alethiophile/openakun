@@ -1,7 +1,8 @@
 #!python3
 
-from flask_login import current_user
-from quart import request, Blueprint, websocket
+from __future__ import annotations
+
+from quart import request, Blueprint, websocket, g
 
 import threading, json, os, traceback, secrets, asyncio
 from asyncio import Queue
@@ -180,7 +181,7 @@ def handle_message(which: str) -> t.Callable:
 
 @rtb.websocket('/ws/<channel>')
 async def ws_endpoint(channel: str) -> None:
-    print("current user is", str(current_user), channel)
+    print("current user is", str(g.current_user), channel)
 
     ws_chan = f'ws:{secrets.token_urlsafe()}'
     channel_chan = f'chan:{channel}'

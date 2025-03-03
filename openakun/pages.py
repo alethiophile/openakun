@@ -5,8 +5,8 @@ from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
 from .general import csrf_check, make_csrf, login_mgr, db_connect
 
 from quart import (render_template, request, redirect, url_for, flash, abort,
-                   jsonify, session, current_app, Blueprint, make_response)
-from flask_login import login_user, current_user, logout_user, login_required
+                   jsonify, session, current_app, Blueprint, make_response, g)
+from .login import login_user, logout_user, login_required
 from flask_htmx import HTMX
 from quart import Response as QuartResponse
 from werkzeug import Response as WerkzeugResponse
@@ -77,7 +77,7 @@ async def login() -> ResponseType:
 @questing.route('/logout', methods=['POST'])
 @csrf_check
 async def logout() -> ResponseType:
-    if not current_user.is_anonymous:
+    if g.current_user is not None:
         logout_user()
         make_csrf(force=True)
     if htmx:
@@ -144,7 +144,7 @@ async def post_story() -> ResponseType:
         try:
             form = await request.form
             ns = await add_story(form['title'], form['description'],
-                                 current_user)
+                                 g.current_user)
         except BadHTMLError as e:
             if current_app.config['using_sentry']:
                 with push_scope() as scope:
@@ -223,7 +223,7 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
         abort(404)
     chat_backlog = [i.to_browser_message() for i in
                     await realtime.get_back_messages(chapter.story.channel_id)]
-    is_author = chapter.story.author == current_user
+    is_author = chapter.story.author == g.current_user
     topics = get_topics(story_id)
     if htmx and not htmx.history_restore_request:
         return await render_block("view_chapter.html", "content", chapter=chapter,
@@ -246,7 +246,7 @@ async def view_vote(vote_id: int) -> str:
         abort(404)
     channel_id = ve.post.chapter.story.channel_id
     chapter = ve.post.chapter
-    is_author = chapter.story.author == current_user
+    is_author = chapter.story.author == g.current_user
     vote = full_vote_info(channel_id, ve, True)
     return await render_template("render_vote.html", chapter=chapter, vote=vote,
                                  is_author=is_author)
@@ -335,7 +335,7 @@ async def new_post() -> ResponseType:
         filter(models.Chapter.id == data['chapter_id']))).one_or_none()
     if c is None:
         abort(404)
-    if current_user != c.story.author:
+    if g.current_user != c.story.author:
         abort(403)
     if data['new_chapter']:
         if data['chapter_title'] == '':
@@ -475,7 +475,7 @@ async def new_topic() -> ResponseType:
         t = models.Topic(
             title=title,
             post_date=datetime.now(tz=timezone.utc))
-        t.poster = current_user
+        t.poster = g.current_user
         t.story = story
         async with db_connect() as s:
             async with s.begin():
@@ -516,7 +516,7 @@ async def new_topic_post() -> ResponseType:
         topic_id=topic_id,
         post_date=datetime.now(tz=timezone.utc),
         text=text)
-    message.poster = current_user
+    message.poster = g.current_user
 
     async with db_connect() as s:
         async with s.begin():

@@ -5,8 +5,7 @@ from __future__ import annotations
 from . import models, websocket
 from .general import db, db_connect, db_setup, decode_redis_dict
 from .data import ChatMessage, Vote, VoteEntry, Message
-from flask_login import current_user
-from quart import request, render_template
+from quart import request, render_template, g
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone, timedelta
@@ -51,8 +50,8 @@ async def check_channel_auth(channel_id: int, user_id: int | str) -> bool:
 def with_channel_auth(err_val: Any = None) -> Callable:
     def return_func(f: Callable) -> Callable:
         @wraps(f)
-            uid = 'anon' if current_user.is_anonymous else current_user.id
         async def auth_wrapper(data: dict[str, Any]) -> Any:
+            uid = 'anon' if g.current_user is None else g.current_user.id
             if not check_channel_auth(data['channel'], uid):
                 return err_val
             return await f(data)
@@ -116,8 +115,8 @@ async def get_back_messages(cid: int) -> List[ChatMessage]:
 
 @handle_message('chat_message')
 @with_channel_auth()
-async def handle_chat(data) -> None:
-    print("Chat message", data, request.remote_addr, current_user)
+async def handle_chat(data: dict[str, Any]) -> None:
+    print("Chat message", data, request.remote_addr, g.current_user)
     if len(data['msg']) == 0:
         return
 
@@ -134,11 +133,12 @@ async def handle_chat(data) -> None:
     await db.redis_conn.zadd('messages_seen', { token: us_now })
 
     channel_id = data['channel']
-    if current_user.is_anonymous:
-        hashval = register_ip(request.remote_addr)
+    if g.current_user is None:
+        assert request.remote_addr is not None
+        hashval = await register_ip(request.remote_addr)
     user_info = (
-        { 'anon_id': hashval } if current_user.is_anonymous else
-        { 'user_id': current_user.id, 'user_name': current_user.name })
+        { 'anon_id': hashval } if g.current_user is None else
+        { 'user_id': g.current_user.id, 'user_name': g.current_user.name })
     msg = ChatMessage.new(
         browser_token=token,
         msg_text=data['msg'],
@@ -226,7 +226,7 @@ async def get_user_identifier() -> str:
         assert request.remote_addr is not None
         return 'anon:' + await register_ip(request.remote_addr)
     else:
-        return f"user:{current_user.id}"
+        return f"user:{g.current_user.id}"
 
 async def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
     s = db_connect()
@@ -553,7 +553,7 @@ async def set_vote_active(data: dict[str, Any]) -> None:
     story = await get_story(channel_id)
 
     # TODO do we want to think about multiple authors?
-    if story.author != current_user:
+    if story.author != g.current_user:
         return
 
     vote_id = int(data['vote'])
@@ -575,7 +575,7 @@ async def set_option_killed(data: dict[str, Any]) -> None:
     channel_id = data['channel']
     story = await get_story(channel_id)
 
-    if story.author != current_user:
+    if story.author != g.current_user:
         return
 
     vote_id = data['vote']
@@ -602,7 +602,7 @@ async def set_vote_options(data: dict[str, Any]) -> None:
     story = await get_story(channel_id)
     vote_id = int(data['vote'])
 
-    if story.author != current_user:
+    if story.author != g.current_user:
         return
 
     if not vote_is_active(channel_id, vote_id):
@@ -642,7 +642,7 @@ async def set_vote_close_time(data: dict[str, Any]) -> None:
     story = await get_story(channel_id)
     vote_id = int(data['vote'])
 
-    if story.author != current_user:
+    if story.author != g.current_user:
         return
 
     if not vote_is_active(channel_id, vote_id):

@@ -7,7 +7,7 @@ from functools import wraps
 from base64 import b64encode
 from werkzeug import Response
 from sentry_sdk import push_scope, capture_message
-from flask_login import LoginManager
+from .login import LoginManager
 from .config import Config
 
 from typing import Callable, Optional, Any, Iterator
