@@ -49,7 +49,9 @@ def get_signer() -> itsdangerous.TimestampSigner:
 async def main() -> ResponseType:
     s = db_connect()
     stories = (await s.scalars(
-        select(models.Story).limit(10))).all()
+        select(models.Story).
+        options(selectinload(models.Story.author)).
+        limit(10))).all()
     return await render_template("main.html", stories=stories)
 
 @questing.route('/login', methods=['GET', 'POST'])
@@ -432,7 +434,10 @@ async def view_topic(topic_id: int) -> str:
     htmx_partial = htmx and not htmx.history_restore_request
     s = db_connect()
     topic = (await s.scalars(
-        select(models.Topic).filter(models.Topic.id == topic_id)
+        select(models.Topic).
+        options(selectinload(models.Topic.story).
+                selectinload(models.Story.author)).
+        filter(models.Topic.id == topic_id)
     )).one_or_none()
     if topic is None:
         abort(404)
