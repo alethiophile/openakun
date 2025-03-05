@@ -90,12 +90,12 @@ def insert_ignoring_duplicates(session: Session, rows: List[Base]) -> None:
     print("finished session.execute")
 
 @queue.task(ignore_result=True)
-def save_chat_messages():
+def save_chat_messages() -> None:
     """Save all chat messages recorded in the Redis DB to Postgres, and remove old
     messages from Redis. Runs every minute.
 
     """
-    all_channels = db.redis_conn.smembers('all_channels')
+    all_channels = await db.redis_conn.smembers('all_channels')
     all_messages = []
     print("save_chat_messages")
     # del_toks = []
