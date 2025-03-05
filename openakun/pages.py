@@ -80,10 +80,12 @@ async def logout() -> ResponseType:
     if g.current_user is not None:
         logout_user()
         make_csrf(force=True)
+    form = await request.form
+    next_url = form.get('next', url_for('questing.main'))
     if htmx:
-        return '', { "HX-Location": url_for('questing.main') }
+        return '', { "HX-Location": next_url }
     else:
-        return redirect(url_for('questing.main'))
+        return redirect(next_url)
 
 def create_user(name: str, email: str, password: str) -> models.User:
     hasher = make_hasher()

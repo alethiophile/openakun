@@ -76,7 +76,8 @@
                     <span class="navbar-text mr-lg-3">Welcome, {{ g.current_user.name }}</span>
                     <a class="nav-item nav-link mr-lg-3" href="{{ url_for('questing.user_profile', user_id=g.current_user.id) }}">Profile</a>
                     <!-- <form action="{{ url_for('questing.logout') }}" method="POST" id="logout_form"><input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}"> -->
-                    <a hx-post="{{ url_for('questing.logout') }}" hx-vals='{ "_csrf_token": "{{ session['_csrf_token'] }}" }' class="nav-item nav-link">Log out</a>
+                    <a hx-post="{{ url_for('questing.logout') }}"
+                       hx-vals='{ "_csrf_token": "{{ session['_csrf_token'] }}", "next": "{{ request.full_path }}"}' class="nav-item nav-link">Log out</a>
                         <!-- </form> -->
                 {% endif %}
             </div>
