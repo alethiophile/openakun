@@ -85,7 +85,7 @@ async def logout() -> ResponseType:
     form = await request.form
     next_url = form.get('next', url_for('questing.main'))
     if htmx:
-        return '', { "HX-Location": next_url }
+        return '', { "HX-Redirect": next_url }
     else:
         return redirect(next_url)
 
