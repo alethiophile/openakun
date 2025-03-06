@@ -300,14 +300,15 @@ async def ensure_updated_db() -> None:
     from alembic import command
     
 
-async def init_db(engine: AsyncEngine) -> None:
+async def init_db(engine: AsyncEngine, use_alembic: bool = True) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     # the Alembic operations are sync, so theoretically bad to run from async
     # code; this should be fine as long as it's contained to the setup phases
     # only
-    from alembic.config import Config
-    from alembic import command
-    alembic_cfg = Config("alembic.ini")
-    command.stamp(alembic_cfg, "head")
+    if use_alembic:
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.stamp(alembic_cfg, "head")

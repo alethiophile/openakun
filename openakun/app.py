@@ -73,7 +73,7 @@ async def init_db(silent: bool = False) -> None:
     assert db.db_engine is not None
     if not silent:
         print("Initializing DB in {}".format(db.db_engine.url))
-    await models.init_db(db.db_engine)
+    await models.init_db(db.db_engine, use_alembic=config.use_alembic)
 
 def sigterm(signum: Any, frame: Any) -> NoReturn:
     raise KeyboardInterrupt()
