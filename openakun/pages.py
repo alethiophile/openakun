@@ -186,10 +186,7 @@ async def full_vote_info(channel_id: int, vm: models.VoteInfo,
                          user_votes: bool = False) -> Vote:
     uid = (await realtime.get_user_identifier()) if user_votes else None
     s = db_connect()
-    await s.refresh(vm, ["votes"])
-    for ve in vm.votes:
-        await s.refresh(ve, ["votes"])
-    v = Vote.from_model(vm, uid)
+    v = await Vote.from_model_dbload(s, vm, uid)
     await realtime.populate_vote(channel_id, v)
     if user_votes and v.active:
         uv = await realtime.get_user_votes(vm.id)
@@ -247,7 +244,11 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
 async def view_vote(vote_id: int) -> str:
     s = db_connect()
     ve = (await s.scalars(
-        select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
+        select(models.VoteInfo).
+        options(selectinload(models.VoteInfo.post).
+                selectinload(models.Post.chapter).
+                selectinload(models.Chapter.story)).
+        filter(models.VoteInfo.id == vote_id)
     )).one_or_none()
     if ve is None:
         abort(404)
@@ -404,7 +405,7 @@ async def reopen_vote(channel_id: int, vote_id: int) -> str:
     # this just passes on to set_vote_active(), which handles authentication
     # and verification
     msg = { 'channel': channel_id, 'vote': vote_id, 'active': True }
-    realtime.set_vote_active(msg)
+    await realtime.set_vote_active(msg)
     return ''
 
 @questing.route('/user/<int:user_id>')

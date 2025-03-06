@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets, bleach, json
 from datetime import datetime, timezone
 from attrs import define, field, asdict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models, websocket
 
@@ -227,6 +228,15 @@ class Vote:
             close_time=m.time_closed,
             votes=vl,
             db_id=m.id)
+
+    @classmethod
+    async def from_model_dbload(
+            cls, s: AsyncSession, vm: models.VoteInfo, uid: str | None = None
+    ) -> Vote:
+        await s.refresh(vm, ["votes"])
+        for ve in vm.votes:
+            await s.refresh(ve, ["votes"])
+        return cls.from_model(vm, uid)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

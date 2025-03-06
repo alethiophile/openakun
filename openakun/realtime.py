@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import sql, orm
 from sqlalchemy.sql.expression import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import hashlib, json
 from .websocket import handle_message
 
@@ -160,13 +161,16 @@ async def handle_chat(data: dict[str, Any]) -> None:
     html = await render_template('render_chatmsg.html', c=mo, htmx=True)
     await websocket.pubsub.publish(f'chan:{channel_id}', html)
 
-async def add_active_vote(vm: models.VoteInfo, channel_id: int) -> None:
+async def add_active_vote(vm: models.VoteInfo, channel_id: int,
+                          s: AsyncSession | None = None) -> None:
     """This function takes trusted input: it gets called when a new vote is
     created, and its parameters come from pages.new_post(), which verifies the
     data.
 
     """
-    vote = Vote.from_model(vm)
+    if s is None:
+        s = db_connect()
+    vote = await Vote.from_model_dbload(s, vm)
     assert vote.db_id is not None
     assert db.redis_conn is not None
 
@@ -187,12 +191,16 @@ async def repopulate_from_db() -> None:
     async with db.Session() as s:
         votes = (await s.scalars(
             select(models.VoteInfo).
+            options(selectinload(models.VoteInfo.votes).
+                    selectinload(models.VoteEntry.votes),
+                    selectinload(models.VoteInfo.post).
+                    selectinload(models.Post.story)).
             where((models.VoteInfo.time_closed > sql.functions.now()) |
                   (models.VoteInfo.time_closed == None)))).all()
         for vm in votes:
             print(vm)
             channel_id = vm.post.story.channel_id
-            await add_active_vote(vm, channel_id)
+            await add_active_vote(vm, channel_id, s)
 
 async def vote_is_active(channel_id: int, vote_id: int) -> bool:
     assert db.redis_conn is not None
@@ -240,7 +248,7 @@ async def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
     )).one_or_none()
     if vm is None:
         return None
-    v = Vote.from_model(vm)
+    v = await Vote.from_model_dbload(s, vm)
     await populate_vote(channel_id, v)
     return v
 
@@ -257,7 +265,7 @@ async def send_vote_html(
     m = (await s.scalars(
         select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
     )).one()
-    v = Vote.from_model(m)
+    v = await Vote.from_model_dbload(s, m)
     await populate_vote(channel_id, v)
     # this is a dummy chapter object used only to get the channel ID
     dummy_chapter = { 'story': { 'channel_id': channel_id }}
@@ -471,7 +479,7 @@ async def close_vote(
         s = db_connect()
     vm = (await s.scalars(
         select(models.VoteInfo).filter(models.VoteInfo.id == vote_id))).one()
-    ve = Vote.from_model(vm)
+    ve = await Vote.from_model_dbload(s, vm)
 
     await populate_vote(channel_id, ve)
     print(f"closing vote {ve}")
@@ -542,7 +550,10 @@ async def close_to_db() -> None:
 async def open_vote(channel_id: int, vote_id: int) -> None:
     s = db_connect()
     vm = (await s.scalars(
-        select(models.VoteInfo).where(models.VoteInfo.id == vote_id))).one()
+        select(models.VoteInfo).
+        options(selectinload(models.VoteInfo.post).
+                selectinload(models.Post.story)).
+        where(models.VoteInfo.id == vote_id))).one()
     channel_id = vm.post.story.channel_id
     vm.time_closed = None
     await add_active_vote(vm, channel_id)
