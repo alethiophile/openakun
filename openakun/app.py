@@ -7,6 +7,7 @@ from .config import Config, CSPLevel
 
 import click, signal, traceback, threading, asyncio, uvicorn
 from quart import Quart, g
+from quart.utils import observe_changes
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
 from sqlalchemy import inspect
@@ -83,6 +84,13 @@ def start_debug(signum: Any, frame: Any) -> None:
     traceback.print_stack()
     print(threading.enumerate())
 
+class DummyEvent:
+    def is_set(self):
+        return False
+
+    def set(self):
+        pass
+
 @click.command()
 @click.option('--host', '-h', type=str, default=None,
               help="Hostname to bind to (default 127.0.0.1)")
@@ -109,6 +117,9 @@ def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
             ucfg = uvicorn.Config(app)
         try:
             with websocket.pubsub:
+                if debug:
+                    asyncio.create_task(
+                        observe_changes(asyncio.sleep, DummyEvent()))
                 # TODO figure out the reloader logic in this context
                 await app.run_task(host=host, port=port, debug=debug)
                                    # use_reloader=debug)
