@@ -35,12 +35,27 @@ import pytest, re
 #     def tearDownClass(self):
 #         pass
 
+async def get_csrf(response) -> str:
+    csrf_token = re.search(r'name="_csrf_token"[^>]+value="([^"]+)"',
+                           await response.get_data(True)).group(1)
+    if csrf_token is not None: return csrf_token
+
+async def do_login(client, user: str, pwd: str):
+    lresp = await client.get('/login')
+    csrf_token = await get_csrf(lresp)
+    data = {
+        'user': user, 'pass': pwd,
+        '_csrf_token': csrf_token
+    }
+    lresp = await client.post('/login', form=data)
+    return lresp
+
 async def test_main(openakun_app):
     client = openakun_app.test_client()
     resp = await client.get('/')
     assert resp.status_code == 200
 
-async def test_login(openakun_app):
+async def test_login_logout(openakun_app):
     client = openakun_app.test_client()
     resp = await client.get('/')
     assert resp.status_code == 200
@@ -59,7 +74,115 @@ async def test_login(openakun_app):
 
     lresp = await client.get('/')
     assert lresp.status_code == 200
-    assert re.search(r"<a[^>]*>Log out</a>", await lresp.get_data(True))
+    d = await lresp.get_data(True)
+    assert 'Welcome, admin' in d
+    assert re.search(r"<a[^>]*>Log out</a>", d)
+
+    tok = await get_csrf(lresp)
+    data = { '_csrf_token': tok }
+    r = await client.post('/logout', form=data)
+    assert r.status_code == 302
+    l = r.headers['Location']
+
+    r = await client.get(l)
+    assert re.search(r"<a[^>]*>Log in</a>", await r.get_data(True))
+
+async def test_bad_password(openakun_app):
+    client = openakun_app.test_client()
+
+    r = await do_login(client, 'admin', 'wrong_password')
+    assert r.status_code == 302
+    l = r.headers['Location']
+    assert l.startswith('/login')
+
+    r = await client.get(l)
+    assert 'Login failed' in await r.get_data(True)
+
+async def test_bad_csrf(openakun_app):
+    client = openakun_app.test_client()
+    r = await client.get('/login')
+    data = { 'user': 'admin', 'pass': 'password' }
+    r = await client.post('/login', form=data)
+    assert r.status_code == 400
+
+async def test_login_required(openakun_app):
+    client = openakun_app.test_client()
+
+    r = await client.get('/new_story')
+    assert r.status_code == 302
+    l = r.headers['Location']
+    assert l.startswith('/login')
+
+async def test_register(openakun_app):
+    client = openakun_app.test_client()
+    r = await client.get('/signup')
+    tok = await get_csrf(r)
+
+    r = await client.post('/signup', form={
+        '_csrf_token': tok, 'user': 'newuser',
+        'email': '', 'pass1': 'newpassword', 'pass2': 'newpassword'
+    })
+    assert r.status_code == 302
+    l = r.headers['Location']
+    assert l == '/'
+    r = await client.get(l)
+    d = await r.get_data(True)
+    assert 'Welcome, newuser' in d
+
+async def test_register_existing(openakun_app):
+    client = openakun_app.test_client()
+    r = await client.get('/signup')
+    tok = await get_csrf(r)
+
+    r = await client.post('/signup', form={
+        '_csrf_token': tok, 'user': 'admin',
+        'email': '', 'pass1': 'np', 'pass2': 'np'
+    })
+    assert r.status_code == 302
+    l = r.headers['Location']
+    assert l == '/signup'
+
+    r = await client.get(l)
+    assert 'Username not available' in await r.get_data(True)
+
+async def test_register_mismatch(openakun_app):
+    client = openakun_app.test_client()
+    r = await client.get('/signup')
+    tok = await get_csrf(r)
+
+    r = await client.post('/signup', form={
+        '_csrf_token': tok, 'user': 'newuser2',
+        'email': '', 'pass1': 'password', 'pass2': 'different_password'
+    })
+    assert r.status_code == 302
+    l = r.headers['Location']
+    assert l == '/signup'
+
+    r = await client.get(l)
+    assert 'Passwords did not match' in await r.get_data(True)
+
+async def test_story_post(openakun_app):
+    client = openakun_app.test_client()
+    await do_login(client, "admin", "password")
+
+    r = await client.get('/new_story')
+    tok = await get_csrf(r)
+    desc = 'this is the test story description'
+    r = await client.post('/new_story', form={
+        'title': 'test story',
+        'description': desc,
+        '_csrf_token': tok
+    })
+    assert r.status_code == 302
+    story_url = r.headers['Location']
+
+    r = await client.get(story_url)
+    assert r.status_code == 302
+    chapter_url = r.headers['Location']
+
+    r = await client.get(chapter_url)
+    d = await r.get_data(True)
+    assert desc in d
 
 # class LoginTest(OpenakunTestCase):
 #     def test_login(self):
