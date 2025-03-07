@@ -100,9 +100,9 @@ def create_user(name: str, email: str, password: str) -> models.User:
 
 async def add_user(name: str, email: str, password: str) -> models.User:
     s = db_connect()
-    async with s.begin():
-        u = create_user(name, email, password)
-        s.add(u)
+    u = create_user(name, email, password)
+    s.add(u)
+    await s.commit()
     return u
 
 @questing.route('/signup', methods=['GET', 'POST'])
@@ -134,10 +134,10 @@ async def add_story(title: str, desc: str, author: models.User) -> models.Story:
     chan = models.Channel()
     ns.channel = chan
     s = db_connect()
-    async with s.begin():
-        s.add(ns)
-        s.add(nc)
-        s.add(chan)
+    s.add(ns)
+    s.add(nc)
+    s.add(chan)
+    await s.commit()
     return ns
 
 @questing.route('/new_story', methods=['GET', 'POST'])
