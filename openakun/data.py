@@ -52,6 +52,10 @@ class ChatMessage:
             raise ValueError("must provide both or neither user_id and "
                              "user_name")
 
+        self.channel_id = int(self.channel_id)
+        if self.user_id is not None:
+            self.user_id = int(self.user_id)
+
     @classmethod
     def new(cls, msg_text: str, browser_token: str, channel_id: int,
             date: Optional[datetime] = None, anon_id: Optional[str] = None,

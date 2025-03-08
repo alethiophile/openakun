@@ -25,7 +25,12 @@ def get_value(v: Any) -> Any:
 def get_row_dict(row: Base) -> dict[str, Any]:
     rv = {}
     for c in row.__table__.columns:
-        v = getattr(row, c.name, c.default.arg)
+        v = getattr(row, c.name)
+        if v is None:
+            try:
+                v = c.default.arg
+            except AttributeError:
+                pass
         if v is not None:
             rv[c.name] = v
     return rv
@@ -84,7 +89,7 @@ async def do_chat_save() -> None:
     anon_messages = [ChatMessage.from_dict(i) for i in all_messages
                      if i.get('anon_id', None) is not None]
 
-    with db.Session() as s:
+    async with db.Session() as s:
         await insert_ignoring_duplicates(
             s,
             # [ChatMessage.from_dict(i).to_model() for i in all_messages])
