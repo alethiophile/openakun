@@ -8,6 +8,7 @@ from .config import Config, CSPLevel
 import click, signal, traceback, threading, asyncio, uvicorn
 from quart import Quart, g
 from quart.utils import observe_changes, MustReloadError, restart
+from quart.app import _cancel_all_tasks
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
 from sqlalchemy import inspect
@@ -130,20 +131,25 @@ def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
                 tasks.append(
                     asyncio.create_task(
                         app.run_task(host=host, port=port, debug=debug)))
-                _reload = False
-                try:
-                    await asyncio.gather(*tasks)
-                except MustReloadError:
-                    print("observer MustReloadError")
-                    _reload = True
-                finally:
-                    for t in tasks:
-                        t.cancel()
-                    await asyncio.gather(*tasks, return_exceptions=True)
-                if _reload:
-                    restart()
+                await asyncio.gather(*tasks) 
         finally:
             print("Closing out Redis data...")
             await realtime.close_to_db()
             print("done")
-    asyncio.run(runner())
+    _reload = False
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(runner())
+    except MustReloadError:
+        _reload = True
+    finally:
+        try:
+            _cancel_all_tasks(loop)
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
+    if _reload:
+        restart()
