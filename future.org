@@ -56,9 +56,15 @@
 *** TODO tune Quill editors for real markup abilities
  - incl. achievement links
 ** TODO Add topics
+ - [X] Add topic DB tables
+ - [X] Render topics on story view
+ - [X] View topic posts
+ - [ ] Post in topics w/ rich-text editor
 ** TODO Realtime engine: chat
  - [X] Allow chatting
  - [ ] Set up banlists and moderation
+ - [ ] Set up chat replies + reply view
+ - [ ] Chat pagination
 
 ** TODO Realtime engine: votes
  - [X] Create votes on client, send as author
@@ -283,7 +289,7 @@ time the server will automatically close the vote (using Celery).
  - [X] Use to sweep chats from redis into DB
  - [ ] Use to delete expired rows in tokens table
  - [ ] Use for E-mail sending
- - [ ] Use for vote-close timer
+ - [X] Use for vote-close timer
 ** TODO Figure out Content-Security-Policy
  - [-] Split out as much JS code as possible, put in static scripts
    - [X] vote JS
@@ -312,6 +318,12 @@ time the server will automatically close the vote (using Celery).
  - [ ] Creating lists
  - [ ] Private messages
  - [ ] Profile info (?)
+** TODO Write importer for fiction.live quests
+ - [ ] Make fetcher JS code fetch everything (chat, topics, etc)
+ - [ ] Make importer for fetcher archive mode
+ - [ ] Run test imports and ensure all content is supported
+ - [ ] Expose import functionality through web interface
+ - [ ] Set up for publicly visible imports (token check, pending, etc)
 
 * Requirements before test deployment
 ** DONE Set up error logging (Sentry)
