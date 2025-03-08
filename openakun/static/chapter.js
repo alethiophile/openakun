@@ -98,11 +98,6 @@ $(function () {
     anim_running = false;
   });
 
-  htmx.on('#new-topic-button', 'click', () => {
-    let el = document.querySelector('#new-post-form-container');
-    el.style.display = '';
-  });
-
   htmx.on('#new-post-form', 'submit', () => {
     let el = document.querySelector('#new-post-form-container');
     el.style.display = 'none';

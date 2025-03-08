@@ -39,10 +39,10 @@
     <div style="display: flex; align-items: center" id="topic-header">
         <h4 class="sidebar-title">topics</h4>
         <button style="margin-left: auto; margin-right: 1em"
-                id="new-topic-button">+ New topic</button>
+                @click="new_shown = true">+ New topic</button>
     </div>
     <div id="topic-bar">
-        <div id="new-post-form-container" style="display: none">
+        <div id="new-post-form-container" x-show="new_shown" x-cloak>
             {# The response here will have the HX-Push-Url header set
             in order to push the topic URL into the history; it isn't
             set here because we don't yet know what topic ID will be
@@ -53,6 +53,7 @@
                 <input type="hidden" name="story_id" value="{{ story.id }}">
                 <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
                 New post title: <input type="text" name="title"><button type="submit">Post</button>
+                <button @click="new_shown = false" type="button">Cancel</button>
             </form></div>
         {% include 'topic_list.html' %}
     </div>

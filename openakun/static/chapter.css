@@ -131,3 +131,5 @@ label.radio-inline {
 h4.sidebar-title {
   font-variant-caps: small-caps;
 }
+
+[x-cloak] { display: none !important; }
