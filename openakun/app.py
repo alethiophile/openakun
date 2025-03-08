@@ -1,13 +1,13 @@
 import quart_flask_patch
 
-from . import models, realtime, pages, websocket
+from . import models, realtime, pages, websocket, worker
 from .general import (make_csrf, get_script_nonce, add_csp, csp_report,
                       db_setup, db, login_mgr, add_htmx_vary, db_close)
 from .config import Config, CSPLevel
 
 import click, signal, traceback, threading, asyncio, uvicorn
 from quart import Quart, g
-from quart.utils import observe_changes
+from quart.utils import observe_changes, MustReloadError, restart
 import sentry_sdk
 from sentry_sdk import push_scope, capture_exception
 from sqlalchemy import inspect
@@ -115,14 +115,33 @@ def do_run(host: str, port: int, debug: bool, devel: bool) -> None:
         await realtime.repopulate_from_db()
         if not devel:
             ucfg = uvicorn.Config(app)
+        tasks = []
         try:
             with websocket.pubsub:
                 if debug:
-                    asyncio.create_task(
-                        observe_changes(asyncio.sleep, DummyEvent()))
+                    tasks.append(
+                        asyncio.create_task(
+                            observe_changes(asyncio.sleep, DummyEvent())))
+                tasks.append(
+                    asyncio.create_task(worker.chat_save_worker()))
+                tasks.append(
+                    asyncio.create_task(worker.vote_close_worker()))
                 # TODO figure out the reloader logic in this context
-                await app.run_task(host=host, port=port, debug=debug)
-                                   # use_reloader=debug)
+                tasks.append(
+                    asyncio.create_task(
+                        app.run_task(host=host, port=port, debug=debug)))
+                _reload = False
+                try:
+                    await asyncio.gather(*tasks)
+                except MustReloadError:
+                    print("observer MustReloadError")
+                    _reload = True
+                finally:
+                    for t in tasks:
+                        t.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                if _reload:
+                    restart()
         finally:
             print("Closing out Redis data...")
             await realtime.close_to_db()
