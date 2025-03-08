@@ -278,11 +278,12 @@ time the server will automatically close the vote (using Celery).
 ** DONE Set up Redis for caching
  - Start with caching channel auth, rather than the MAC setup
  - Redis needs to be set with AOF persistence for chat correctness
-** TODO Set up Celery for periodics
- - [X] Add Celery, set up code
+** DONE Set up Celery for periodics
+** TODO Replace Celery with in-process async background tasks
  - [X] Use to sweep chats from redis into DB
  - [ ] Use to delete expired rows in tokens table
  - [ ] Use for E-mail sending
+ - [ ] Use for vote-close timer
 ** TODO Figure out Content-Security-Policy
  - [-] Split out as much JS code as possible, put in static scripts
    - [X] vote JS
