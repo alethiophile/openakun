@@ -482,7 +482,6 @@ async def close_vote(
     ve = await Vote.from_model_dbload(s, vm)
 
     await populate_vote(channel_id, ve)
-    print(f"closing vote {ve}")
 
     channel_key = f"channel_votes:{channel_id}"
     removed = await db.redis_conn.srem(channel_key, str(vote_id))
@@ -523,7 +522,6 @@ async def close_vote(
                 anon_id = u[5:]
                 um = models.UserVote(anon_id=anon_id)
             v.votes.append(um)
-    print("vm:", vm)
     await s.commit()
 
     await db.redis_conn.zrem('vote_close_times', f"{channel_id}:{ve.db_id}")
@@ -627,7 +625,6 @@ async def set_vote_options(data: dict[str, Any]) -> None:
         return
 
     # TODO handle close time here as well
-    print(data)
     multivote = data.get('multivote') == 'true'
     writein_allowed = data.get('writein_allowed') == 'true'
     votes_hidden = data.get('votes_hidden') == 'true'
@@ -668,7 +665,6 @@ async def set_vote_close_time(data: dict[str, Any]) -> None:
         return
 
     # TODO handle close time here as well
-    print(data)
 
     vote = await get_vote_object(channel_id, vote_id)
     assert vote is not None

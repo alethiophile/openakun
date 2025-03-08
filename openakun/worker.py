@@ -62,9 +62,7 @@ async def insert_ignoring_duplicates(
     stmt = postgresql.insert(type(rows[0])).values(
         [get_row_dict(r) for r in rows]).on_conflict_do_nothing()
 
-    print("starting session.execute")
     await session.execute(stmt)
-    print("finished session.execute")
 
 async def do_chat_save() -> None:
     """Save all chat messages recorded in the Redis DB to Postgres, and remove
