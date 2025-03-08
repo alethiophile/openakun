@@ -1,40 +1,5 @@
 import pytest, re
 
-# class OpenakunTestCase(unittest.TestCase):
-#     @classmethod
-#     def setUpClass(self):
-#         # force new empty database
-#         pages.app.testing = True
-#         # or else it calls db_setup again and re-clears
-#         pages.app.before_first_request_funcs.clear()
-#         self.client = pages.app.test_client()
-#         pages.init_db(silent=True)
-#         s = pages.Session()
-#         s.add(pages.create_user('admin', 'placeholder@example.com', 'test'))
-#         s.commit()
-
-#     def get_csrf(self, url='/'):
-#         rv = self.client.get(url)
-#         csrf = re.search(r'name="_csrf_token" value="([^"]+)"',
-#                          rv.data.decode()).group(1)
-#         return csrf
-
-#     def login(self, user, password):
-#         csrf = self.get_csrf('/login')
-#         return self.client.post('/login',
-#                                 data={ 'user': user, 'pass': password,
-#                                        '_csrf_token': csrf },
-#                                 follow_redirects=True)
-
-#     def logout(self):
-#         csrf = self.get_csrf()
-#         return self.client.post('/logout', data={ '_csrf_token': csrf},
-#                                 follow_redirects=True)
-
-#     @classmethod
-#     def tearDownClass(self):
-#         pass
-
 async def get_csrf(response) -> str:
     csrf_token = re.search(r'name="_csrf_token"[^>]+value="([^"]+)"',
                            await response.get_data(True)).group(1)
