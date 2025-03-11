@@ -141,7 +141,6 @@ class VoteEntry:
     @classmethod
     def from_model(cls, m: models.VoteEntry,
                    uid: Optional[str] = None) -> VoteEntry:
-        print(m.votes)
         uvl = [f'user:{i.user_id}' if i.user_id else f'anon:{i.anon_id}'
                for i in m.votes]
         if uid is not None:
@@ -168,7 +167,6 @@ class VoteEntry:
         }
 
     def update_redis_dict(self, d: Dict[str, Any]) -> None:
-        print(self, d)
         self.killed = d.get('killed', False)
         if self.killed:
             self.killed_text = d.get('killed_text')
@@ -262,7 +260,6 @@ class Vote:
         performance-sensitive vote-counting code.
 
         """
-        print(self, d)
         self.multivote = d.get('multivote', False)
         self.writein_allowed = d.get('writein_allowed', False)
         self.votes_hidden = d.get('votes_hidden', False)
