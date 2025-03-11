@@ -241,7 +241,8 @@ async def view_vote(vote_id: int) -> str:
         select(models.VoteInfo).
         options(selectinload(models.VoteInfo.post).
                 selectinload(models.Post.chapter).
-                selectinload(models.Chapter.story)).
+                selectinload(models.Chapter.story).
+                selectinload(models.Story.author)).
         filter(models.VoteInfo.id == vote_id)
     )).one_or_none()
     if ve is None:
@@ -327,6 +328,7 @@ async def create_chapter(story: models.Story, title: str,
     return nc
 
 @questing.route('/new_post', methods=['POST'])
+@login_required
 @csrf_check
 async def new_post() -> ResponseType:
     s = db_connect()
@@ -505,6 +507,7 @@ async def new_topic() -> ResponseType:
     abort(400)
 
 @questing.route('/new_topic_post', methods=['POST'])
+@login_required
 @csrf_check
 async def new_topic_post() -> ResponseType:
     data = await request.json

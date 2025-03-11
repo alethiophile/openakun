@@ -263,7 +263,11 @@ async def send_vote_html(
     """
     s = db_connect()
     m = (await s.scalars(
-        select(models.VoteInfo).filter(models.VoteInfo.id == vote_id)
+        select(models.VoteInfo).
+        options(selectinload(models.VoteInfo.post).
+                selectinload(models.Post.story).
+                selectinload(models.Story.author)).
+        filter(models.VoteInfo.id == vote_id)
     )).one()
     v = await Vote.from_model_dbload(s, m)
     await populate_vote(channel_id, v)
