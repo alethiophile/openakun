@@ -3,35 +3,17 @@
 {% block head %}
     {{ super() }}
 {% endblock %}
-{% block inside_menubar %}
-    <div class="navbar-nav">
-        <div class="dropdown">
-            <a class="btn nav-link dropdown-toggle" id="chaptermenu-link" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Story</a>
-            <div class="dropdown-menu" aria-labelledby="chaptermenu-link">
-                {% if chapter.story.awaitable_attrs.chapters|length > 1 %}
-                    <span class="dropdown-header">Contents</span>
-                    {% for i in chapter.story.awaitable_attrs.chapters %}
-                        <a class="dropdown-item" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}"
-                           hx-get="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=i.id) }}"
-                           hx-target="#content-container" hx-push-url="true">{{ i.title }}</a>
-                    {% endfor %}
-                {% endif %}
-                <span class="dropdown-header">Story actions</span>
-                <div id="story_actions"><div class="dropdown-item">1</div><div class="dropdown-item">2</div></div>
-            </div>
-        </div>
-    </div>
-{% endblock %}
 {% block content %}
-  <h1 class="story-title">{{ chapter.story.title }}</h1>
-  <div class="story-author">
-    <a href="{{ url_for('questing.user_profile', user_id=chapter.story.author.id) }}">{{ chapter.story.author.name }}</a>
-  </div>
-  {% if chapter == chapter.story.awaitable_attrs.chapters[0] %}
-    <div class="description">
-      {{ chapter.story.description | safe }}
-    </div>
-  {% endif %}
+    {{ story_header(chapter == chapter.story.awaitable_attrs.chapters[0]) }}
+    <!-- <h1 class="text-center">{{ chapter.story.title }}</h1>
+         <div class="text-center my-2">
+         <a href="{{ url_for('questing.user_profile', user_id=chapter.story.author.id) }}">{{ chapter.story.author.name }}</a>
+         </div>
+         {% if chapter == chapter.story.awaitable_attrs.chapters[0] %}
+         <div class="description m-5">
+         {{ chapter.story.description | safe }}
+         </div>
+         {% endif %} -->
   <div id="story-content" data-chapter-id="{{ chapter.id }}">
     {% for p in chapter.awaitable_attrs.posts %}
       {% do prepare_post(p, True) %}

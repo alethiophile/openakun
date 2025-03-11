@@ -1,9 +1,9 @@
 {% if htmx %}<div id="chat-messages" hx-swap-oob="beforeend">{% endif %}
-<div class="chatmsg" data-token="{{ c.id_token }}">
-    <div class="chat_head">
-        <div class="chat_sender">{{ c.username }}</div>
+<div class="chatmsg p-1 hover:bg-neutral-200" data-token="{{ c.id_token }}">
+    <div class="chat_head flex">
+        <div class="chat_sender text-sm font-bold mr-1">{{ c.username }}</div>
         {# TODO update this to allow setting server timezone #}
-        <div class="chat_date server-date" data-dateval="{{ c.date.timestamp() * 1000|int }}">{{ c.rendered_date }}</div>
+        <div class="chat_date server-date text-sm text-neutral-400" data-dateval="{{ c.date.timestamp() * 1000|int }}">{{ c.rendered_date }}</div>
     </div>
     <div class="chat_message">{{ c.text }}</div>
 </div>

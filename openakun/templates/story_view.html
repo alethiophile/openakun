@@ -1,4 +1,15 @@
 {% extends "base.html" %}
+{% macro story_header(with_desc=False) %}
+    <h1 class="text-center">{{ story.title }}</h1>
+    <div class="text-center my-2">
+        <a href="{{ url_for('questing.user_profile', user_id=story.author.id) }}">{{ story.author.name }}</a>
+    </div>
+    {% if with_desc %}
+        <div class="description m-5">
+            {{ story.description | safe }}
+        </div>
+    {% endif %}
+{% endmacro %}
 {% block head %}
     {{ super() }}
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
@@ -18,13 +29,13 @@
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/htmx-alpine-morph-1.9.10.js') }}" defer integrity="sha384-tOAHN1ROllxv+z4ALtsuolyJGGB0NnJbgZb+Zk4vH1y5uMfjG24CLWV1C2kJg6ex"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
-    {% if get_dark_mode() %}
+    {# {% if get_dark_mode() %}
         <link rel="stylesheet" href="{{ url_for('static', filename='dark-mode.css') }}">
     {% else %}
         <link rel="stylesheet" href="{{ url_for('static', filename='light-mode.css') }}">
-    {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}">
+    {% endif %} #}
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
+         <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}"> -->
     <script nonce="{{ get_script_nonce() }}">
      var story_id = '{{ story.id }}';
      var channel_id = '{{ story.channel_id }}';
@@ -35,37 +46,69 @@
     </script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='chapter.js') }}"></script>
 {% endblock %}
+{% block inside_menubar %}
+    <div class="dropdown">
+        <div tabindex="0" role="button"
+             class="p-4 m-0 hover:bg-blue-500 hover:text-white
+                       focus:bg-blue-500 focus:text-white cursor-pointer"
+             id="chaptermenu-link">Story</div>
+        <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+            {% if story.awaitable_attrs.chapters|length > 1 %}
+                <li><span class="dropdown-header">Contents</span></li>
+                {% for i in story.awaitable_attrs.chapters %}
+                    <li><a class="dropdown-item"
+                           href="{{ url_for('questing.view_chapter', story_id=story.id,
+                                 chapter_id=i.id) }}"
+                           hx-get="{{ url_for('questing.view_chapter', story_id=story.id,
+                                   chapter_id=i.id) }}"
+                           hx-target="#content-container" hx-select="#content-container"
+                           hx-push-url="true" hx-swap="outerHTML">{{ i.title }}</a></li>
+                {% endfor %}
+            {% endif %}
+            <li><span class="dropdown-header">Story actions</span></li>
+            <li id="story_actions"><div class="dropdown-item">1</div><div class="dropdown-item">2</div></li>
+        </ul>
+    </div>
+{% endblock %}
 {% block sidebar %}
-    <div style="display: flex; align-items: center" id="topic-header">
-        <h4 class="sidebar-title">topics</h4>
-        <button style="margin-left: auto; margin-right: 1em"
-                @click="new_shown = true">+ New topic</button>
+    <div class="flex flex-col flex-[1_0_10%] overflow-hidden
+                hover:flex-[1_0_30%] hover:overflow-y-auto
+                transition-flex-basis duration-300"
+         id="topic-bar" x-data="{ new_shown: false }">
+        <div class="flex flex-row" id="topic-header">
+            <h4 class="uppercase text-sm">Topics</h4>
+            <button style="margin-left: auto; margin-right: 1em"
+                    @click="new_shown = true">+ New topic</button>
+        </div>
+        <div>
+            <div id="new-post-form-container" x-show="new_shown" x-cloak>
+                {# The response here will have the HX-Push-Url header set
+                in order to push the topic URL into the history; it isn't
+                set here because we don't yet know what topic ID will be
+                assigned to the new topic, so we can't generate a URL for
+                it #}
+                <form id="new-post-form" hx-post="{{ url_for('questing.new_topic') }}"
+                      hx-target="#content-container" hx-ext="json-enc">
+                    <input type="hidden" name="story_id" value="{{ story.id }}">
+                    <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
+                    New post title: <input type="text" name="title"><button type="submit">Post</button>
+                    <button @click="new_shown = false" type="button">Cancel</button>
+                </form></div>
+            {% include 'topic_list.html' %}
+        </div>
     </div>
-    <div id="topic-bar">
-        <div id="new-post-form-container" x-show="new_shown" x-cloak>
-            {# The response here will have the HX-Push-Url header set
-            in order to push the topic URL into the history; it isn't
-            set here because we don't yet know what topic ID will be
-            assigned to the new topic, so we can't generate a URL for
-            it #}
-            <form id="new-post-form" hx-post="{{ url_for('questing.new_topic') }}"
-                  hx-target="#content-container" hx-ext="json-enc">
-                <input type="hidden" name="story_id" value="{{ story.id }}">
-                <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
-                New post title: <input type="text" name="title"><button type="submit">Post</button>
-                <button @click="new_shown = false" type="button">Cancel</button>
-            </form></div>
-        {% include 'topic_list.html' %}
-    </div>
-    <h4 class="sidebar-title">chat</h4>
-    <div id="chat-messages">
+    <h4 class="uppercase text-sm">Chat</h4>
+    <div id="chat-messages" class="h-full overflow-y-auto flex-[2_0_40%] mb-2">
         {% include 'chat_backlog.html' %}
     </div>
-    <div class="chat-controls form-inline mb-2">
-        <form id="chat-sender" class="chat-controls" ws-send>
+    <div class="chat-controls form-inline my-2 w-full">
+        <form id="chat-sender" class="chat-controls w-full flex flex-row items-end" ws-send>
             <input type="hidden" name="type" value="chat_message">
-            <textarea rows="1" data-min-rows="1" id="chat-type" class="autoExpand form-control-sm mr-1" placeholder="Chat" name="msg"></textarea>
-            <button type="submit" class="btn btn-sm">Send</button>
+            <textarea rows="1" data-min-rows="1" id="chat-type"
+                      class="autoExpand form-control-sm mr-1 mb-1 w-full resize-none
+                            border-1 border-neutral-300 rounded-sm p-1"
+                      placeholder="Chat" name="msg"></textarea>
+            <button type="submit" class="btn btn-sm mx-1 mb-1">Send</button>
         </form>
     </div>
     <!-- </div> -->

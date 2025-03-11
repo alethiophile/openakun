@@ -1,1 +1,24 @@
-@import "tailwindcss";
+/* @import "tailwindcss";*/
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@plugin "daisyui";
+
+[x-cloak] { display: none !important; }
+
+@layer base {
+  /* a { */
+  /*   color: inherit; */
+  /*   -webkit-text-decoration: inherit; */
+  /*   text-decoration: inherit; */
+  /* } */
+  h1 {
+    font-size: var(--text-4xl);
+  }
+}
+
+@theme {
+  --color-select-green: oklch(85.00% 0.2522 143.06);
+}
