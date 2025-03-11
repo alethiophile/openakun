@@ -228,15 +228,9 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
                     await realtime.get_back_messages(chapter.story.channel_id)]
     is_author = chapter.story.author == g.current_user
     topics = await get_topics(story_id)
-    if htmx and not htmx.history_restore_request:
-        return await render_block("view_chapter.html", "content",
-                                  chapter=chapter,
-                                  msgs=chat_backlog, is_author=is_author,
-                                  topics=topics, story=chapter.story)
-    else:
-        return await render_template("view_chapter.html", chapter=chapter,
-                                     msgs=chat_backlog, is_author=is_author,
-                                     topics=topics, story=chapter.story)
+    return await render_template("view_chapter.html", chapter=chapter,
+                                 msgs=chat_backlog, is_author=is_author,
+                                 topics=topics, story=chapter.story)
 
 # this endpoint is used only when reopening a closed vote; it gets sent via the
 # standard HTMX path (hx-get on the voteblock element in render_vote.html)
@@ -270,7 +264,8 @@ async def view_topic_list(story_id: int) -> str:
     if story is None:
         abort(404)
     topics = await get_topics(story_id)
-    return await render_template("topic_list.html", story=story, topics=topics)
+    return await render_template("topic_list.html", story=story, topics=topics,
+                                 htmx=True)
 
 async def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[str],
                       order_idx: Optional[int] = None) -> models.Post:
@@ -447,16 +442,12 @@ async def view_topic(topic_id: int) -> str:
             i.to_browser_message() for i in
             await realtime.get_back_messages(topic.story.channel_id)]
         topics = await get_topics(topic.story_id)
-    # posts = (s.query(models.TopicMessage).filter(models.TopicMessage.topic_id ==
-    #                                              topic_id).
-    #          order_by(models.TopicMessage.post_date).all())
-    if htmx_partial:
-        return await render_block("view_topic.html", "content", topic=topic,
-                                  story=await topic.awaitable_attrs.story)
     else:
-        return await render_template("view_topic.html", topic=topic,
-                                     story=topic.story, topics=topics,
-                                     msgs=chat_backlog)
+        chat_backlog = []
+        topics = []
+    return await render_template("view_topic.html", topic=topic,
+                                 story=topic.story, topics=topics,
+                                 msgs=chat_backlog)
 
 @questing.route('/new_topic', methods=['GET', 'POST'])
 @csrf_check
