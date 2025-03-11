@@ -71,7 +71,7 @@ async def do_chat_save() -> None:
     """
     all_channels = await db.redis_conn.smembers('all_channels')
     all_messages = []
-    print("save_chat_messages")
+    # print("save_chat_messages")
     # del_toks = []
     for c in all_channels:
         msgs = [json.loads(i) for i in await db.redis_conn.lrange(c, 0, -1)]
@@ -97,7 +97,7 @@ async def do_chat_save() -> None:
             # [ChatMessage.from_dict(i).to_model() for i in all_messages])
             [i.to_model() for i in anon_messages])
         await s.commit()
-        print("commit done")
+        # print("commit done")
 
     age_cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=1)
     cutoff_us = age_cutoff.timestamp() * 1000000
