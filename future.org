@@ -72,9 +72,9 @@
  - [X] Server-side render for closed votes
  - [X] allow closing votes (by author only)
    - this can be a post endpoint maybe? doesn't matter
- - [ ] timer for closing votes automatically
+ - [X] timer for closing votes automatically
    - store close time on vote_config
- - [ ] differentiate closed votes in style
+ - [X] differentiate closed votes in style
  - [X] implement hidden totals on client side
  - [X] make votes reorder by total (if not hidden)
  - [-] allow killing votes
