@@ -26,6 +26,7 @@ versa. Thus, only updates via OOB are done via alpine-morph.
 
 #}
 {%- set hide_totals = vote.votes_hidden and vote.active and not is_author -%}
+{%- import 'macros.html' as macs -%}
 <div id="voteblock-{{ vote.db_id }}" hx-ext="alpine-morph"
      {% if morph_swap %}hx-swap-oob="morph" {% endif %}
      class="vote{% if vote.active %} active-vote{% endif %}
@@ -164,7 +165,7 @@ versa. Thus, only updates via OOB are done via alpine-morph.
                          @click="edit_killtext = true; $nextTick(() => {
                                 $refs.kill_reason_{{ ve.db_id }}.focus() })"
                          @keydown.enter="edit_killtext = true; $nextTick(() => {
-                                $refs.kill_reason_{{ ve.db_id }}.focus() })">✍</div>
+                                $refs.kill_reason_{{ ve.db_id }}.focus() })">{{ macs.edit_icon(size=20) }}</div>
                     <div class="vote-button restore-vote p-1 flex items-center cursor-pointer
                                 hover:bg-select-green hover:text-neutral-100"
                          tabindex="0" role="button"
