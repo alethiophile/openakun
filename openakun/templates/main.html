@@ -2,15 +2,6 @@
 {% block title %}Main{% endblock %}
 {% block head %}
     {{ super() }}
-    <style>
-     div.story-display {
-       display: flex;
-       flex-direction: column;
-     }
-     div.story-description {
-       flex: auto;
-     }
-    </style>
     <script nonce="{{ get_script_nonce() }}" type="text/javascript">
      /* a hack to work around the fact that flex is weird */
      $(function () {
@@ -23,14 +14,14 @@
 {% endblock %}
 {% block content %}
     {% for s in stories %}
-        <div class="media mb-3">
-            <img class="mr-3" src="https://via.placeholder.com/200x200">
-            <div class="media-body story-display">
-                <h4><a href="{{ url_for('questing.view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
-                <div class="story-description">
+        <div class="flex flex-row">
+            <img class="" src="https://placehold.co/200x200">
+            <div class="flex flex-col ml-2">
+                <h4 class="block"><a href="{{ url_for('questing.view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
+                <div class="story-description flex-auto">
                     {{ s.description | safe }}
                 </div>
-                <div class="story-info"><div class="author">{{ s.author.name }}</div></div>
+                <div class="story-info"><div class="author"><a href="{{ url_for('questing.user_profile', user_id=s.author.id) }}">{{ s.author.name }}</div></div>
             </div>
         </div>
     {% endfor %}

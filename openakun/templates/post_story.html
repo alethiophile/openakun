@@ -30,11 +30,11 @@
 {% block content %}
     <h2>Post story</h2>
     <form action="{{ url_for("questing.post_story") }}" method="POST" id="storypost-form">
-        <div class="form-group row">
+        <div class="">
             <label for="title" class="col-lg-2 col-form-label">Title:</label>
             <input type="text" name="title" class="form-control col">
         </div>
-        <div class="form-group">
+        <div class="">
             <label for="description">Description</label>
             <div id="quill-editor">
             </div>
