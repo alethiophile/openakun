@@ -24,7 +24,9 @@
       {% set next_chapter = chapter.story.chapters[chapter.story.chapters.index(chapter)+1] %}
       <a class="nextchapter_link" href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
          hx-get="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
-         hx-target="#content-container" hx-push-url="true">Next: {{ next_chapter.title }}</a>
+         hx-target="#content-container" hx-select="#content-container" hx-push-url="true"
+         hx-swap="outerHTML show:window:top"
+      >Next: {{ next_chapter.title }}</a>
   {% endif %}
   {% if chapter.story.author == g.current_user and chapter == chapter.story.chapters[-1] %}
     <div class="post-editor" x-data="post_editor">
