@@ -187,15 +187,11 @@ document.addEventListener('alpine:init', () => {
   }));
 
   Alpine.data('post_editor', function() {
-    let tinymce_instance;
+    let rte_instance;
     return {
       init() {
-        tinymce.init({
-          target: this.$refs.rich_text_editor,
-          menubar: false,
-          statusbar: false,
-        }).then(([ed]) => {
-          tinymce_instance = ed;
+        rte_instance = new RTEWrapper(this.$refs.rich_text_editor);
+        rte_instance.init().then((ed) => {
           ed.setContent(this.post_text);
           ed.on('input', () => {
             this.post_text = ed.getContent();
@@ -232,7 +228,7 @@ document.addEventListener('alpine:init', () => {
         this.vote_hidden = false;
         this.vote_options = [];
         // this.quill_instance.setText('');
-        tinymce_instance.setContent('');
+        rte_instance.ed.setContent('');
       },
 
       submit() {

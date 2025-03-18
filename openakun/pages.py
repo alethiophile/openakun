@@ -425,7 +425,8 @@ def get_dark_mode() -> bool:
 async def change_settings() -> ResponseType:
     dark_mode = int((await request.form).get('dark_mode', 0))
     session['dark_mode'] = bool(dark_mode)
-    return '', { 'HX-Refresh': "true" }
+    trigger_val = json.dumps({"set-dark-mode": bool(dark_mode)})
+    return '', { 'HX-Trigger': trigger_val }
 
 @questing.route('/topic/<int:topic_id>')
 async def view_topic(topic_id: int) -> str:
