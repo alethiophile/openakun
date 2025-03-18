@@ -33,7 +33,6 @@ versa. Thus, only updates via OOB are done via alpine-morph.
          text-lg w-[95%] mb-5 group ml-auto mr-auto"
      {% if vote.active %}x-data="active_vote"{% endif %}
      db-id="{{ vote.db_id }}" @user-vote.window="handle_vote($event.detail)"
-
      hx-get="{{ url_for('questing.view_vote', vote_id=vote.db_id) }}"
      hx-trigger="set-vote-open[detail.vote_id=={{ vote.db_id }}] from:window"
      hx-swap="outerHTML"
@@ -48,38 +47,38 @@ versa. Thus, only updates via OOB are done via alpine-morph.
         <form ws-send hx-vals='{ "type": "set_vote_options",
                                "channel": {{ chapter.story.channel_id }},
                                "vote": {{ vote.db_id }} }'>
-            <div class="settings flex m-1 text-sm items-center" x-show="admin">
-                <label class="settings-option mr-1"
+            <fieldset class="settings fieldset flex flex-row m-1 text-sm items-center" x-show="admin">
+                <label class="label settings-option mr-1"
                 ><input type="checkbox" name="multivote" class="ml-1"
                         value="true"
                         {% if vote.multivote %}checked disabled
                         title="Cannot disable multivote once enabled"{% endif %}
                  > Allow multiple vote selections</label>
-                <label class="settings-option mr-1"
+                <label class="label settings-option mr-1"
                 ><input type="checkbox" name="writein_allowed" class="ml-1"
                         value="true" {% if vote.writein_allowed %}checked{% endif %}
                  > Allow submitting new options</label>
-                <label class="settings-option mr-1"
+                <label class="label settings-option mr-1"
                 ><input type="checkbox" name="votes_hidden" value="true" class="ml-1"
                         {% if vote.votes_hidden %}checked{% endif %}
                  > Hide vote totals until vote is closed</label>
                 <button type="submit" class="btn h-3/4 px-2 ml-auto">Save</button>
-            </div>
+            </fieldset>
         </form>
         <form ws-send hx-vals='{ "type": "set_vote_close_time",
                                "channel": {{ chapter.story.channel_id }},
                                "vote": {{ vote.db_id }} }'>
             <div class="settings flex m-1 text-sm items-center" x-show="admin">
-                <!-- style="margin-top: -0.5em" -->
-                <span>Close automatically in: </span>
-                <input type="text" inputmode="numeric" class="input h-4/5 text-sm mx-2 px-1"
-                       name="value" style="width: 5em"
-                       @beforeinput='if ($event.data && !/^\d+$/.test($event.data)) {
-                             $event.preventDefault()
-                             }'>
-                <select name="unit" class="select h-4/5 px-1 w-30">
-                    <option value="minutes">minutes</option><option value="hours">hours</option>
-                </select>
+                <label class="label">Close automatically in:
+                    <input type="text" inputmode="numeric" class="input h-4/5 text-sm mx-2 px-1"
+                           name="value" style="width: 5em"
+                           @beforeinput='if ($event.data && !/^\d+$/.test($event.data)) {
+                                 $event.preventDefault()
+                                 }'>
+                    <select name="unit" class="select h-4/5 px-1 w-30">
+                        <option value="minutes">minutes</option><option value="hours">hours</option>
+                    </select>
+                </label>
                 <button class="btn h-4/5 ml-auto px-2" type="submit">Set close time</button>
                 <button class="btn h-4/5 px-2" type="button" style="margin-left: 0.5em" ws-send
                         hx-vals='{ "type": "set_vote_close_time",
@@ -165,7 +164,8 @@ versa. Thus, only updates via OOB are done via alpine-morph.
                          @click="edit_killtext = true; $nextTick(() => {
                                 $refs.kill_reason_{{ ve.db_id }}.focus() })"
                          @keydown.enter="edit_killtext = true; $nextTick(() => {
-                                $refs.kill_reason_{{ ve.db_id }}.focus() })">{{ macs.edit_icon(size=20) }}</div>
+                                $refs.kill_reason_{{ ve.db_id }}.focus() })"
+                    >{{ macs.edit_icon(size=20) }}</div>
                     <div class="vote-button restore-vote p-1 flex items-center cursor-pointer
                                 hover:bg-select-green hover:text-neutral-100"
                          tabindex="0" role="button"

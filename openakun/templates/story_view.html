@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{%- import 'macros.html' as macs -%}
 {% macro story_header(with_desc=False) %}
     <h1 class="text-center">{{ story.title }}</h1>
     <div class="text-center my-2">
@@ -50,9 +51,10 @@
     <div class="dropdown">
         <div tabindex="0" role="button"
              class="p-4 m-0 hover:bg-blue-500 hover:text-white
-                       focus:bg-blue-500 focus:text-white cursor-pointer"
-             id="chaptermenu-link">Story</div>
-        <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+                       focus:bg-blue-500 focus:text-white cursor-pointer
+                       flex flex-row"
+             id="chaptermenu-link">Story {{ macs.dropdown_icon(size=30) }}</div>
+        <ul tabindex="0" class="menu dropdown-content bg-base-100 dark:bg-stone-700 rounded-box z-1 w-52 p-2 shadow-sm">
             {% if story.awaitable_attrs.chapters|length > 1 %}
                 <li><span class="dropdown-header">Contents</span></li>
                 {% for i in story.awaitable_attrs.chapters %}
@@ -76,9 +78,9 @@
                 hover:flex-[1_0_30%] hover:overflow-y-auto
                 transition-flex-basis duration-300"
          id="topic-bar" x-data="{ new_shown: false }">
-        <div class="flex flex-row" id="topic-header">
+        <div class="flex flex-row items-center" id="topic-header">
             <h4 class="uppercase text-sm">Topics</h4>
-            <button style="margin-left: auto; margin-right: 1em"
+            <button class="btn ml-auto mr-2 my-1 h-full"
                     @click="new_shown = true">+ New topic</button>
         </div>
         <div>
@@ -89,11 +91,13 @@
                 assigned to the new topic, so we can't generate a URL for
                 it #}
                 <form id="new-post-form" hx-post="{{ url_for('questing.new_topic') }}"
-                      hx-target="#content-container" hx-ext="json-enc">
+                      hx-target="#content-container" hx-ext="json-enc"
+                      class="flex flex-row items-center">
                     <input type="hidden" name="story_id" value="{{ story.id }}">
                     <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
-                    New post title: <input type="text" name="title"><button type="submit">Post</button>
-                    <button @click="new_shown = false" type="button">Cancel</button>
+                    <span>New post title: </span><input type="text" class="input flex-1 h-full mx-2 px-1" name="title">
+                    <button class="btn h-full mr-2" type="submit">Post</button>
+                    <button class="btn h-full mr-2" @click="new_shown = false" type="button">Cancel</button>
                 </form></div>
             {% include 'topic_list.html' %}
         </div>

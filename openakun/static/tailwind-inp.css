@@ -4,7 +4,16 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
-@plugin "daisyui";
+@plugin "daisyui" {
+  themes: light --default, forest;
+}
+
+@plugin "daisyui/theme" {
+  name: "forest";
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+}
 
 [x-cloak] { display: none !important; }
 
@@ -34,3 +43,5 @@
 @theme {
   --color-select-green: oklch(85.00% 0.2522 143.06);
 }
+
+@custom-variant dark (&:where([data-theme=forest], [data-theme=forest] *));

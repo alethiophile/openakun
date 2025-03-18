@@ -1,5 +1,5 @@
 {% if htmx %}<div id="chat-messages" hx-swap-oob="beforeend">{% endif %}
-<div class="chatmsg p-1 hover:bg-neutral-200" data-token="{{ c.id_token }}">
+<div class="chatmsg p-1 hover:bg-neutral-200 dark:hover:bg-stone-600" data-token="{{ c.id_token }}">
     <div class="chat_head flex">
         <div class="chat_sender text-sm font-bold mr-1">{{ c.username }}</div>
         {# TODO update this to allow setting server timezone #}

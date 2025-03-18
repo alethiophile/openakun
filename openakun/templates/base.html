@@ -1,5 +1,6 @@
+{%- import 'macros.html' as macs -%}
 <!DOCTYPE html>
-<html>
+<html{% if get_dark_mode() %} data-theme="forest"{% endif %}>
     <head>
         {% block head %}
             <meta charset="utf-8">
@@ -51,24 +52,31 @@
         {% endblock %}
     </head>
     <body hx-ext="ws"
-          ws-connect="/ws/{% if request.endpoint == 'questing.view_chapter' %}{{ chapter.story.channel_id }}{% elif request.endpoint == 'questing.main' %}main{% endif %}">
-        <nav class="navbar fixed top-0 left-0 w-full bg-base-100" id="navbar_top">
+          ws-connect="/ws/{% if request.endpoint == 'questing.view_chapter' %}{{ chapter.story.channel_id }}{% elif request.endpoint == 'questing.main' %}main{% endif %}"
+          class="dark:bg-stone-800 dark:text-neutral-100">
+        <nav class="navbar fixed top-0 left-0 w-full bg-base-100 dark:bg-stone-700" id="navbar_top">
             <a class="p-4 hover:bg-base-200" href="{{ url_for('questing.main') }}">openakun</a>
             <div class="dropdown">
                 <div tabindex="0" role="button"
                      class="p-4 m-0 hover:bg-blue-500 hover:text-white focus:bg-blue-500
-                               focus:text-white cursor-pointer" id="mainmenu-link">Menu</div>
+                               focus:text-white cursor-pointer
+                               flex flex-row items-center" id="mainmenu-link">Menu {{ macs.dropdown_icon(size=30) }}</div>
                 <ul tabindex="0"
-                    class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+                    class="menu dropdown-content bg-base-100 dark:bg-stone-700 rounded-box z-1 w-52 p-2 shadow-sm">
                     <li><a class="" href="{{ url_for('questing.main') }}">Home</a></li>
                     <li><a class="" href="#">Tags</a></li>
                     <li><a class="" href="#">About</a></li>
                     {% if g.current_user != None %}<li>
                         <a class="" href="{{ url_for('questing.post_story') }}"
                         >Post a story</a></li>{% endif %}
-                    <li><a class="" hx-post="{{ url_for('questing.change_settings') }}"
-                           hx-vals='{ "dark_mode": "{{ '0' if get_dark_mode() else '1' }}" }'
-                        >Use {% if get_dark_mode() %}light{% else %}dark{% endif %} mode</a></li>
+                        <li x-data="{ dark_mode: {% if get_dark_mode() %}true{% else %}false{% endif %} }"
+                            @set-dark-mode.window="dark_mode = $event.detail.value"
+                        ><a class="" hx-post="{{ url_for('questing.change_settings') }}"
+                            {# hx-vals='{ "dark_mode": "{{ '0' if get_dark_mode() else '1' }}" }' #}
+                            hx-swap="none" hx-include="input[name=dark_mode]">
+                            <input type="hidden" name="dark_mode" :value="dark_mode ? '0' : '1'">
+                            <span x-text="dark_mode ? 'Use light mode' : 'Use dark mode'">{% if get_dark_mode() %}Use light mode{% else %}Use dark mode{% endif %}</span>
+                        </a></li>
                     {% block inside_mainmenu %}{% endblock %}
                 </ul>
             </div>
@@ -91,7 +99,7 @@
                 {% endif %}
             </div>
         </nav>
-        <div class="pt-16 w-full flex flex-row">
+        <div class="pt-20 w-full flex flex-row">
             <div class="w-2/3 m-3 pr-6">
                 {% for message in get_flashed_messages() %}
                     <div class="alert alert-primary" role="alert">
@@ -103,7 +111,7 @@
                     {% endblock %}
                 </div>
             </div>
-            <div class="fixed right-0 top-16 bottom-0 w-1/3 flex flex-col">
+            <div class="fixed right-0 top-20 bottom-0 w-1/3 flex flex-col">
                 {% block sidebar %}
                 {% endblock %}
             </div>
