@@ -37,9 +37,15 @@ else:
 class Base(AsyncAttrs, DeclarativeBase):
     metadata = md
 
-user_with_role = Table('user_with_role', Base.metadata,
-                       Column('user_id', Integer, ForeignKey('users.id')),
-                       Column('role_id', Integer, ForeignKey('user_roles.id')))
+user_with_role = Table(
+    'user_with_role', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('role_id', Integer, ForeignKey('user_roles.id'), primary_key=True))
+
+story_with_tag = Table(
+    'story_tags', Base.metadata,
+    Column('story_id', Integer, ForeignKey('stories.id'), primary_key=True),
+    Column('tag_id', Integer, ForeignKey('tags.id'), primary_key=True))
 
 # This satisfies the requirements of flask_login for a User class.
 class User(Base):
@@ -99,6 +105,9 @@ class Story(Base):
         back_populates='story',
         order_by='Chapter.is_appendix,Chapter.order_idx',
         uselist=True)
+
+    tags: Mapped[list[Tag]] = relationship(back_populates='stories',
+                                           secondary=story_with_tag)
 
     def __repr__(self) -> str:
         return "<Story '{}' (id {}) by {}>".format(self.title, self.id,
@@ -294,6 +303,16 @@ class TopicMessage(Base):
 
     topic: Mapped[Topic] = relationship(back_populates="messages")
     poster: Mapped[User] = relationship()
+
+class Tag(Base):
+    __tablename__ = 'tags'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    canonical_tag: Mapped[int | None] = mapped_column(ForeignKey('tags.id'))
+
+    stories: Mapped[list[Story]] = relationship(back_populates='tags',
+                                                secondary=story_with_tag)
 
 async def ensure_updated_db() -> None:
     from alembic.config import Config
