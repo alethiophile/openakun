@@ -52,7 +52,7 @@
 {% endblock %}
 {% block sidebar %}
     {# we put this here for lack of any better place to put it #}
-    <div
+    <div id="client-info"
         {% if story.author == g.current_user %}data-is-author="true"{% endif %}
         data-new-post-url="{{ url_for('questing.new_post') }}"
         data-csrf-token="{{ session['_csrf_token'] }}"
