@@ -333,7 +333,7 @@ async def create_chapter(story: models.Story, title: str,
 async def new_post() -> ResponseType:
     s = db_connect()
     print('new_post')
-    data = await request.json
+    data = await request.form
     assert data is not None
     print(data)
     chapter_id = int(data['chapter_id'])
@@ -347,7 +347,7 @@ async def new_post() -> ResponseType:
         abort(404)
     if g.current_user != c.story.author:
         abort(403)
-    if data['new_chapter']:
+    if data.get('new_chapter'):
         if data['chapter_title'] == '':
             abort(400)
         nc = await create_chapter(c.story, data['chapter_title'])
@@ -375,7 +375,14 @@ async def new_post() -> ResponseType:
     s.add(p)
     if ptype == models.PostType.Vote:
         try:
-            vote_info = Vote.from_dict(data['vote_data'])
+            vd = {
+                'question': data['vote_question'],
+                'multivote': bool(data.get('vote_multivote')),
+                'writein_allowed': bool(data.get('vote_writein')),
+                'votes_hidden': bool(data.get('vote_hidden')),
+                'votes': [{ 'text': i } for i in data.getlist('vote_option_text')]
+            }
+            vote_info = Vote.from_dict(vd)
         except Exception:
             abort(400)
         vote_model = vote_info.create_model()
