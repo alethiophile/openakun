@@ -13,3 +13,6 @@ docker-build:
 
 count-lines:
     tokei . --exclude node_modules/ --exclude openakun/static/vendor/ --exclude openakun/static/tailwind.css --exclude \*.json -s lines
+
+test:
+    pytest
