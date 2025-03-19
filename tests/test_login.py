@@ -1,7 +1,7 @@
 import pytest, re
 
 async def get_csrf(response) -> str:
-    csrf_token = re.search(r'name="_csrf_token"[^>]+value="([^"]+)"',
+    csrf_token = re.search(r'"_csrf_token"[^>]+?"([^"]+)"',
                            await response.get_data(True)).group(1)
     if csrf_token is not None: return csrf_token
 
