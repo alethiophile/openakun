@@ -190,11 +190,12 @@ document.addEventListener('alpine:init', () => {
     return {
       init() {
         rte_instance = new RTEWrapper(this.$refs.rich_text_editor);
-        rte_instance.init().then((ed) => {
-          // ed.setContent(this.post_text);
+        rte_instance.init((ed) => {
           ed.on('input', () => {
-            // this.post_text = ed.getContent();
-            ed.save();
+            let rv = ed.save();
+            // Alpine's x-model won't pick up changes made via this
+            // method, so set it manually
+            this.$refs.rich_text_editor._x_model.set(rv);
           });
         });
       },
