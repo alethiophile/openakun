@@ -21,10 +21,15 @@ class RTEWrapper {
 
   // Initializes the RTE on the target passed at construction,
   // respecting the current state of dark mode. The RTE instance is
-  // available later on the wrapper instance at property 'ed'. init()
-  // also returns a future that will resolve after initialization has
-  // completed; this can be used for other setup.
-  init(add_cfg = {}) {
+  // available later on the wrapper instance at property 'ed'.
+
+  // This can take two config parameters: an `after` function, which
+  // is called after initialization with the TinyMCE instance, and an
+  // `add_cfg` object, which is merged into the config object passed
+  // to tinymce.init(). Both parameters are saved on the wrapper
+  // object, and the same values will be passed in on calls to
+  // reinit().
+  init(after = undefined, add_cfg = {}) {
     let dark_mode = (document.documentElement.dataset.theme === 'forest');
     let config = {
       target: this.target,
@@ -37,8 +42,12 @@ class RTEWrapper {
     }
     Object.assign(config, add_cfg);
     this._init_add_cfg = add_cfg;
-    return tinymce.init(config).then(([ed]) => {
+    this._init_after = after;
+    tinymce.init(config).then(([ed]) => {
       this.ed = ed;
+      if (after !== undefined) {
+        after(ed);
+      }
       return ed;
     });
   }
@@ -48,7 +57,7 @@ class RTEWrapper {
   reinit() {
     this.ed.save();
     this.ed.remove();
-    this.init(this._init_add_cfg);
+    this.init(this._init_after, this._init_add_cfg);
   }
 }
 
