@@ -102,8 +102,8 @@ versa. Thus, only updates via OOB are done via alpine-morph.
                       hx-vals='{ "channel": {{ chapter.story.channel_id }},
                                           "vote": {{ vote.db_id }},
                                           "option": {{ ve.db_id }} }'>
-                    <!-- we use a hidden input here to allow AlpineJS to change it, since it
-                         doesn't play well with hx-* attributes -->
+                    {# we use a hidden input here to allow AlpineJS to change it, since it
+                    doesn't play well with hx-* attributes #}
                     <input type="hidden" name="type"
                            x-bind:value="user_votes['{{ ve.db_id }}'] ? 'remove_vote' : 'add_vote'">
             {%- endif %}

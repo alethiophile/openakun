@@ -21,13 +21,6 @@
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='vendor/htmx-alpine-morph-1.9.10.js') }}" defer integrity="sha384-tOAHN1ROllxv+z4ALtsuolyJGGB0NnJbgZb+Zk4vH1y5uMfjG24CLWV1C2kJg6ex"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='votes.js') }}"></script>
-    {# {% if get_dark_mode() %}
-        <link rel="stylesheet" href="{{ url_for('static', filename='dark-mode.css') }}">
-    {% else %}
-        <link rel="stylesheet" href="{{ url_for('static', filename='light-mode.css') }}">
-    {% endif %} #}
-    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='chapter.css') }}">
-         <link rel="stylesheet" href="{{ url_for('static', filename='votes.css') }}"> -->
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='chapter.js') }}"></script>
 {% endblock %}
 {% block inside_menubar %}
@@ -106,5 +99,4 @@
             <button type="submit" class="btn btn-sm mx-1 mb-1">Send</button>
         </form>
     </div>
-    <!-- </div> -->
 {% endblock %}

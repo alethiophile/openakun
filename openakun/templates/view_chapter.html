@@ -5,15 +5,6 @@
 {% endblock %}
 {% block content %}
     {{ story_header(chapter == chapter.story.awaitable_attrs.chapters[0]) }}
-    <!-- <h1 class="text-center">{{ chapter.story.title }}</h1>
-         <div class="text-center my-2">
-         <a href="{{ url_for('questing.user_profile', user_id=chapter.story.author.id) }}">{{ chapter.story.author.name }}</a>
-         </div>
-         {% if chapter == chapter.story.awaitable_attrs.chapters[0] %}
-         <div class="description m-5">
-         {{ chapter.story.description | safe }}
-         </div>
-         {% endif %} -->
   <div id="story-content" data-chapter-id="{{ chapter.id }}">
     {% for p in chapter.awaitable_attrs.posts %}
       {% do prepare_post(p, True) %}

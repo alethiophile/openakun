@@ -2,8 +2,6 @@
 {% block title %}New story{% endblock %}
 {% block head %}
     {{ super() }}
-    <!-- <link href="https://cdn.quilljs.com/1.3.2/quill.snow.css" rel="stylesheet"> -->
-    <!-- <script nonce="{{ get_script_nonce() }}" src="https://cdn.quilljs.com/1.3.2/quill.js"></script> -->
     <script nonce="{{ get_script_nonce() }}" src="{{ url_for('static', filename='util.js') }}"></script>
     <style>
      #quill-editor {
