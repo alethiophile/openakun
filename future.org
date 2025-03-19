@@ -53,8 +53,6 @@
 *** DONE display posts better
  - include date of posting
 *** DONE set up UI for chapters
-*** TODO tune Quill editors for real markup abilities
- - incl. achievement links
 ** TODO Add topics
  - [X] Add topic DB tables
  - [X] Render topics on story view
