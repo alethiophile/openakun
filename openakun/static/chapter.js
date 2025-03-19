@@ -191,9 +191,10 @@ document.addEventListener('alpine:init', () => {
       init() {
         rte_instance = new RTEWrapper(this.$refs.rich_text_editor);
         rte_instance.init().then((ed) => {
-          ed.setContent(this.post_text);
+          // ed.setContent(this.post_text);
           ed.on('input', () => {
-            this.post_text = ed.getContent();
+            // this.post_text = ed.getContent();
+            ed.save();
           });
         });
       },

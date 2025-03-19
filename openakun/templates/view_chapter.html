@@ -5,61 +5,104 @@
 {% endblock %}
 {% block content %}
     {{ story_header(chapter == chapter.story.awaitable_attrs.chapters[0]) }}
-  <div id="story-content" data-chapter-id="{{ chapter.id }}">
-    {% for p in chapter.awaitable_attrs.posts %}
-      {% do prepare_post(p, True) %}
-      {% include 'render_post.html' %}
-    {% endfor %}
-  </div>
-  {% if chapter != chapter.story.chapters[-1] %}
-      {% set next_chapter = chapter.story.chapters[chapter.story.chapters.index(chapter)+1] %}
-      <a class="nextchapter_link block w-full py-4 px-0 my-4 mx-auto text-center
-                hover:text-neutral-100 hover:bg-blue-500 text-xl"
-         href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
-         hx-get="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
-         hx-target="#content-container" hx-select="#content-container" hx-push-url="true"
-         hx-swap="outerHTML show:window:top"
-      >Next: {{ next_chapter.title }}</a>
-  {% endif %}
-  {% if chapter.story.author == g.current_user and chapter == chapter.story.chapters[-1] %}
-    <div class="post-editor" x-data="post_editor">
-      <h5 class="mb-3">Make a new post</h5>
-      <fieldset class="fieldset flex flex-row items-center h-8" id="chapter_section">
-        <input class="" type="checkbox" x-model="make_new_chapter">
-        <label class="label mr-5">Begin a new chapter</label>
-        <input class="input h-full px-1" type="text" placeholder="Title" x-model="new_chapter_title" x-show="make_new_chapter">
-      </fieldset>
-      <fieldset class="fieldset flex flex-row items-center">
-          <label class="label"><input type="radio" class="" name="post_type" value="Text" checked="checked" x-model="post_type"> Text post</label>
-          <label class="label"><input type="radio" class="" name="post_type" value="Vote" @click="$nextTick(() => { $dispatch('xta-setup') })" x-model="post_type"> Vote</label>
-          <label class="label"><input type="radio" class="" name="post_type" value="Writein" x-model="post_type"> Write-in</label>
-      </fieldset>
-      <input type="hidden" name="post_text" x-ref="text_hidden_input" value="" x-model="post_text">
-      <div x-ref="text-editor" x-show="post_type == 'Text'">
-        <div x-ref="rich_text_editor">
-        </div>
-      </div>
-      <div x-ref="vote-editor" x-show="post_type == 'Vote'">
-        <div class="vote-question">
-            <textarea class="vote-editor text-lg p-1" rows="1" data-min-rows="1"
-                      placeholder="What are you voting on?" x-bind="expanding_textarea"
-                      x-model="vote_question" pixel-height="24"></textarea>
-        </div>
-        <fieldset class="fieldset flex flex-row">
-            <label class="label mr-3"><input class="ml-0" type="checkbox" x-model="vote_multivote"> Allow multiple votes</label>
-            <label class="label mr-3"><input class="ml-0" type="checkbox" x-model="vote_writein"> Allow write-in options</label>
-            <label class="label mr-3"><input class="ml-0" type="checkbox" x-model="vote_hidden"> Hide vote totals until close</label>
-        </fieldset>
-        <div class="vote-entries">
-          <template x-for="(v, i) in vote_options">
-            <div class="has-vote">
-              <div class="vote-text"><textarea class="vote-editor" rows="1" data-min-rows="1" x-bind="expanding_textarea" x-model="v.text" pixel-height="28"></textarea></div>
-              <div class="delete-vote" role="button" tabindex="0" title="Delete entry" @keydown.enter="delete_option(i)" @click="delete_option(i)">✘</div></div>
-          </template>
-          <button @click="add_option()">+ Add new option</button>
-        </div>
-      </div>
-      <button class="btn mt-2" @click="submit()">Post</button>
+    <div id="story-content" data-chapter-id="{{ chapter.id }}">
+        {% for p in chapter.awaitable_attrs.posts %}
+            {% do prepare_post(p, True) %}
+            {% include 'render_post.html' %}
+        {% endfor %}
     </div>
-  {% endif %}
+    {% if chapter != chapter.story.chapters[-1] %}
+        {% set next_chapter = chapter.story.chapters[chapter.story.chapters.index(chapter)+1] %}
+        <a class="nextchapter_link block w-full py-4 px-0 my-4 mx-auto text-center
+                  hover:text-neutral-100 hover:bg-blue-500 text-xl"
+           href="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
+           hx-get="{{ url_for('questing.view_chapter', story_id=chapter.story.id, chapter_id=next_chapter.id) }}"
+           hx-target="#content-container" hx-select="#content-container" hx-push-url="true"
+           hx-swap="outerHTML show:window:top"
+        >Next: {{ next_chapter.title }}</a>
+    {% endif %}
+    {% if chapter.story.author == g.current_user and chapter == chapter.story.chapters[-1] %}
+        <div class="post-editor" x-data="post_editor">
+            <form hx-post="{{ url_for('questing.new_post') }}" hx-swap="none"
+                  @htmx:after-request.camel="console.log($event)">
+                <h5 class="mb-3">Make a new post</h5>
+                <fieldset class="fieldset flex flex-row items-center h-8" id="chapter_section">
+                    <label class="label mr-5">
+                        <input class="" type="checkbox" name="make_new_chapter"
+                               x-model="make_new_chapter">
+                        Begin a new chapter</label>
+                        <input class="input h-full px-1" type="text" placeholder="Title"
+                               x-model="new_chapter_title" name="new_chapter_title"
+                               x-show="make_new_chapter">
+                </fieldset>
+                <fieldset class="fieldset flex flex-row items-center">
+                    <label class="label">
+                        <input type="radio" class="" name="post_type" value="Text"
+                               checked="checked" x-model="post_type"> Text post
+                    </label>
+                    <label class="label">
+                        <input type="radio" class="" name="post_type" value="Vote"
+                               @click="$nextTick(() => { $dispatch('xta-setup') })"
+                               x-model="post_type"> Vote
+                    </label>
+                    <label class="label">
+                        <input type="radio" class="" name="post_type" value="Writein"
+                               x-model="post_type"> Write-in
+                    </label>
+                </fieldset>
+                <div x-ref="text-editor" x-show="post_type == 'Text'">
+                    <textarea name="post_text" x-model="post_text"
+                              x-ref="rich_text_editor"></textarea>
+                </div>
+                <div x-ref="vote-editor" x-show="post_type == 'Vote'">
+                    <div class="vote-question">
+                        <textarea class="text-lg p-1 w-full border-1 border-neutral-300 rounded-sm"
+                                  rows="1" data-min-rows="1"
+                                  placeholder="What are you voting on?" x-bind="expanding_textarea"
+                                  x-model="vote_question" name="vote_question"
+                                  pixel-height="28"></textarea>
+                    </div>
+                    <fieldset class="fieldset flex flex-row">
+                        <label class="label mr-3">
+                            <input class="ml-0" type="checkbox" name="vote_multivote"
+                                   x-model="vote_multivote">
+                            Allow multiple votes
+                        </label>
+                        <label class="label mr-3">
+                            <input class="ml-0" type="checkbox" name="vote_writein"
+                                   x-model="vote_writein">
+                            Allow write-in options
+                        </label>
+                        <label class="label mr-3">
+                            <input class="ml-0" type="checkbox" name="vote_hidden"
+                                   x-model="vote_hidden">
+                            Hide vote totals until close
+                        </label>
+                    </fieldset>
+                    <div class="vote-entries">
+                        <template x-for="(v, i) in vote_options">
+                            <div class="flex flex-row items-center">
+                                <textarea class="flex-1 mr-1 p-1 w-full border-1 border-neutral-300
+                                                 rounded-sm mb-1"
+                                          {# these are for the expanding_textarea support, which
+                                          I barely understand no matter how many times I
+                                          look at it #}
+                                          rows="1" data-min-rows="1" pixel-height="24"
+                                          name="vote_option_text"
+                                          placeholder="Vote option..."
+                                          x-bind="expanding_textarea" x-model="v.text"
+                                ></textarea>
+                                <div class="cursor-pointer hover:bg-red-500 h-full p-1"
+                                     role="button" tabindex="0" title="Delete entry"
+                                     @keydown.enter="delete_option(i)"
+                                     @click="delete_option(i)">✘</div>
+                            </div>
+                        </template>
+                        <button class="btn btn-sm" @click="add_option()">+ Add new option</button>
+                    </div>
+                </div>
+                <button class="btn mt-2" type="submit">Post</button>
+            </form>
+        </div>
+    {% endif %}
 {% endblock %}
