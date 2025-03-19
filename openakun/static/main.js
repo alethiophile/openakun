@@ -16,6 +16,7 @@ class RTEWrapper {
   constructor(target) {
     this.target = target;
     all_rtes.set(target, this);
+    _clean_rtes();
   }
 
   // Initializes the RTE on the target passed at construction,
@@ -23,7 +24,7 @@ class RTEWrapper {
   // available later on the wrapper instance at property 'ed'. init()
   // also returns a future that will resolve after initialization has
   // completed; this can be used for other setup.
-  init() {
+  init(add_cfg = {}) {
     let dark_mode = (document.documentElement.dataset.theme === 'forest');
     let config = {
       target: this.target,
@@ -34,6 +35,8 @@ class RTEWrapper {
       config.skin = 'oxide-dark';
       config.content_css = 'dark';
     }
+    Object.assign(config, add_cfg);
+    this._init_add_cfg = add_cfg;
     return tinymce.init(config).then(([ed]) => {
       this.ed = ed;
       return ed;
@@ -45,10 +48,12 @@ class RTEWrapper {
   reinit() {
     this.ed.save();
     this.ed.remove();
-    this.init();
+    this.init(this._init_add_cfg);
   }
 }
 
+// Cleans the list of RTEs by deleting any whose target key is not in
+// the DOM.
 function _clean_rtes() {
   for (let [k, v] of all_rtes) {
     if (!k.isConnected) {
