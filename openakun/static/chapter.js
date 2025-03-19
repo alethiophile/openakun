@@ -231,41 +231,6 @@ document.addEventListener('alpine:init', () => {
         // this.quill_instance.setText('');
         rte_instance.ed.setContent('');
       },
-
-      submit() {
-        let chapter_id = document.querySelector("#story-content").getAttribute('data-chapter-id');
-        let post_url = document.querySelector('[data-new-post-url]').dataset.newPostUrl;
-        let csrf_token = document.querySelector('[data-csrf-token]').dataset.csrfToken;
-        let msg = {
-          chapter_id: chapter_id,
-          _csrf_token: csrf_token,
-          post_type: this.post_type,
-          new_chapter: this.make_new_chapter,
-          chapter_title: this.new_chapter_title,
-          post_text: this.post_text,
-          vote_data: {
-            question: this.vote_question,
-            multivote: this.vote_multivote,
-            writein_allowed: this.vote_writein,
-            votes_hidden: this.vote_hidden,
-            votes: this.vote_options.map((v) => ({ ...v })),
-          },
-        };
-        console.log(msg);
-        fetch(post_url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(msg)
-        }).then(
-          () => { this.reset(); },
-          (err) => {
-            var errstr = "Error: " + err;
-            console.log(errstr);
-            alert(errstr);
-          });
-      },
     };
   });
 });
