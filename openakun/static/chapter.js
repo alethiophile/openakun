@@ -1,6 +1,5 @@
-/* global $, moment, is_author, csrf_token, Swal, story_id,
-   post_url, Alpine, make_random_token, new_topic_url,
-   ExpandingTextarea, htmx, ws_html_func, tinymce */
+/* global $, moment, Swal, Alpine, make_random_token, ExpandingTextarea,
+   htmx, ws_html_func, tinymce */
 $(function () {
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
@@ -104,7 +103,7 @@ $(function () {
   });
 
   ws_html_func((node, ev) => {
-    // the is_author flag is set in inline JS in the view_chapter.html template
+    let is_author = !!document.querySelector('[data-is-author]');
     if (node.getAttribute('data-totals-hidden') == '1' && is_author) {
       // in this case, we expect the same data with vote totals drawn
       // to come in over the author-only channel, so we ignore the
@@ -153,7 +152,7 @@ document.addEventListener('alpine:init', () => {
       $(this.$el).find('.voted-for').each(function () {
         t.user_votes[$(this).attr('db-id')] = true;
       });
-      this.admin = is_author == true;
+      this.admin = !!document.querySelector('[data-is-author]');
       ExpandingTextarea({ elem: this.$refs.edit, pixel_height: 28 });
     },
 
@@ -233,6 +232,8 @@ document.addEventListener('alpine:init', () => {
 
       submit() {
         let chapter_id = document.querySelector("#story-content").getAttribute('data-chapter-id');
+        let post_url = document.querySelector('[data-new-post-url]').dataset.newPostUrl;
+        let csrf_token = document.querySelector('[data-csrf-token]').dataset.csrfToken;
         let msg = {
           chapter_id: chapter_id,
           _csrf_token: csrf_token,
