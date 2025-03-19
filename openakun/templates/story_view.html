@@ -54,7 +54,8 @@
                        focus:bg-blue-500 focus:text-white cursor-pointer
                        flex flex-row"
              id="chaptermenu-link">Story {{ macs.dropdown_icon(size=30) }}</div>
-        <ul tabindex="0" class="menu dropdown-content bg-base-100 dark:bg-stone-700 rounded-box z-1 w-52 p-2 shadow-sm">
+        <ul tabindex="0" class="menu dropdown-content bg-neutral-100 dark:bg-stone-700
+                      rounded-box z-1 w-52 p-2 shadow-sm">
             {% if story.awaitable_attrs.chapters|length > 1 %}
                 <li><span class="dropdown-header">Contents</span></li>
                 {% for i in story.awaitable_attrs.chapters %}

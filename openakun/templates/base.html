@@ -28,15 +28,15 @@
     <body hx-ext="ws"
           ws-connect="/ws/{% if request.endpoint == 'questing.view_chapter' %}{{ chapter.story.channel_id }}{% elif request.endpoint == 'questing.main' %}main{% endif %}"
           class="dark:bg-stone-800 dark:text-neutral-100">
-        <nav class="navbar fixed top-0 left-0 w-full bg-base-100 dark:bg-stone-700" id="navbar_top">
-            <a class="p-4 hover:bg-base-200" href="{{ url_for('questing.main') }}">openakun</a>
+        <nav class="navbar fixed top-0 left-0 w-full bg-neutral-100 dark:bg-stone-700" id="navbar_top">
+            <a class="p-4 hover:bg-neutral-200" href="{{ url_for('questing.main') }}">openakun</a>
             <div class="dropdown">
                 <div tabindex="0" role="button"
                      class="p-4 m-0 hover:bg-blue-500 hover:text-white focus:bg-blue-500
                                focus:text-white cursor-pointer
                                flex flex-row items-center" id="mainmenu-link">Menu {{ macs.dropdown_icon(size=30) }}</div>
                 <ul tabindex="0"
-                    class="menu dropdown-content bg-base-100 dark:bg-stone-700 rounded-box z-1 w-52 p-2 shadow-sm">
+                    class="menu dropdown-content bg-neutral-100 dark:bg-stone-700 rounded-box z-1 w-52 p-2 shadow-sm">
                     <li><a class="" href="{{ url_for('questing.main') }}">Home</a></li>
                     <li><a class="" href="#">Tags</a></li>
                     <li><a class="" href="#">About</a></li>
@@ -57,18 +57,18 @@
             <div class="flex-1"></div>
             <div class="">
                 {% if g.current_user == None %}
-                    <a class="p-4 hover:bg-base-200"
+                    <a class="p-4 hover:bg-neutral-200"
                        href="{{ url_for('questing.login', next=request.path) }}"
                     >Log in</a>
                 {% else %}
                     <span class="p-4">Welcome, {{ g.current_user.name }}</span>
-                    <a class="p-4 hover:bg-base-200"
+                    <a class="p-4 hover:bg-neutral-200"
                        href="{{ url_for('questing.user_profile', user_id=g.current_user.id) }}"
                     >Profile</a>
                     <a hx-post="{{ url_for('questing.logout') }}"
                        hx-vals='{ "_csrf_token": "{{ session["_csrf_token"] }}",
                                 "next": "{{ request.full_path }}"}'
-                       class="p-4 hover:bg-base-200 cursor-pointer">Log out</a>
+                       class="p-4 hover:bg-neutral-200 cursor-pointer">Log out</a>
                 {% endif %}
             </div>
         </nav>
