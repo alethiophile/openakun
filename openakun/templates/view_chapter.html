@@ -24,15 +24,17 @@
     {% if chapter.story.author == g.current_user and chapter == chapter.story.chapters[-1] %}
         <div class="post-editor" x-data="post_editor">
             <form hx-post="{{ url_for('questing.new_post') }}" hx-swap="none"
-                  @htmx:after-request.camel="console.log($event)">
+                  @htmx:after-request.camel="if ($event.detail.successful) { reset() }">
+                <input type="hidden" name="chapter_id" value="{{ chapter.id }}">
+                <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
                 <h5 class="mb-3">Make a new post</h5>
                 <fieldset class="fieldset flex flex-row items-center h-8" id="chapter_section">
                     <label class="label mr-5">
-                        <input class="" type="checkbox" name="make_new_chapter"
+                        <input class="" type="checkbox" name="new_chapter"
                                x-model="make_new_chapter">
                         Begin a new chapter</label>
                         <input class="input h-full px-1" type="text" placeholder="Title"
-                               x-model="new_chapter_title" name="new_chapter_title"
+                               x-model="new_chapter_title" name="chapter_title"
                                x-show="make_new_chapter">
                 </fieldset>
                 <fieldset class="fieldset flex flex-row items-center">
