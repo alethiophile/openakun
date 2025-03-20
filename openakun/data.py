@@ -288,7 +288,7 @@ class Vote:
             vo.vote_info = rv
         return rv
 
-class BadHTMLError(Exception):
+class BadHTMLError(ValueError):
     def __init__(
             self, *args: Any, good_html: str, bad_html: str, **kwargs: Any
     ) -> None:
@@ -303,24 +303,37 @@ class BadHTMLError(Exception):
 class HTMLText(object):
     allowed_tags: Optional[List[str]]
 
-    def __init__(self, html_data: str) -> None:
+    def __init__(self, html_data: str, allow_mismatch: bool = False) -> None:
         self.dirty_html = html_data
         assert self.allowed_tags is not None
         self.clean_html = bleach.clean(html_data,
                                        tags=self.allowed_tags,
                                        attributes=self.allowed_attributes)
+        if self.clean_html != self.dirty_html and not allow_mismatch:
+            raise BadHTMLError(bad_html=self.dirty_html,
+                               good_html=self.clean_html)
+
+    @classmethod
+    def from_user_input(cls, html_data: str):
+        """for any special processing necessary for the from-user-input HTML;
+        in this class, equivalent to just calling init"""
+        return cls(html_data)
 
     def allowed_attributes(self, tag: str, name: str, value: str) -> bool:
         raise NotImplementedError()
 
-    def __str__(self) -> str:
+    def output_html(self) -> str:
+        """for any special processing before rendering"""
         return self.clean_html
+
+    def __str__(self) -> str:
+        return self.output_html()
 
     def __repr__(self) -> str:
         return (f"{type(self).__name__}(clean_html={repr(self.clean_html)}, "
                 f"dirty_html={repr(self.dirty_html)})")
 
-class ChapterHTMLText(HTMLText):
+class PostHTMLText(HTMLText):
     allowed_tags = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 's', 'strong',
                     'strike', 'ul', 'u']
 
@@ -331,23 +344,26 @@ class ChapterHTMLText(HTMLText):
         return False
 
 def clean_html(html_in: str) -> str:
-    html = ChapterHTMLText(html_in)
+    html = PostHTMLText(html_in)
     if html.clean_html != html.dirty_html:
         raise BadHTMLError(good_html=html.clean_html, bad_html=html.dirty_html)
     return html.clean_html
 
 @define
 class Post:
-    text: Optional[str] = field()
+    text: Optional[PostHTMLText] = field(
+        converter=lambda x: (x if isinstance(x, PostHTMLText)
+                             else PostHTMLText(x)))
     post_type: models.PostType
-    posted_date: datetime = field(factory=lambda: datetime.now(tz=timezone.utc))
+    posted_date: datetime = field(
+        factory=lambda: datetime.now(tz=timezone.utc))
     order_idx: Optional[int] = None
 
     @text.validator
     def _cleck_clean_html(self, attrib: Any, val: str | None) -> None:
         if val is None:
             return
-        html = ChapterHTMLText(val)
+        html = PostHTMLText(val)
         if html.clean_html != html.dirty_html:
             raise BadHTMLError(good_html=html.clean_html,
                                bad_html=html.dirty_html)

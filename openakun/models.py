@@ -12,7 +12,10 @@ from sqlalchemy.sql import select
 from sqlalchemy.ext.asyncio import \
     (AsyncAttrs, async_sessionmaker, AsyncSession, create_async_engine,
      AsyncEngine)
+import sqlalchemy.types as types
 from datetime import datetime
+
+from . import data
 
 import os, enum
 
@@ -144,11 +147,23 @@ def order_idx_default(context: Any) -> int:
     rows = rv.fetchall()
     return rows[0][0]
 
+class HTMLPostString(types.TypeDecorator):
+    impl = types.String
+    cache_ok = True
+
+    def process_bind_param(self, value: data.PostHTMLText | None, dialect) -> str | None:
+        if value is None: return None
+        return str(value)
+
+    def process_result_value(self, value: str | None, dialect) -> data.PostHTMLText | None:
+        if value is None: return None
+        return data.PostHTMLText(value)
+
 class Post(Base):
     __tablename__ = 'posts'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    text: Mapped[str | None]
+    text: Mapped[data.PostHTMLText | None] = mapped_column(HTMLPostString)
     posted_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     story_id: Mapped[int] = mapped_column(ForeignKey('stories.id'))
     chapter_id: Mapped[int] = mapped_column(ForeignKey('chapters.id'))

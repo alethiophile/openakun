@@ -1,7 +1,7 @@
 #!python
 
 from . import models, realtime, websocket
-from .data import Vote, clean_html, BadHTMLError, ChapterHTMLText, Post
+from .data import Vote, clean_html, BadHTMLError, PostHTMLText, Post
 from .general import csrf_check, make_csrf, login_mgr, db_connect
 
 from quart import (render_template, request, redirect, url_for, flash, abort,
@@ -272,7 +272,7 @@ async def create_post(c: models.Chapter, ptype: models.PostType, text: Optional[
                       order_idx: Optional[int] = None) -> models.Post:
     if ptype == models.PostType.Text:
         assert text is not None
-        text_clean = ChapterHTMLText(text)
+        text_clean = PostHTMLText(text)
         if text_clean.clean_html != text_clean.dirty_html and \
            current_app.config['using_sentry']:
             with push_scope() as scope:
