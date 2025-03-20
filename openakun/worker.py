@@ -111,7 +111,8 @@ async def do_chat_save() -> None:
 
 async def do_address_save() -> None:
     hashes = await db.redis_conn.hgetall("ip_hashes")
-    hms = [models.AddressIdentifier(hash=k, ip=v) for k, v in hashes.items()]
+    hms = [models.AddressIdentifier(hash=k.decode(), ip=v.decode())
+           for k, v in hashes.items()]
     async with db.Session() as s:
         await insert_ignoring_duplicates(s, hms)
         await s.commit()
