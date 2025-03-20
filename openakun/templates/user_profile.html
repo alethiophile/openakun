@@ -2,15 +2,16 @@
 {% block title %}{{ user.name }}'s profile{% endblock %}
 {% block content %}
     <h3>{{ user.name }}</h3>
-    <h4>Stories written</h4>
+    <h4 class="mb-2">Stories written</h4>
     {% for s in stories %}
-        <div class="media mb-3">
-            <img class="mr-3" src="https://via.placeholder.com/200x200">
-            <div class="media-body">
-                <h4><a href="{{ url_for('questing.view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
-                <div>
+        <div class="flex flex-row">
+            <img class="" src="https://placehold.co/200x200">
+            <div class="flex flex-col ml-2">
+                <h4 class="block"><a href="{{ url_for('questing.view_story', story_id=s.id) }}">{{ s.title }}</a></h4>
+                <div class="story-description flex-auto">
                     {{ s.description | safe }}
                 </div>
+                <div class="story-info"><div class="author"><a href="{{ url_for('questing.user_profile', user_id=s.author.id) }}">{{ s.author.name }}</div></div>
             </div>
         </div>
     {% endfor %}

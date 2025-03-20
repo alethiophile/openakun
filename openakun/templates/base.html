@@ -20,7 +20,7 @@
     <body hx-ext="ws"
           ws-connect="/ws/{% if request.endpoint == 'questing.view_chapter' %}{{ chapter.story.channel_id }}{% elif request.endpoint == 'questing.main' %}main{% endif %}"
           class="dark:bg-stone-800 dark:text-neutral-100">
-        <nav class="navbar fixed top-0 left-0 w-full bg-neutral-100 dark:bg-stone-700" id="navbar_top">
+        <nav class="navbar fixed z-5 top-0 left-0 w-full bg-neutral-100 dark:bg-stone-700" id="navbar_top">
             <a class="p-4 hover:bg-neutral-200" href="{{ url_for('questing.main') }}">openakun</a>
             <div class="dropdown">
                 <div tabindex="0" role="button"
