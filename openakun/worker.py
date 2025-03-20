@@ -6,10 +6,11 @@ from .general import db
 from .realtime import message_cache_len, close_vote
 from .data import ChatMessage
 from .models import Base, AsyncSession
+from . import models
 
 from sqlalchemy.dialects import postgresql
 
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Collection
 
 # Background workers for quart, used to replace celery
 
@@ -52,14 +53,19 @@ def get_row_dict(row: Base) -> dict[str, Any]:
 # column defaults manually in the get_row_dict method above.
 
 async def insert_ignoring_duplicates(
-        session: AsyncSession, rows: list[Base]
+        session: AsyncSession, rows: Collection[Base]
 ) -> None:
     """the members of rows can be any model class"""
     if len(rows) == 0:
         return
-    # table = rows[0].__table__
 
-    stmt = postgresql.insert(type(rows[0])).values(
+    # next(iter(rows)) gets an arbitrary value from rows; we know it won't be
+    # empty because of the check above; we do this rather than rows[0] so that
+    # we can use Collection rather than Sequence
+
+    # this is a fairly silly thing to do but why not
+    obj_type = type(next(iter(rows)))
+    stmt = postgresql.insert(obj_type).values(
         [get_row_dict(r) for r in rows]).on_conflict_do_nothing()
 
     await session.execute(stmt)
@@ -103,10 +109,21 @@ async def do_chat_save() -> None:
     cutoff_us = age_cutoff.timestamp() * 1000000
     await db.redis_conn.zremrangebyscore('messages_seen', 0, cutoff_us)
 
+async def do_address_save() -> None:
+    hashes = await db.redis_conn.hgetall("ip_hashes")
+    hms = [models.AddressIdentifier(hash=k, ip=v) for k, v in hashes.items()]
+    async with db.Session() as s:
+        await insert_ignoring_duplicates(s, hms)
+        await s.commit()
+    # this clears out the hash; future hset() invocations in the register_ip
+    # function will recreate it
+    await db.redis_conn.delete("ip_hashes")
+
 async def chat_save_worker() -> NoReturn:
     while True:
         await asyncio.sleep(60)
         await do_chat_save()
+        await do_address_save()
 
 async def vote_close_worker() -> NoReturn:
     while True:
