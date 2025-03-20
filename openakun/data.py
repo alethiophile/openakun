@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from attrs import define, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import models, websocket
+from . import models
 
 from typing import Optional, Dict, Any, List
 
@@ -393,6 +393,7 @@ class Message:
     dest: Optional[str] = None
 
     async def send(self, room: Optional[str] = None) -> None:
+        from . import websocket
         if room is None:
             room = self.dest
         assert room is not None

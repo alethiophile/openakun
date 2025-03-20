@@ -3,21 +3,22 @@
 from __future__ import annotations
 
 from . import models, websocket
-from .general import db, db_connect, db_setup, decode_redis_dict
+from .general import (db, db_connect, decode_redis_dict, register_ip,
+                      get_user_identifier)
 from .data import ChatMessage, Vote, VoteEntry, Message
-from quart import request, render_template, g
+from quart import render_template, g
 from quart import websocket as ws
 from functools import wraps
 from operator import attrgetter
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import sql, orm
-from sqlalchemy.sql.expression import select, func
+from sqlalchemy import sql
+from sqlalchemy.sql.expression import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-import hashlib, json
+import json
 from .websocket import handle_message
 
-from typing import List, Dict, Optional, Any, Union, cast, Callable
+from typing import List, Optional, Any, Union, cast, Callable
 
 async def get_channel(channel_id: int) -> models.Channel:
     s = db_connect()
@@ -75,20 +76,6 @@ async def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
             mo['username'] = 'anon'
         html = await render_template('render_chatmsg.html', c=mo, htmx=True)
         await websocket.pubsub.publish(to, html)
-
-async def register_ip(addr: str) -> str:
-    # TODO make this use Redis and a periodic sweep, like chat messages
-    hashval = hashlib.sha256(addr.encode()).hexdigest()
-    s = db_connect()
-    q_num = (await s.scalar(
-        select(func.count()).
-        select_from(models.AddressIdentifier).
-        filter(models.AddressIdentifier.hash == hashval)))
-    if (q_num == 0):
-        ai = models.AddressIdentifier(hash=hashval, ip=addr)
-        s.add(ai)
-    await s.commit()
-    return hashval
 
 message_cache_len = 60
 
@@ -229,17 +216,6 @@ async def populate_vote(channel_id: int, vote: Vote) -> Vote:
     vote.update_redis_dict(rd)
 
     return vote
-
-async def get_user_identifier() -> str:
-    if g.current_user is None:
-        try:
-            assert request.remote_addr is not None
-            return 'anon:' + await register_ip(request.remote_addr)
-        except RuntimeError:
-            assert ws.remote_addr is not None
-            return 'anon:' + await register_ip(ws.remote_addr)
-    else:
-        return f"user:{g.current_user.id}"
 
 async def get_vote_object(channel_id: int, vote_id: int) -> Optional[Vote]:
     s = db_connect()

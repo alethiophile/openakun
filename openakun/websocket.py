@@ -8,7 +8,7 @@ import threading, json, os, traceback, secrets, asyncio
 from asyncio import Queue, Task
 import redis.asyncio as redis
 
-from . import realtime
+from .general import get_user_identifier
 
 import typing as t
 
@@ -185,7 +185,7 @@ async def ws_endpoint(channel: str) -> None:
 
     ws_chan = f'ws:{secrets.token_urlsafe()}'
     channel_chan = f'chan:{channel}'
-    user_chan = await realtime.get_user_identifier()
+    user_chan = await get_user_identifier()
 
     async def downsender() -> None:
         async for chan, msg in pubsub.subscribe(

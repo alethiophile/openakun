@@ -1,14 +1,16 @@
 from . import models
 
-import secrets, re, sqlalchemy, importlib.resources
+import secrets, re, sqlalchemy, importlib.resources, hashlib
 import redis.asyncio as redis
 from quart import session, request, abort, g, current_app, url_for
+from quart import websocket as ws
 from functools import wraps
 from base64 import b64encode
 from werkzeug import Response
 from sentry_sdk import push_scope, capture_message
 from .login import LoginManager
 from .config import Config
+from sqlalchemy.sql.expression import select, func
 
 from typing import Callable, Optional, Any, Iterator
 
@@ -128,3 +130,20 @@ def csp_report() -> str:
             scope.set_extra('request', request.get_json())
             capture_message("CSP violation")
     return ''
+
+async def register_ip(addr: str) -> str:
+    salted_val = f"{addr}:{current_app.config['SECRET_KEY']}"
+    hashval = hashlib.sha256(salted_val.encode()).hexdigest()
+    await db.redis_conn.hset("ip_hashes", hashval, addr)
+    return hashval
+
+async def get_user_identifier() -> str:
+    if g.current_user is None:
+        try:
+            assert request.remote_addr is not None
+            return 'anon:' + await register_ip(request.remote_addr)
+        except RuntimeError:
+            assert ws.remote_addr is not None
+            return 'anon:' + await register_ip(ws.remote_addr)
+    else:
+        return f"user:{g.current_user.id}"
