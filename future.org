@@ -259,13 +259,16 @@ time the server will automatically close the vote (using Celery).
  - Check the remote IP/access_route, display it to user, ask them which entries
    are their configured reverse proxies
  - Use this to configure ProxyFix or similar
-** TODO Set up per-deploy salt for IP hashes
+** DONE Set up per-deploy salt for IP hashes
  - Since anons are identified by IP hash, need to be sure people can't just
    brute-force it
  - Add a consistent server-side salt that's appended first
  - Probably shouldn't just make it the secret key; that can implicitly be
    changed, whereas salt will break all anon-identifying functions if it changes
  - Store in database? A "config" table?
+ - note that we need to keep a table of hash -> IP for the ID functions to work;
+   thus, we can just use the secret key as the salt, and we simply keep all old
+   entries in the IP table so that IPs can still be looked up
 ** TODO Image storage considerations
  - Images are stored in static area by hash, as above
  - Also stored in DB; save hash name/path, which user uploaded, thumbnails
