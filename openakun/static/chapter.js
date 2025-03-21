@@ -98,6 +98,7 @@ $(function () {
   });
 
   ws_html_func((node, ev) => {
+    console.log(node);
     let is_author = !!document.querySelector('[data-is-author]');
     if (node.getAttribute('data-totals-hidden') == '1' && is_author) {
       // in this case, we expect the same data with vote totals drawn
@@ -111,6 +112,10 @@ $(function () {
       console.log(`ignoring update for chapter ${node.getAttribute('data-chapter-id')} (current chapter is ${chapter_id})`);
       ev.preventDefault();
     }
+
+    // let chat_thread_id = document.querySelector('#chat-messages').dataset.threadId;
+    // if (chat_thread_id !== undefined &&
+        
   });
 
   setInterval(() => {
