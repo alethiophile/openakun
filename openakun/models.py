@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from sqlalchemy import (Column, Integer, ForeignKey, DateTime, MetaData,
                         CheckConstraint, UniqueConstraint, Index, Table)
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import (relationship, DeclarativeBase, Mapped,
                             mapped_column)
 from sqlalchemy.sql import select
@@ -151,11 +151,15 @@ class HTMLPostString(types.TypeDecorator):
     impl = types.String
     cache_ok = True
 
-    def process_bind_param(self, value: data.PostHTMLText | None, dialect) -> str | None:
+    def process_bind_param(
+            self, value: data.PostHTMLText | None, dialect
+    ) -> str | None:
         if value is None: return None
         return str(value)
 
-    def process_result_value(self, value: str | None, dialect) -> data.PostHTMLText | None:
+    def process_result_value(
+            self, value: str | None, dialect
+    ) -> data.PostHTMLText | None:
         if value is None: return None
         return data.PostHTMLText(value)
 
@@ -260,7 +264,8 @@ class Channel(Base):
     private: Mapped[bool] = mapped_column(default=False)
 
     story: Mapped[Story] = relationship(back_populates='channel')
-    messages: Mapped[list[ChatMessage]] = relationship(back_populates='channel')
+    messages: Mapped[list[ChatMessage]] = relationship(
+        back_populates='channel')
 
 class ChatMessage(Base):
     __tablename__ = 'chat_messages'
@@ -274,6 +279,18 @@ class ChatMessage(Base):
     channel_id: Mapped[int] = mapped_column(ForeignKey('channels.id'))
     user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
     anon_id: Mapped[str | None]
+
+    # Constraint: we only support one layer of thread recursion, meaning that a
+    # message that heads a thread must not be part of a thread
+    # itself. Concretely, this means that the thread_id key must point to a
+    # message whose thread_id is null.
+
+    # We can't enforce this with a check constraint, because Postgres only
+    # allows check constraints over the data in one row. Instead, it's enforced
+    # with a trigger, which is managed outside of SQLAlchemy.
+    thread_id: Mapped[int | None] = mapped_column(
+        ForeignKey('chat_messages.id'), default=None)
+
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     text: Mapped[str]
     special: Mapped[bool] = mapped_column(default=False)
@@ -333,9 +350,31 @@ async def ensure_updated_db() -> None:
     from alembic import command
     
 
+thread_id_trigger_function = """
+CREATE OR REPLACE FUNCTION validate_thread_id()
+RETURNS trigger AS $$
+BEGIN
+    IF NEW.thread_id IS NOT NULL THEN
+        IF (SELECT thread_id FROM chat_messages WHERE id = NEW.thread_id) IS NOT NULL THEN
+            RAISE EXCEPTION 'Thread ID must reference a top-level message with NULL thread_id';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+thread_id_trigger_statement = """
+CREATE TRIGGER check_thread_id_before_insert
+BEFORE INSERT ON chat_messages
+FOR EACH ROW EXECUTE FUNCTION validate_thread_id();
+"""
+
 async def init_db(engine: AsyncEngine, use_alembic: bool = True) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text(thread_id_trigger_function))
+        await conn.execute(text(thread_id_trigger_statement))
 
     # the Alembic operations are sync, so theoretically bad to run from async
     # code; this should be fine as long as it's contained to the setup phases
