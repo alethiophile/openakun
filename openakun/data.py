@@ -39,10 +39,11 @@ class ChatMessage:
     msg_text: str
     channel_id: int
     date: datetime
-    db_id: Optional[int] = None
-    anon_id: Optional[str] = None
-    user_id: Optional[int] = None
-    user_name: Optional[str] = None
+    db_id: int | None = None
+    thread_id: int | None = None
+    anon_id: str | None = None
+    user_id: int | None = None
+    user_name: str | None = None
 
     def __attrs_post_init__(self) -> None:
         if (self.anon_id is None) == (self.user_id is None):
@@ -57,9 +58,9 @@ class ChatMessage:
 
     @classmethod
     def new(cls, msg_text: str, channel_id: int,
-            date: Optional[datetime] = None, anon_id: Optional[str] = None,
-            user_id: Optional[int] = None,
-            user_name: Optional[str] = None) -> ChatMessage:
+            date: datetime | None = None, anon_id: str | None = None,
+            user_id: int | None = None, thread_id: int | None = None,
+            user_name: str | None = None) -> ChatMessage:
         if date is None:
             date = datetime.now(tz=timezone.utc)
         return cls(
@@ -126,12 +127,12 @@ class ChatMessage:
 class VoteEntry:
     text: str
     killed: bool = False
-    killed_text: Optional[str] = None
-    vote_count: Optional[int] = None
-    db_id: Optional[int] = None
-    users_voted_for: Optional[list[str]] = None
+    killed_text: str | None = None
+    vote_count: int | None = None
+    db_id: int | None = None
+    users_voted_for: list[str] | None = None
     # this is a contextual member used only when it's clear which user is meant
-    user_voted: Optional[bool] = None
+    user_voted: bool | None = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> VoteEntry:
@@ -139,7 +140,7 @@ class VoteEntry:
 
     @classmethod
     def from_model(cls, m: models.VoteEntry,
-                   uid: Optional[str] = None) -> VoteEntry:
+                   uid: str | None = None) -> VoteEntry:
         uvl = [f'user:{i.user_id}' if i.user_id else f'anon:{i.anon_id}'
                for i in m.votes]
         if uid is not None:
@@ -207,9 +208,9 @@ class Vote:
     writein_allowed: bool
     votes_hidden: bool
     votes: List[VoteEntry]
-    close_time: Optional[datetime] = None
-    db_id: Optional[int] = None
-    active: Optional[bool] = None
+    close_time: datetime | None = None
+    db_id: int | None = None
+    active: bool | None = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> Vote:
@@ -219,7 +220,7 @@ class Vote:
         return cls(**c)
 
     @classmethod
-    def from_model(cls, m: models.VoteInfo, uid: Optional[str] = None) -> Vote:
+    def from_model(cls, m: models.VoteInfo, uid: str | None = None) -> Vote:
         vl = [VoteEntry.from_model(i, uid) for i in m.votes]
         return cls(
             question=m.vote_question,
@@ -300,7 +301,7 @@ class BadHTMLError(ValueError):
                 f"bad_html={repr(self.bad_html)})")
 
 class HTMLText(object):
-    allowed_tags: Optional[List[str]]
+    allowed_tags: list[str] | None
 
     def __init__(self, html_data: str, allow_mismatch: bool = False) -> None:
         self.dirty_html = html_data
@@ -350,13 +351,13 @@ def clean_html(html_in: str) -> str:
 
 @define
 class Post:
-    text: Optional[PostHTMLText] = field(
+    text: PostHTMLText | None = field(
         converter=lambda x: (x if isinstance(x, PostHTMLText)
                              else PostHTMLText(x)))
     post_type: models.PostType
     posted_date: datetime = field(
         factory=lambda: datetime.now(tz=timezone.utc))
-    order_idx: Optional[int] = None
+    order_idx: int | None = None
 
     @text.validator
     def _cleck_clean_html(self, attrib: Any, val: str | None) -> None:
@@ -405,9 +406,9 @@ class Post:
 class Message:
     message_type: str
     data: Dict[str, Any]
-    dest: Optional[str] = None
+    dest: str | None = None
 
-    async def send(self, room: Optional[str] = None) -> None:
+    async def send(self, room: str | None = None) -> None:
         from . import websocket
         if room is None:
             room = self.dest
