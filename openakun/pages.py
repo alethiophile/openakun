@@ -208,7 +208,8 @@ async def get_topics(story_id: int) -> list[models.Topic]:
             selectinload(models.Topic.messages)).
         outerjoin(msgs, models.Topic.id == msgs.c.topic_id).
         filter(models.Topic.story_id == story_id).
-        order_by(msgs.c.latest_post.desc()))).all()
+        order_by(msgs.c.latest_post.desc(),
+                 models.Topic.post_date.desc()))).all()
     return list(topics)
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
@@ -459,60 +460,47 @@ async def view_topic(topic_id: int) -> str:
                                  story=topic.story, topics=topics,
                                  msgs=chat_backlog)
 
-@questing.route('/new_topic', methods=['GET', 'POST'])
+@questing.route('/new_topic', methods=['POST'])
+@login_required
 @csrf_check
 async def new_topic() -> ResponseType:
-    if request.method == 'GET':
-        # send template
-        story_id_s = request.args.get('story_id')
-        story_id = None
-        if story_id_s:
-            try:
-                story_id = int(story_id_s)
-            except ValueError:
-                abort(400)
-        return await render_template("new_topic.html", story_id=story_id)
-    elif request.method == 'POST':
-        data = await request.json
-        if data is None:
-            abort(400)
-        assert data is not None
-        if 'story_id' in data:
-            story_id = data['story_id']
-            s = db_connect()
-            story = (await s.scalars(
-                select(models.Story).filter(models.Story.id == story_id)
-            )).one_or_none()
-            if story is None:
-                abort(400)
-        else:
-            story = None
-        # TODO check permissions/bans
-        title = data['title']
-
-        t = models.Topic(
-            title=title,
-            post_date=datetime.now(tz=timezone.utc))
-        t.poster = g.current_user
-        t.story = story
+    data = await request.form
+    if data is None:
+        abort(400)
+    assert data is not None
+    if 'story_id' in data:
+        story_id = int(data['story_id'])
         s = db_connect()
-        async with s.begin():
-            s.add(t)
+        story = (await s.scalars(
+            select(models.Story).filter(models.Story.id == story_id)
+        )).one_or_none()
+        if story is None:
+            abort(400)
+    else:
+        story = None
+    # TODO check permissions/bans
+    title = data['title']
 
-        if story is not None:
-            assert story_id is not None
-            text = await view_topic_list(story_id)
-            await websocket.pubsub.publish(f'chan:{story.channel_id}', text)
+    t = models.Topic(
+        title=title,
+        post_date=datetime.now(tz=timezone.utc))
+    t.poster = g.current_user
+    t.story = story
+    s = db_connect()
+    s.add(t)
+    await s.commit()
 
-        # since this is going straight to HTMX, we just return the text that
-        # view_topic would along with the appropriate URL header
-        res = await make_response(view_topic(t.id))
-        res.headers['HX-Push-Url'] = url_for('questing.view_topic',
-                                             topic_id=t.id)
-        return res
-    # control never reaches here, since we assume the request method is either
-    # GET or POST; this is just to satisfy mypy
-    abort(400)
+    if story is not None:
+        assert story_id is not None
+        text = await view_topic_list(story_id)
+        await websocket.pubsub.publish(f'chan:{story.channel_id}', text)
+
+    # since this is going straight to HTMX, we just return the text that
+    # view_topic would along with the appropriate URL header
+    res = await make_response(view_topic(t.id))
+    res.headers['HX-Push-Url'] = url_for('questing.view_topic',
+                                         topic_id=t.id)
+    return res
 
 @questing.route('/new_topic_post', methods=['POST'])
 @login_required

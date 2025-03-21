@@ -39,7 +39,7 @@ def login_required(f: Callable) -> Callable:
         if getattr(g, 'current_user', None) is None:
             mgr: LoginManager = current_app.login_manager  # type: ignore
             login_view = mgr.login_view
-            if isinstance(login_view, str):
+            if isinstance(login_view, str) and request.method == 'GET':
                 return redirect(url_for(login_view, next=request.path))
             else:
                 abort(403)
