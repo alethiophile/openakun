@@ -497,7 +497,7 @@ async def new_topic() -> ResponseType:
 
     # since this is going straight to HTMX, we just return the text that
     # view_topic would along with the appropriate URL header
-    res = await make_response(view_topic(t.id))
+    res = await make_response(await view_topic(t.id))
     res.headers['HX-Push-Url'] = url_for('questing.view_topic',
                                          topic_id=t.id)
     return res

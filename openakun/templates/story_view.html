@@ -58,7 +58,8 @@
             <h4 class="uppercase text-sm">Topics</h4>
             {% if g.current_user != None %}
             <button class="btn ml-auto mr-2 my-1 h-full"
-                    @click="new_shown = true">+ New topic</button>
+                    @click="new_shown = true; $nextTick(() => { $refs.title_input.focus() })"
+            >+ New topic</button>
             {% endif %}
         </div>
         <div>
@@ -69,11 +70,17 @@
                 assigned to the new topic, so we can't generate a URL for
                 it #}
                 <form id="new-post-form" hx-post="{{ url_for('questing.new_topic') }}"
-                      hx-target="#content-container"
-                      class="flex flex-row items-center">
+                      hx-target="#content-container" hx-select="#content-container"
+                      hx-swap="outerHTML"
+                      class="flex flex-row items-center"
+                      @htmx:after-request.camel="if ($event.detail.successful) {
+                          new_shown = false; $refs.title_input.value = ''; }">
                     <input type="hidden" name="story_id" value="{{ story.id }}">
                     <input type="hidden" name="_csrf_token" value="{{ session['_csrf_token'] }}">
-                    <label class="input h-6 flex-1 mx-2"><span class="label me-1!">New post title:</span><input type="text" name="title"></label>
+                    <label class="input h-6 flex-1 mx-2">
+                        <span class="label me-1!">New post title:</span>
+                        <input type="text" name="title" x-ref="title_input">
+                    </label>
                     <button class="btn h-full mr-2" type="submit">Post</button>
                     <button class="btn h-full mr-2" @click="new_shown = false" type="button">Cancel</button>
                 </form></div>

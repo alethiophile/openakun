@@ -97,11 +97,6 @@ $(function () {
     anim_running = false;
   });
 
-  htmx.on('#new-post-form', 'submit', () => {
-    let el = document.querySelector('#new-post-form-container');
-    el.style.display = 'none';
-  });
-
   ws_html_func((node, ev) => {
     let is_author = !!document.querySelector('[data-is-author]');
     if (node.getAttribute('data-totals-hidden') == '1' && is_author) {
