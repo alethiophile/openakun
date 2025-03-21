@@ -36,11 +36,6 @@ $(function () {
     }
     return true;
   });
-  htmx.on('form#chat-sender', "htmx:wsConfigSend", (ev) => {
-    if (ev.detail.parameters['type'] == 'chat_message') {
-      ev.detail.parameters['id_token'] = make_random_token();
-    }
-  });
 
   htmx.on('form#chat-sender', 'htmx:wsAfterSend', () => {
     let $ct = $('#chat-type');

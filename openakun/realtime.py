@@ -9,7 +9,6 @@ from .data import ChatMessage, Vote, VoteEntry, Message
 from quart import render_template, g
 from quart import websocket as ws
 from functools import wraps
-from operator import attrgetter
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import sql
 from sqlalchemy.sql.expression import select
@@ -79,27 +78,15 @@ async def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
 
 message_cache_len = 60
 
-async def get_back_messages(cid: int) -> List[ChatMessage]:
-    assert db.redis_conn is not None
-    rkey = f"channel_messages:{cid}"
-    msgs = [ChatMessage.from_dict(json.loads(i.decode())) for i in
-            await db.redis_conn.lrange(rkey, - message_cache_len, -1)]
-    redis_msg_count = len(msgs)
-    if redis_msg_count < message_cache_len:
-        s = db_connect()
-        rv = (await s.scalars(
-            select(models.ChatMessage).
-            filter(models.ChatMessage.channel_id == cid).
-            order_by(models.ChatMessage.date.desc()).
-            limit(message_cache_len))).all()
-        toks = set(i.server_token for i in msgs)
-        db_msgs = [ChatMessage.from_model(i) for i in rv
-                   if i.id_token not in toks]
-        msgs = list(reversed(db_msgs)) + msgs
-        msgs.sort(key=attrgetter('date'))
-        msgs = msgs[- message_cache_len:]
-        if len(msgs) > redis_msg_count:
-            pass
+async def get_back_messages(cid: int) -> list[ChatMessage]:
+    s = db_connect()
+    db_msgs = list((await s.scalars(
+        select(models.ChatMessage).
+        filter(models.ChatMessage.channel_id == cid).
+        order_by(models.ChatMessage.date.desc()).
+        limit(message_cache_len))).all())
+    db_msgs.reverse()
+    msgs = [ChatMessage.from_model(i) for i in db_msgs]
     return msgs
 
 @handle_message('chat_message')
@@ -109,17 +96,7 @@ async def handle_chat(data: dict[str, Any]) -> None:
     if len(data['msg']) == 0:
         return
 
-    assert db.redis_conn is not None
-    # ensure we haven't seen this message before
-
-    # this uses a sorted set where the sort value is the timestamp, allowing us
-    # to quickly drop old data
-    token = data['id_token']
-    if await db.redis_conn.zscore('messages_seen', token) is not None:
-        return
     c_ts = datetime.now(tz=timezone.utc)
-    us_now = c_ts.timestamp() * 1000000
-    await db.redis_conn.zadd('messages_seen', { token: us_now })
 
     channel_id = data['channel']
     if g.current_user is None:
@@ -129,17 +106,16 @@ async def handle_chat(data: dict[str, Any]) -> None:
         { 'anon_id': hashval } if g.current_user is None else
         { 'user_id': g.current_user.id, 'user_name': g.current_user.name })
     msg = ChatMessage.new(
-        browser_token=token,
         msg_text=data['msg'],
         channel_id=channel_id,
         date=c_ts,
         **user_info)
 
-    rkey = f"channel_messages:{channel_id}"
-    val = json.dumps(msg.to_dict())
-    await db.redis_conn.rpush(rkey, val)
-
-    await db.redis_conn.sadd('all_channels', rkey)
+    s = db_connect()
+    db_msg = msg.to_model()
+    s.add(db_msg)
+    await s.commit()
+    msg.db_id = db_msg.id
 
     mo = msg.to_browser_message()
     if mo['is_anon']:
@@ -195,10 +171,10 @@ async def vote_is_active(channel_id: int, vote_id: int) -> bool:
     return await db.redis_conn.sismember(channel_key, vote_id)
 
 async def populate_vote(channel_id: int, vote: Vote) -> Vote:
-    """Takes a vote, populates its options with the killed/killed_text/vote_count
-    items and it with active. vote is populated in-place, return value is
-    always the same object. This is called by the Web endpoints in order to
-    render active votes in new loads.
+    """Takes a vote, populates its options with the
+    killed/killed_text/vote_count items and it with active. vote is populated
+    in-place, return value is always the same object. This is called by the Web
+    endpoints in order to render active votes in new loads.
 
     """
     assert db.redis_conn is not None

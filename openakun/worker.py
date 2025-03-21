@@ -123,7 +123,6 @@ async def do_address_save() -> None:
 async def chat_save_worker() -> NoReturn:
     while True:
         await asyncio.sleep(60)
-        await do_chat_save()
         await do_address_save()
 
 async def vote_close_worker() -> NoReturn:

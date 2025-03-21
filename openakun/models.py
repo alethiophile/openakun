@@ -271,7 +271,6 @@ class ChatMessage(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    id_token: Mapped[str] = mapped_column(unique=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey('channels.id'))
     user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
     anon_id: Mapped[str | None]

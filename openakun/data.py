@@ -36,11 +36,10 @@ class ChatMessage:
     # only by clients present at the time, and could not be verified later or
     # audited, which breaks the security model (small and paltry a security
     # exploit though that is)
-    server_token: str
     msg_text: str
     channel_id: int
     date: datetime
-    browser_token: Optional[str] = None
+    db_id: Optional[int] = None
     anon_id: Optional[str] = None
     user_id: Optional[int] = None
     user_name: Optional[str] = None
@@ -57,16 +56,14 @@ class ChatMessage:
             self.user_id = int(self.user_id)
 
     @classmethod
-    def new(cls, msg_text: str, browser_token: str, channel_id: int,
+    def new(cls, msg_text: str, channel_id: int,
             date: Optional[datetime] = None, anon_id: Optional[str] = None,
             user_id: Optional[int] = None,
             user_name: Optional[str] = None) -> ChatMessage:
-        serv_tok = secrets.token_urlsafe()
         if date is None:
             date = datetime.now(tz=timezone.utc)
         return cls(
-            msg_text=msg_text, browser_token=browser_token,
-            server_token=serv_tok, channel_id=channel_id, date=date,
+            msg_text=msg_text, channel_id=channel_id, date=date,
             anon_id=anon_id, user_id=user_id, user_name=user_name)
 
     @classmethod
@@ -82,16 +79,16 @@ class ChatMessage:
             user_info = { 'user_id': m.user_id, 'user_name': m.user.name }
         assert m.text is not None
         return cls(
-            server_token=m.id_token,
             msg_text=m.text,
             channel_id=m.channel_id,
             date=m.date,
+            db_id=m.id,
             **user_info
         )
 
     def to_model(self) -> models.ChatMessage:
+        # you can't set the ID on a new message, so ignore the db_id member
         rv = models.ChatMessage(
-            id_token=self.server_token,
             channel_id=self.channel_id,
             date=self.date,
             text=self.msg_text
@@ -109,7 +106,9 @@ class ChatMessage:
                'text': self.msg_text, 'date': self.date,
                'rendered_date': (self.date.astimezone(timezone.utc).
                                  strftime("%b %d, %Y %I:%M %p UTC")),
-               'id_token': self.browser_token, 'channel': self.channel_id }
+               'channel': self.channel_id }
+        if self.db_id is not None:
+            rv['db_id'] = self.db_id
         if self.user_name is not None:
             rv['username'] = self.user_name
         if admin and self.anon_id is not None:
