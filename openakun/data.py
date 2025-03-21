@@ -84,6 +84,7 @@ class ChatMessage:
             channel_id=m.channel_id,
             date=m.date,
             db_id=m.id,
+            thread_id=m.thread_id,
             **user_info
         )
 
@@ -92,7 +93,8 @@ class ChatMessage:
         rv = models.ChatMessage(
             channel_id=self.channel_id,
             date=self.date,
-            text=self.msg_text
+            text=self.msg_text,
+            thread_id=self.thread_id,
         )
         if self.anon_id is not None:
             rv.anon_id = self.anon_id
@@ -107,7 +109,7 @@ class ChatMessage:
                'text': self.msg_text, 'date': self.date,
                'rendered_date': (self.date.astimezone(timezone.utc).
                                  strftime("%b %d, %Y %I:%M %p UTC")),
-               'channel': self.channel_id }
+               'channel': self.channel_id, 'thread_id': self.thread_id }
         if self.db_id is not None:
             rv['db_id'] = self.db_id
         if self.user_name is not None:
