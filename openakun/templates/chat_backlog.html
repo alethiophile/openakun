@@ -1,4 +1,5 @@
-<div id="chat-messages" class="h-full overflow-y-auto flex-[2_0_40%] mb-2"
+<div id="chat-messages" class="h-full overflow-y-auto flex-[2_0_40%]
+         flex flex-col [justify-content:safe_end] mb-2"
      {% if thread_id != None %}data-thread-id="{{ thread_id }}"{% endif %}>
     {% for c in msgs %}
         {% include 'render_chatmsg.html' %}
