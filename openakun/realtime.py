@@ -10,7 +10,7 @@ from quart import render_template, g
 from quart import websocket as ws
 from functools import wraps
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import sql
+from sqlalchemy import sql, or_
 from sqlalchemy.sql.expression import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -76,15 +76,26 @@ async def send_back_messages(msgs: List[ChatMessage], to: str) -> None:
         html = await render_template('render_chatmsg.html', c=mo, htmx=True)
         await websocket.pubsub.publish(to, html)
 
-message_cache_len = 60
+page_len = 100
+
+async def get_thread_messages(cid: int, tid: int) -> list[ChatMessage]:
+    s = db_connect()
+    q = (select(models.ChatMessage).
+         filter(models.ChatMessage.channel_id == cid).
+         filter(or_(models.ChatMessage.thread_id == tid,
+                    models.ChatMessage.id == tid)).
+         order_by(models.ChatMessage.date.desc()))
+    db_msgs = list((await s.scalars(q)).all())
+    msgs = [ChatMessage.from_model(i) for i in reversed(db_msgs)]
+    return msgs
 
 async def get_back_messages(cid: int) -> list[ChatMessage]:
     s = db_connect()
-    db_msgs = list((await s.scalars(
-        select(models.ChatMessage).
-        filter(models.ChatMessage.channel_id == cid).
-        order_by(models.ChatMessage.date.desc()).
-        limit(message_cache_len))).all())
+    q = (select(models.ChatMessage).
+         filter(models.ChatMessage.channel_id == cid).
+         order_by(models.ChatMessage.date.desc()).
+         limit(page_len))
+    db_msgs = list((await s.scalars(q)).all())
     db_msgs.reverse()
     msgs = [ChatMessage.from_model(i) for i in db_msgs]
     return msgs
@@ -105,10 +116,12 @@ async def handle_chat(data: dict[str, Any]) -> None:
     user_info = (
         { 'anon_id': hashval } if g.current_user is None else
         { 'user_id': g.current_user.id, 'user_name': g.current_user.name })
+    thread_id = int(data['thread_id']) if data['thread_id'] else None
     msg = ChatMessage.new(
         msg_text=data['msg'],
         channel_id=channel_id,
         date=c_ts,
+        thread_id=thread_id,
         **user_info)
 
     s = db_connect()

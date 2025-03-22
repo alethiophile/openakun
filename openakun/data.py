@@ -41,6 +41,9 @@ class ChatMessage:
     date: datetime
     db_id: int | None = None
     thread_id: int | None = None
+    # this is the text of the thread-heading message; must be set if thread_id
+    # is
+    thread_quote: str | None = None
     anon_id: str | None = None
     user_id: int | None = None
     user_name: str | None = None
@@ -65,7 +68,8 @@ class ChatMessage:
             date = datetime.now(tz=timezone.utc)
         return cls(
             msg_text=msg_text, channel_id=channel_id, date=date,
-            anon_id=anon_id, user_id=user_id, user_name=user_name)
+            anon_id=anon_id, user_id=user_id, user_name=user_name,
+            thread_id=thread_id)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> ChatMessage:

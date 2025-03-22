@@ -93,7 +93,6 @@ $(function () {
   });
 
   ws_html_func((node, ev) => {
-    console.log(node);
     let is_author = !!document.querySelector('[data-is-author]');
     if (node.getAttribute('data-totals-hidden') == '1' && is_author) {
       // in this case, we expect the same data with vote totals drawn
@@ -108,9 +107,13 @@ $(function () {
       ev.preventDefault();
     }
 
-    // let chat_thread_id = document.querySelector('#chat-messages').dataset.threadId;
-    // if (chat_thread_id !== undefined &&
-        
+    let chat_thread_id = document.querySelector('#chat-messages').dataset.threadId;
+    let msg_thread_id = node.querySelector('[data-thread-id]')?.getAttribute('data-thread-id');
+    console.log(chat_thread_id, msg_thread_id);
+    if (chat_thread_id && chat_thread_id != msg_thread_id) {
+      console.log(`ignoring chat message with thread ID ${msg_thread_id} (current thread id is ${chat_thread_id})`);
+      ev.preventDefault();
+    }
   });
 
   setInterval(() => {

@@ -3,7 +3,7 @@
 import asyncio, json
 from datetime import datetime, timezone, timedelta
 from .general import db
-from .realtime import message_cache_len, close_vote
+from .realtime import close_vote
 from .data import ChatMessage
 from .models import Base, AsyncSession
 from . import models

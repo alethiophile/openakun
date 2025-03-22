@@ -538,3 +538,24 @@ async def new_topic_post() -> ResponseType:
         await websocket.pubsub.publish(f'chan:{topic.story.channel_id}', text)
 
     return redirect(url_for('questing.view_topic', topic_id=topic_id))
+
+@questing.route('/view_chat/<int:channel_id>')
+async def view_chat(channel_id: int) -> ResponseType:
+    uid = 'anon' if g.current_user is None else g.current_user.id
+    if not await realtime.check_channel_auth(channel_id, uid):
+        abort(403)
+
+    tis = request.args.get('thread_id', "")
+    thread_id = int(tis) if tis else None
+    if thread_id is not None:
+        db_msgs = await realtime.get_thread_messages(channel_id, thread_id)
+    else:
+        db_msgs = await realtime.get_back_messages(channel_id)
+    msgs = [i.to_browser_message() for i in db_msgs]
+
+    rs = await render_template(
+        "chat_backlog.html", msgs=msgs, thread_id=thread_id,
+        chat_mainview=(thread_id is None))
+    rs += f"""<input hx-swap-oob="true" id="chat_thread_id_input" type="hidden"
+    name="thread_id" value="{tis}">"""
+    return rs

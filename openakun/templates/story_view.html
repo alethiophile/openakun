@@ -88,12 +88,12 @@
         </div>
     </div>
     <h4 class="uppercase text-sm">Chat</h4>
-    <div id="chat-messages" class="h-full overflow-y-auto flex-[2_0_40%] mb-2">
-        {% include 'chat_backlog.html' %}
-    </div>
+    {% set chat_mainview = True %}
+    {% include 'chat_backlog.html' %}
     <div class="chat-controls form-inline my-2 w-full">
         <form id="chat-sender" class="chat-controls w-full flex flex-row items-end" ws-send>
             <input type="hidden" name="type" value="chat_message">
+            <input id="chat_thread_id_input" type="hidden" name="thread_id" value="">
             <textarea rows="1" data-min-rows="1" id="chat-type"
                       class="autoExpand form-control-sm mr-1 mb-1 w-full resize-none
                             border-1 border-neutral-300 rounded-sm p-1"
