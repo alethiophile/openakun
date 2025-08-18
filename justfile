@@ -1,9 +1,10 @@
 default:
     @just --list
 
+# Pass --watch to run forever and refresh on updates.
 [working-directory: 'openakun']
-tailwind:
-    npx @tailwindcss/cli -i ./static/tailwind-inp.css -o ./static/tailwind.css --watch
+tailwind *args:
+    npx @tailwindcss/cli -i ./static/tailwind-inp.css -o ./static/tailwind.css {{args}}
 
 docker-run:
     docker compose -f docker_compose.dev.yml up

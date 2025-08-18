@@ -38,7 +38,7 @@ CMD ["/venv/bin/openakun_server", "--host", "0.0.0.0"]
 
 FROM base AS dev
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get -y install libpq5
+    apt-get -y install libpq5 curl iputils-ping
 WORKDIR /app
 COPY --from=builder --link /venv /venv
 COPY --from=builder --link /app /app
