@@ -12,7 +12,7 @@ alembic = "^1.14.1"
 sqlalchemy = {version = "^2.0.38", extras = ["asyncio"]}
 psycopg2 = "^2.9.10"
 bleach = "^3.2.1"
-redis = "^5.2.1"
+redis = "^6.4.0"
 click = "^8.1.3"
 attrs = "^25.1.0"
 celery = {extras = ["redis"], version = "^5.2.0"}
@@ -32,9 +32,8 @@ openakun_initdb = 'openakun.app:init_db'
 openakun_server = 'openakun.app:do_run'
 
 [tool.poetry.group.dev.dependencies]
-mypy = "^1.15.0"
+mypy = "^1.17.1"
 flake8 = "^7.1.2"
-types-redis = "^4.6.0.10"
 types-bleach = "^6.1.0.0"
 types-passlib = "^1.7.7.13"
 pytest = "^8.3.5"
