@@ -10,7 +10,7 @@ from . import models
 
 from sqlalchemy.dialects import postgresql
 
-from typing import Any, NoReturn, Collection
+from typing import Any, NoReturn, Collection, cast, Awaitable
 
 # Background workers for quart, used to replace celery
 
@@ -75,16 +75,16 @@ async def do_chat_save() -> None:
     old messages from Redis. Runs every minute.
 
     """
-    all_channels = await db.redis_conn.smembers('all_channels')
+    all_channels = await cast(Awaitable[set[Any]], db.redis_conn.smembers('all_channels'))
     all_messages = []
     # print("save_chat_messages")
     # del_toks = []
     for c in all_channels:
-        msgs = [json.loads(i) for i in await db.redis_conn.lrange(c, 0, -1)]
+        msgs = [json.loads(i) for i in await cast(Awaitable[list[Any]], db.redis_conn.lrange(c, 0, -1))]
         # del_toks.extend([i['browser_token'] for i in
         #                  msgs[:- message_cache_len]])
         all_messages.extend(msgs)
-        await db.redis_conn.ltrim(c, - message_cache_len, -1)
+        await cast(Awaitable[str], db.redis_conn.ltrim(c, - message_cache_len, -1))
 
     # domain invariant: these two sets cover all of all_messages and do not
     # intersect
@@ -110,7 +110,7 @@ async def do_chat_save() -> None:
     await db.redis_conn.zremrangebyscore('messages_seen', 0, cutoff_us)
 
 async def do_address_save() -> None:
-    hashes = await db.redis_conn.hgetall("ip_hashes")
+    hashes = await cast(Awaitable[dict[Any, Any]], db.redis_conn.hgetall("ip_hashes"))
     hms = [models.AddressIdentifier(hash=k.decode(), ip=v.decode())
            for k, v in hashes.items()]
     async with db.Session() as s:
