@@ -571,7 +571,6 @@ async def view_chat(channel_id: int) -> ResponseType:
     tis = request.args.get('thread_id', "")
     return_id = request.args.get('return_id', '')
     after_date_str = request.args.get('after_date', '')
-    show_all_pages = request.args.get('show_all', '') == 'true'
     
     thread_id = int(tis) if tis else None
     return_id_int = int(return_id) if return_id else None
@@ -616,6 +615,5 @@ async def view_chat(channel_id: int) -> ResponseType:
         "chat_backlog.html", msgs=msgs, thread_id=thread_id,
         chat_mainview=(thread_id is None), channel_id=channel_id,
         htmx_oob=True, return_id=return_id,
-        page_list=make_page_list_data(page_list, current_page),
-        show_all_pages=show_all_pages)
+        page_list=make_page_list_data(page_list, current_page))
     return rs

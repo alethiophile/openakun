@@ -4,72 +4,54 @@
 {%- macro dropdown_icon(size) -%}
     <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M12.7071 14.7071C12.3166 15.0976 11.6834 15.0976 11.2929 14.7071L6.29289 9.70711C5.90237 9.31658 5.90237 8.68342 6.29289 8.29289C6.68342 7.90237 7.31658 7.90237 7.70711 8.29289L12 12.5858L16.2929 8.29289C16.6834 7.90237 17.3166 7.90237 17.7071 8.29289C18.0976 8.68342 18.0976 9.31658 17.7071 9.70711L12.7071 14.7071Z" fill="#000000"></path> </g></svg>
 {%- endmacro -%}
-{%- macro chat_page_list(page_list_data, channel_id, show_all_pages=False) -%}
+{%- macro chat_page_list(page_list_data, channel_id) -%}
 {% if page_list_data.pages %}
 <div id="chat_topctrl" class="text-center p-2">
-    {% if show_all_pages %}
-        <!-- Show all pages -->
-        {% for page in page_list_data.pages %}
-            {% if page.page_num == page_list_data.current_page %}
-                <span class="px-2 py-1 bg-blue-500 text-white rounded">{{ page.page_num + 1 }}</span>
-            {% else %}
-                <a href="#" 
-                   hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page.date_iso) }}"
-                   hx-target="#chat-messages" hx-swap="outerHTML"
-                   class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer">{{ page.page_num + 1 }}</a>
-            {% endif %}
-        {% endfor %}
-        <button hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, show_all='false') }}"
-                hx-target="#chat_topctrl" hx-swap="outerHTML"
-                class="ml-2 px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded cursor-pointer">Show Less</button>
-    {% else %}
-        <!-- Truncated view around current page -->
-        {% set current = page_list_data.current_page %}
-        {% set total_pages = page_list_data.pages | length %}
+    {% set current = page_list_data.current_page %}
+    {% set total_pages = page_list_data.pages | length %}
+    
+    <!-- All pages rendered, with visibility controlled by CSS classes -->
+    {% for page in page_list_data.pages %}
+        {% set page_idx = loop.index0 %}
+        {% set is_current = page_idx == current %}
+        {% set in_range = page_idx >= (current - 5) and page_idx <= (current + 5) %}
+        {% set is_first = page_idx == 0 %}
+        {% set is_last = page_idx == (total_pages - 1) %}
+        {% set show_in_truncated = in_range or (is_first and current > 5) or (is_last and current < total_pages - 6) %}
         
-        <!-- First page if not adjacent -->
-        {% if current > 5 %}
+        {% if is_current %}
+            <span class="px-2 py-1 bg-blue-500 text-white rounded{% if not show_in_truncated %} page-hidden hidden{% endif %}">{{ page.page_num + 1 }}</span>
+        {% else %}
             <a href="#" 
-               hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page_list_data.pages[0].date_iso) }}"
+               hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page.date_iso) }}"
                hx-target="#chat-messages" hx-swap="outerHTML"
-               class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer">1</a>
-            {% if current > 6 %}
-                <span class="px-1">...</span>
-            {% endif %}
+               class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer{% if not show_in_truncated %} page-hidden hidden{% endif %}">{{ page.page_num + 1 }}</a>
         {% endif %}
         
-        <!-- Pages around current -->
-        {% for offset in range(-5, 6) %}
-            {% set page_idx = current + offset %}
-            {% if page_idx >= 0 and page_idx < total_pages %}
-                {% set page = page_list_data.pages[page_idx] %}
-                {% if page_idx == current %}
-                    <span class="px-2 py-1 bg-blue-500 text-white rounded">{{ page.page_num + 1 }}</span>
-                {% else %}
-                    <a href="#" 
-                       hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page.date_iso) }}"
-                       hx-target="#chat-messages" hx-swap="outerHTML"
-                       class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer">{{ page.page_num + 1 }}</a>
-                {% endif %}
-            {% endif %}
-        {% endfor %}
-        
-        <!-- Last page if not adjacent -->
-        {% if current < total_pages - 6 %}
-            {% if current < total_pages - 7 %}
-                <span class="px-1">...</span>
-            {% endif %}
-            <a href="#" 
-               hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page_list_data.pages[-1].date_iso) }}"
-               hx-target="#chat-messages" hx-swap="outerHTML"
-               class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer">{{ total_pages }}</a>
+        <!-- Add ellipsis after first page if needed -->
+        {% if page_idx == 0 and current > 6 and total_pages > 11 %}
+            <span class="px-1 ellipsis-start">...</span>
         {% endif %}
         
-        {% if total_pages > 11 %}
-        <button hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, show_all='true') }}"
-                hx-target="#chat_topctrl" hx-swap="outerHTML"
-                class="ml-2 px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded cursor-pointer">Show All</button>
+        <!-- Add ellipsis before last page if needed -->
+        {% if page_idx == (total_pages - 2) and current < total_pages - 7 and total_pages > 11 %}
+            <span class="px-1 ellipsis-end">...</span>
         {% endif %}
+    {% endfor %}
+    
+    {% if total_pages > 11 %}
+    <button onclick="
+        const hidden = document.querySelectorAll('.page-hidden');
+        const ellipsisStart = document.querySelector('.ellipsis-start');
+        const ellipsisEnd = document.querySelector('.ellipsis-end');
+        const isHidden = hidden[0] && hidden[0].classList.contains('hidden');
+        
+        hidden.forEach(el => el.classList.toggle('hidden'));
+        if (ellipsisStart) ellipsisStart.classList.toggle('hidden');
+        if (ellipsisEnd) ellipsisEnd.classList.toggle('hidden');
+        
+        this.textContent = isHidden ? 'Show Less' : 'Show All';
+    " class="ml-2 px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded cursor-pointer">Show All</button>
     {% endif %}
 </div>
 {% endif %}

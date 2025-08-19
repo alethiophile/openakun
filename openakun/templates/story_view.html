@@ -88,7 +88,7 @@
         </div>
     </div>
     <h4 class="uppercase text-sm">Chat</h4>
-    {{ macs.chat_page_list(page_list, story.channel_id, False) }}
+    {{ macs.chat_page_list(page_list, story.channel_id) }}
     {% set chat_mainview = True %}
     {% set channel_id = story.channel_id %}
     {% include 'chat_backlog.html' %}
