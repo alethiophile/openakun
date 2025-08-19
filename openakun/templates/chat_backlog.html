@@ -7,7 +7,7 @@
        id="chat_topctrl">&lt; Back</a>
 </div>
 {% else %}
-<div id="chat_topctrl" hx-swap-oob="true">{{ macs.chat_page_list(page_list, 0) }}</div>
+<div hx-swap-oob="true">{{ macs.chat_page_list(page_list, channel_id, show_all_pages) }}</div>
 {% endif %}
 <input hx-swap-oob="true" id="chat_thread_id_input" type="hidden"
        name="thread_id" value="{{ thread_id or "" }}">

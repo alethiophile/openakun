@@ -102,6 +102,19 @@ async def get_recent_backlog(cid: int) -> list[ChatMessage]:
     msgs = [ChatMessage.from_model(i) for i in db_msgs]
     return msgs
 
+async def get_messages_after_date(cid: int, after_date: datetime) -> list[ChatMessage]:
+    """Load page_len messages starting from (after) the given datetime."""
+    s = db_connect()
+    q = (select(models.ChatMessage).
+         options(selectinload(models.ChatMessage.thread_head)).
+         filter(models.ChatMessage.channel_id == cid).
+         filter(models.ChatMessage.date >= after_date).
+         order_by(models.ChatMessage.date.asc()).
+         limit(page_len))
+    db_msgs = list((await s.scalars(q)).all())
+    msgs = [ChatMessage.from_model(i) for i in db_msgs]
+    return msgs
+
 async def get_page_list(cid: int) -> list[tuple[int, int, datetime]]:
     """Given a channel ID, return the list of pages.
 

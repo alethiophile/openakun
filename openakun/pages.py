@@ -212,10 +212,11 @@ async def get_topics(story_id: int) -> list[models.Topic]:
                  models.Topic.post_date.desc()))).all()
     return list(topics)
 
-def make_page_list_json(page_list: list[tuple[int, int, datetime]]) -> list[dict[str, int]]:
-    d = [{ "msg_id": i, "date": int(d.timestamp() * 1000) }
-         for (_, i, d) in page_list]
-    return d
+def make_page_list_data(page_list: list[tuple[int, int, datetime]], current_page: int = -1) -> dict:
+    d = [{ "page_num": n, "msg_id": i, "date": int(d.timestamp() * 1000), 
+           "date_iso": d.isoformat() }
+         for (n, i, d) in page_list]
+    return {"pages": d, "current_page": current_page}
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
 async def view_chapter(story_id: int, chapter_id: int) -> str:
@@ -235,10 +236,12 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
     page_list = await realtime.get_page_list(chapter.story.channel_id)
     is_author = chapter.story.author == g.current_user
     topics = await get_topics(story_id)
+    # Default to showing last page (most recent)
+    current_page = len(page_list) - 1 if page_list else -1
     return await render_template("view_chapter.html", chapter=chapter,
                                  msgs=chat_backlog, is_author=is_author,
                                  topics=topics, story=chapter.story,
-                                 page_list=make_page_list_json(page_list))
+                                 page_list=make_page_list_data(page_list, current_page))
 
 # this endpoint is used only when reopening a closed vote; it gets sent via the
 # standard HTMX path (hx-get on the voteblock element in render_vote.html)
@@ -546,6 +549,19 @@ async def new_topic_post() -> ResponseType:
 
     return redirect(url_for('questing.view_topic', topic_id=topic_id))
 
+def find_page_for_message(page_list: list[tuple[int, int, datetime]], return_id: int) -> int:
+    """Find which page contains the given message ID."""
+    for i, (page_num, msg_id, date) in enumerate(page_list):
+        if i + 1 < len(page_list):
+            next_msg_id = page_list[i + 1][1]
+            if msg_id <= return_id < next_msg_id:
+                return page_num
+        else:
+            # Last page, check if message is >= this page's start
+            if return_id >= msg_id:
+                return page_num
+    return 0  # Default to first page if not found
+
 @questing.route('/view_chat/<int:channel_id>')
 async def view_chat(channel_id: int) -> ResponseType:
     uid = 'anon' if g.current_user is None else g.current_user.id
@@ -554,21 +570,52 @@ async def view_chat(channel_id: int) -> ResponseType:
 
     tis = request.args.get('thread_id', "")
     return_id = request.args.get('return_id', '')
+    after_date_str = request.args.get('after_date', '')
+    show_all_pages = request.args.get('show_all', '') == 'true'
+    
     thread_id = int(tis) if tis else None
+    return_id_int = int(return_id) if return_id else None
+    
     if thread_id is not None:
+        # Thread view - no pagination
         db_msgs = await realtime.get_thread_messages(channel_id, thread_id)
-    else:
-        db_msgs = await realtime.get_recent_backlog(channel_id)
-    msgs = [i.to_browser_message() for i in db_msgs]
-
-    if thread_id is None:
-        page_list = await realtime.get_page_list(channel_id)
-    else:
         page_list = []
+        current_page = -1
+    else:
+        # Main chat view with pagination
+        page_list = await realtime.get_page_list(channel_id)
+        
+        if after_date_str:
+            # Specific page requested
+            try:
+                after_date = datetime.fromisoformat(after_date_str)
+                db_msgs = await realtime.get_messages_after_date(channel_id, after_date)
+                # Find current page number
+                current_page = next((n for (n, _, d) in page_list if d == after_date), -1)
+            except ValueError:
+                # Invalid date format, fall back to recent
+                db_msgs = await realtime.get_recent_backlog(channel_id)
+                current_page = len(page_list) - 1 if page_list else -1
+        elif return_id_int and page_list:
+            # Returning from thread, find appropriate page
+            current_page = find_page_for_message(page_list, return_id_int)
+            if current_page < len(page_list):
+                page_date = page_list[current_page][2]
+                db_msgs = await realtime.get_messages_after_date(channel_id, page_date)
+            else:
+                db_msgs = await realtime.get_recent_backlog(channel_id)
+                current_page = len(page_list) - 1 if page_list else -1
+        else:
+            # Default recent view (last page)
+            db_msgs = await realtime.get_recent_backlog(channel_id)
+            current_page = len(page_list) - 1 if page_list else -1
+
+    msgs = [i.to_browser_message() for i in db_msgs]
 
     rs = await render_template(
         "chat_backlog.html", msgs=msgs, thread_id=thread_id,
         chat_mainview=(thread_id is None), channel_id=channel_id,
         htmx_oob=True, return_id=return_id,
-        page_list=make_page_list_json(page_list))
+        page_list=make_page_list_data(page_list, current_page),
+        show_all_pages=show_all_pages)
     return rs
