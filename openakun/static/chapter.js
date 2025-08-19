@@ -78,7 +78,7 @@ $(function () {
   // center the element that was previously clicked on
   htmx.on('htmx:load', (ev) => {
     let rid = ev.target.dataset.returnId;
-    if (rid === undefined) {
+    if (rid === undefined || !rid) {
       return;
     }
     let el = ev.target.querySelector(`[data-db-id="${rid}"]`);
