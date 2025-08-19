@@ -7,3 +7,4 @@ openakun_config.toml
 secrets.env
 openakun/static/tailwind.css
 node_modules/
+.aider*
