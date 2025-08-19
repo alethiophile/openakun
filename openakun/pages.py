@@ -212,10 +212,10 @@ async def get_topics(story_id: int) -> list[models.Topic]:
                  models.Topic.post_date.desc()))).all()
     return list(topics)
 
-def make_page_list_json(page_list: list[tuple[int, int, datetime]]) -> str:
+def make_page_list_json(page_list: list[tuple[int, int, datetime]]) -> list[dict[str, int]]:
     d = [{ "msg_id": i, "date": int(d.timestamp() * 1000) }
          for (_, i, d) in page_list]
-    return json.dumps(d)
+    return d
 
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
 async def view_chapter(story_id: int, chapter_id: int) -> str:

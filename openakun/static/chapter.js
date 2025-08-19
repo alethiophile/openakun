@@ -242,17 +242,4 @@ document.addEventListener('alpine:init', () => {
       },
     };
   });
-
-  Alpine.data('chat_page_list', function (page_list, open_page) {
-    if (open_page === undefined) {
-      open_page = page_list.length;
-    }
-    return {
-      page_list: page_list,
-      cur_page: open_page,
-      init() {
-        
-      },
-    };
-  });
 });
