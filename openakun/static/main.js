@@ -79,6 +79,8 @@ function _reinit_rtes() {
 }
 
 $(function () {
+  // htmx.logAll();
+
   // this is called on every incoming WS message, before HTMX handles
   // it, if and only if that message is not JSON
 

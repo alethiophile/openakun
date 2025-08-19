@@ -10,7 +10,7 @@ from quart import render_template, g
 from quart import websocket as ws
 from functools import wraps
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import sql, or_
+from sqlalchemy import sql, or_, func
 from sqlalchemy.sql.expression import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -89,9 +89,10 @@ async def get_thread_messages(cid: int, tid: int) -> list[ChatMessage]:
     msgs = [ChatMessage.from_model(i) for i in reversed(db_msgs)]
     return msgs
 
-async def get_back_messages(cid: int) -> list[ChatMessage]:
+async def get_recent_backlog(cid: int) -> list[ChatMessage]:
     s = db_connect()
     q = (select(models.ChatMessage).
+         options(selectinload(models.ChatMessage.thread_head)).
          filter(models.ChatMessage.channel_id == cid).
          order_by(models.ChatMessage.date.desc()).
          limit(page_len))
@@ -99,6 +100,29 @@ async def get_back_messages(cid: int) -> list[ChatMessage]:
     db_msgs.reverse()
     msgs = [ChatMessage.from_model(i) for i in db_msgs]
     return msgs
+
+async def get_page_list(cid: int) -> list[tuple[int, int, datetime]]:
+    """Given a channel ID, return the list of pages.
+
+    Pages are not fixed, they're just slices by page_len of the whole channel
+    backlog. You don't request a page number, you request a slice starting at
+    the appropriate datetime.
+
+    Elements of the return list are tuples: (page_num: int, message_id: int,
+    message_date: datetime).
+    """
+    s = db_connect()
+    subq = (select(models.ChatMessage.id, models.ChatMessage.date,
+                   models.ChatMessage.channel_id,
+                   func.row_number().over(order_by=models.ChatMessage.date).
+                   label("row_num")).
+            filter(models.ChatMessage.channel_id == cid).
+            subquery())
+    res = (await s.execute(
+        select(subq.c.id, subq.c.date).
+        filter(subq.c.row_num % page_len == 1)
+    )).all()
+    return [(n, i, d) for (n, (i, d)) in enumerate(res)]
 
 @handle_message('chat_message')
 @with_channel_auth()
@@ -128,8 +152,8 @@ async def handle_chat(data: dict[str, Any]) -> None:
     db_msg = msg.to_model()
     s.add(db_msg)
     await s.commit()
-    msg.db_id = db_msg.id
 
+    msg = ChatMessage.from_model(db_msg)
     mo = msg.to_browser_message()
     if mo['is_anon']:
         # TODO eventually set this to the story-configured anon username

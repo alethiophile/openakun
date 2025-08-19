@@ -88,7 +88,9 @@
         </div>
     </div>
     <h4 class="uppercase text-sm">Chat</h4>
+    <div id="chat_topctrl">{{ macs.chat_page_list(page_list) }}</div>
     {% set chat_mainview = True %}
+    {% set channel_id = story.channel_id %}
     {% include 'chat_backlog.html' %}
     <div class="chat-controls form-inline my-2 w-full">
         <form id="chat-sender" class="chat-controls w-full flex flex-row items-end" ws-send>

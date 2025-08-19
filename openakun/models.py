@@ -298,6 +298,7 @@ class ChatMessage(Base):
 
     user: Mapped[User] = relationship()
     channel: Mapped[Channel] = relationship(back_populates="messages")
+    thread_head: Mapped[ChatMessage] = relationship(remote_side=[id])
 
 class AddressIdentifier(Base):
     __tablename__ = 'address_identifier'

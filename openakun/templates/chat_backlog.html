@@ -1,6 +1,21 @@
+{%- import 'macros.html' as macs -%}
+{% if htmx_oob %}{% if thread_id %}<div hx-swap-oob="true" id="chat_topctrl">
+    <a hx-get="{{ url_for('questing.view_chat', channel_id=channel_id,
+               return_id=return_id) }}"
+       hx-target="#chat-messages" hx-swap="outerHTML"
+       class="btn btn-xs cursor-pointer"
+       id="chat_topctrl">&lt; Back</a>
+</div>
+{% else %}
+<div id="chat_topctrl" hx-swap-oob="true">{{ macs.chat_page_list(page_list) }}</div>
+{% endif %}
+<input hx-swap-oob="true" id="chat_thread_id_input" type="hidden"
+       name="thread_id" value="{{ thread_id or "" }}">
+{% endif %}
 <div id="chat-messages" class="h-full overflow-y-auto flex-[2_0_40%]
          flex flex-col [justify-content:safe_end] mb-2"
-     {% if thread_id != None %}data-thread-id="{{ thread_id }}"{% endif %}>
+     {% if thread_id != None %}data-thread-id="{{ thread_id }}"{% else %}
+     data-return-id="{{ return_id }}"{% endif %}>
     {% for c in msgs %}
         {% include 'render_chatmsg.html' %}
     {% endfor %}

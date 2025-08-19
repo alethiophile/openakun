@@ -212,6 +212,11 @@ async def get_topics(story_id: int) -> list[models.Topic]:
                  models.Topic.post_date.desc()))).all()
     return list(topics)
 
+def make_page_list_json(page_list: list[tuple[int, int, datetime]]) -> str:
+    d = [{ "msg_id": i, "date": int(d.timestamp() * 1000) }
+         for (_, i, d) in page_list]
+    return json.dumps(d)
+
 @questing.route('/story/<int:story_id>/<int:chapter_id>')
 async def view_chapter(story_id: int, chapter_id: int) -> str:
     s = db_connect()
@@ -226,12 +231,14 @@ async def view_chapter(story_id: int, chapter_id: int) -> str:
     if chapter is None:
         abort(404)
     chat_backlog = [i.to_browser_message() for i in
-                    await realtime.get_back_messages(chapter.story.channel_id)]
+                    await realtime.get_recent_backlog(chapter.story.channel_id)]
+    page_list = await realtime.get_page_list(chapter.story.channel_id)
     is_author = chapter.story.author == g.current_user
     topics = await get_topics(story_id)
     return await render_template("view_chapter.html", chapter=chapter,
                                  msgs=chat_backlog, is_author=is_author,
-                                 topics=topics, story=chapter.story)
+                                 topics=topics, story=chapter.story,
+                                 page_list=make_page_list_json(page_list))
 
 # this endpoint is used only when reopening a closed vote; it gets sent via the
 # standard HTMX path (hx-get on the voteblock element in render_vote.html)
@@ -451,7 +458,7 @@ async def view_topic(topic_id: int) -> str:
     if not htmx_partial:
         chat_backlog = [
             i.to_browser_message() for i in
-            await realtime.get_back_messages(topic.story.channel_id)]
+            await realtime.get_recent_backlog(topic.story.channel_id)]
         topics = await get_topics(topic.story_id)
     else:
         chat_backlog = []
@@ -546,16 +553,22 @@ async def view_chat(channel_id: int) -> ResponseType:
         abort(403)
 
     tis = request.args.get('thread_id', "")
+    return_id = request.args.get('return_id', '')
     thread_id = int(tis) if tis else None
     if thread_id is not None:
         db_msgs = await realtime.get_thread_messages(channel_id, thread_id)
     else:
-        db_msgs = await realtime.get_back_messages(channel_id)
+        db_msgs = await realtime.get_recent_backlog(channel_id)
     msgs = [i.to_browser_message() for i in db_msgs]
+
+    if thread_id is None:
+        page_list = await realtime.get_page_list(channel_id)
+    else:
+        page_list = []
 
     rs = await render_template(
         "chat_backlog.html", msgs=msgs, thread_id=thread_id,
-        chat_mainview=(thread_id is None))
-    rs += f"""<input hx-swap-oob="true" id="chat_thread_id_input" type="hidden"
-    name="thread_id" value="{tis}">"""
+        chat_mainview=(thread_id is None), channel_id=channel_id,
+        htmx_oob=True, return_id=return_id,
+        page_list=make_page_list_json(page_list))
     return rs

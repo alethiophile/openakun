@@ -6,6 +6,7 @@ import secrets, bleach, json
 from datetime import datetime, timezone
 from attrs import define, field, asdict
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import inspect
 
 from . import models
 
@@ -41,8 +42,7 @@ class ChatMessage:
     date: datetime
     db_id: int | None = None
     thread_id: int | None = None
-    # this is the text of the thread-heading message; must be set if thread_id
-    # is
+    # this is the text of the thread-heading message
     thread_quote: str | None = None
     anon_id: str | None = None
     user_id: int | None = None
@@ -83,12 +83,17 @@ class ChatMessage:
         else:
             user_info = { 'user_id': m.user_id, 'user_name': m.user.name }
         assert m.text is not None
+        if 'thread_head' in inspect(m).unloaded or m.thread_head is None:
+            thread_quote = None
+        else:
+            thread_quote = m.thread_head.text
         return cls(
             msg_text=m.text,
             channel_id=m.channel_id,
             date=m.date,
             db_id=m.id,
             thread_id=m.thread_id,
+            thread_quote=thread_quote,
             **user_info
         )
 
@@ -113,7 +118,8 @@ class ChatMessage:
                'text': self.msg_text, 'date': self.date,
                'rendered_date': (self.date.astimezone(timezone.utc).
                                  strftime("%b %d, %Y %I:%M %p UTC")),
-               'channel': self.channel_id, 'thread_id': self.thread_id }
+               'channel': self.channel_id, 'thread_id': self.thread_id,
+               'thread_quote': self.thread_quote }
         if self.db_id is not None:
             rv['db_id'] = self.db_id
         if self.user_name is not None:

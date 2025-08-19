@@ -3,14 +3,19 @@
             {% if chat_mainview %}cursor-pointer{% endif %}" data-db-id="{{ c.db_id }}"
      {% if c.thread_id != None %}data-thread-id="{{ c.thread_id }}"{% endif %}
      {% if chat_mainview %}{% set tid = c.thread_id or c.db_id %}
-     hx-get="{{ url_for('questing.view_chat', channel_id=c.channel, thread_id=tid) }}"
+     hx-get="{{ url_for('questing.view_chat', channel_id=c.channel, thread_id=tid,
+             return_id=c.db_id) }}"
      hx-target="#chat-messages" hx-swap="outerHTML"
      {% endif %}>
     <div class="chat_head flex">
         <div class="chat_sender text-sm font-bold mr-1">{{ c.username }}</div>
         {# TODO update this to allow setting server timezone #}
-        <div class="chat_date server-date text-sm text-neutral-400" data-dateval="{{ c.date.timestamp() * 1000|int }}">{{ c.rendered_date }}</div>
+        <div class="chat_date server-date text-sm text-neutral-400"
+             data-dateval="{{ c.date.timestamp() * 1000|int }}">{{ c.rendered_date }}</div>
     </div>
+    {% if c.thread_quote != None %}<blockquote class="text-neutral-500 border-l-neutral-300
+                                                      border-l-5 pl-2 ml-1 truncate mr-3 my-1"
+                                   >{{ c.thread_quote }}</blockquote>{% endif %}
     <div class="chat_message">{{ c.text }}</div>
 </div>
 {% if htmx %}</div>{% endif %}

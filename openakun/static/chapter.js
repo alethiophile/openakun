@@ -4,7 +4,7 @@ $(function () {
   function fix_dates($el) {
     $el.find('.server-date').each(function () {
       let $t = $(this);
-      var m = moment($t.data('dateval'));
+      var m = moment(parseFloat($t.data('dateval')));
       var rd = m.format("MMM Do, YYYY h:mm A");
       $t.html(rd);
       $t.removeClass('server-date');
@@ -67,10 +67,22 @@ $(function () {
 
   // only chat messages do the scroll stuff
   htmx.on('#chat-messages', 'htmx:load', (ev) => {
+    console.log("#chat-messages htmx:load", ev);
     if (scroll_after_new) {
       cm.scrollTop = cm.scrollHeight;
     }
     last_chat_message = ev.detail.elt;
+  });
+
+  // when returning to the main view from a thread, this scrolls to
+  // center the element that was previously clicked on
+  htmx.on('htmx:load', (ev) => {
+    let rid = ev.target.dataset.returnId;
+    if (rid === undefined) {
+      return;
+    }
+    let el = ev.target.querySelector(`[data-db-id="${rid}"]`);
+    el.scrollIntoView({'block': 'center'});
   });
 
   let anim_running = false;
@@ -109,7 +121,6 @@ $(function () {
 
     let chat_thread_id = document.querySelector('#chat-messages').dataset.threadId;
     let msg_thread_id = node.querySelector('[data-thread-id]')?.getAttribute('data-thread-id');
-    console.log(chat_thread_id, msg_thread_id);
     if (chat_thread_id && chat_thread_id != msg_thread_id) {
       console.log(`ignoring chat message with thread ID ${msg_thread_id} (current thread id is ${chat_thread_id})`);
       ev.preventDefault();
@@ -228,6 +239,19 @@ document.addEventListener('alpine:init', () => {
         this.vote_options = [];
         // this.quill_instance.setText('');
         rte_instance.ed.setContent('');
+      },
+    };
+  });
+
+  Alpine.data('chat_page_list', function (page_list, open_page) {
+    if (open_page === undefined) {
+      open_page = page_list.length;
+    }
+    return {
+      page_list: page_list,
+      cur_page: open_page,
+      init() {
+        
       },
     };
   });
