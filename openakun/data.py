@@ -372,8 +372,8 @@ class Post:
     order_idx: int | None = None
 
     @text.validator
-    def _cleck_clean_html(self, attrib: Any, val: str | None) -> None:
-        if val is None:
+    def _check_clean_html(self, attrib: Any, val: str | None) -> None:
+        if val is None or isinstance(val, PostHTMLText):
             return
         html = PostHTMLText(val)
         if html.clean_html != html.dirty_html:
