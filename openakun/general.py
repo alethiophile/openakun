@@ -2,6 +2,7 @@ from . import models
 
 import secrets, re, sqlalchemy, importlib.resources, hashlib
 import redis.asyncio as redis
+import redis.asyncio.client as asyncio_client
 from quart import session, request, abort, g, current_app, url_for
 from quart import websocket as ws
 from functools import wraps
@@ -12,7 +13,7 @@ from .login import LoginManager
 from .config import Config
 from sqlalchemy.sql.expression import select, func
 
-from typing import Callable, Optional, Any, Iterator
+from typing import Callable, Optional, Any, Iterator, cast, Awaitable
 
 class ConfigError(Exception):
     pass
@@ -23,7 +24,7 @@ login_mgr = LoginManager()
 class DbObj:
     db_engine: sqlalchemy.ext.asyncio.AsyncEngine
     Session: sqlalchemy.ext.asyncio.async_sessionmaker
-    redis_conn: redis.Redis
+    redis_conn: asyncio_client.Redis
 db = DbObj()
 db.db_engine, db.Session, db.redis_conn = None, None, None  # type: ignore
 
@@ -134,7 +135,8 @@ def csp_report() -> str:
 async def register_ip(addr: str) -> str:
     salted_val = f"{addr}:{current_app.config['SECRET_KEY']}"
     hashval = hashlib.sha256(salted_val.encode()).hexdigest()
-    await db.redis_conn.hset("ip_hashes", hashval, addr)
+    # fuck the redis-py people for putting in known-incorrect type annotations
+    await cast(Awaitable[int], db.redis_conn.hset("ip_hashes", hashval, addr))
     return hashval
 
 async def get_user_identifier() -> str:
