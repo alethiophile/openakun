@@ -26,7 +26,7 @@
             {% else %}
                 <a href="#" 
                    hx-get="{{ url_for('questing.view_chat', channel_id=channel_id) }}"
-                   hx-target="#chat-messages" hx-swap="outerHTML"
+                   hx-target="#chat-messages" hx-swap="outerHTML scroll:bottom"
                    class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer{% if not show_in_truncated %} page-hidden hidden{% endif %}">Latest</a>
             {% endif %}
         {% else %}
