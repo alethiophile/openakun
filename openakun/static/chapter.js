@@ -58,20 +58,35 @@ $(function () {
   }
   htmx.on('#chat-messages', 'scrollend', (ev) => {
     scroll_after_new = scroll_from_bottom(ev.target) < last_chat_message.clientHeight;
+    console.log(scroll_after_new);
   });
 
   // any new content gets server dates fixed
   htmx.on('htmx:load', (ev) => {
     fix_dates($(ev.detail.elt));
-  });
 
-  // only chat messages do the scroll stuff
-  htmx.on('#chat-messages', 'htmx:load', (ev) => {
-    console.log("#chat-messages htmx:load", ev);
-    if (scroll_after_new) {
-      cm.scrollTop = cm.scrollHeight;
+    // only chat messages do the scroll stuff
+    if (ev.detail.elt.classList.contains('chatmsg')) {
+      console.log("#chat-messages htmx:load", ev);
+      console.log(scroll_after_new);
+      if (scroll_after_new) {
+        cm.scrollTop = cm.scrollHeight;
+      }
+      last_chat_message = ev.detail.elt;
     }
-    last_chat_message = ev.detail.elt;
+
+    // reloading the chat-messages page resets the event handlers and
+    // element IDs, so we redo that logic here
+    if (ev.detail.elt.id === 'chat-messages') {
+      let msgs = document.querySelector('#chat-messages').querySelectorAll('.chatmsg');
+      last_chat_message = msgs[msgs.length - 1];
+      scroll_after_new = true;
+      cm = document.querySelector('#chat-messages');
+      htmx.on('#chat-messages', 'scrollend', (ev) => {
+        scroll_after_new = scroll_from_bottom(ev.target) < last_chat_message.clientHeight;
+        console.log(scroll_after_new);
+      });
+    }
   });
 
   // when returning to the main view from a thread, this scrolls to
