@@ -140,6 +140,21 @@ $(function () {
       console.log(`ignoring chat message with thread ID ${msg_thread_id} (current thread id is ${chat_thread_id})`);
       ev.preventDefault();
     }
+
+    // Filter websocket chat messages based on whether showing latest
+    // Check if this is a chat message
+    let chat_msg = node.querySelector('.chatmsg');
+    let oob = node.getAttribute('hx-swap-oob');
+    if (oob === 'beforeend' && chat_msg && chat_msg.classList.contains('chatmsg')) {
+      const chatContainer = document.querySelector('#chat-messages');
+      
+      // Only allow chat messages if showing latest
+      if (chatContainer && chatContainer.dataset.showingLatest !== 'true') {
+        console.log('ignoring chat message - not showing latest');
+        ev.preventDefault(); // Block the websocket message
+        return;
+      }
+    }
   });
 
   setInterval(() => {

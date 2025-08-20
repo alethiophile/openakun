@@ -13,7 +13,8 @@
        name="thread_id" value="{{ thread_id or "" }}">
 {% endif %}
 <div id="chat-messages" class="h-full overflow-y-auto flex-[2_0_40%]
-         flex flex-col [justify-content:safe_end] mb-2"
+          flex flex-col [justify-content:safe_end] mb-2"
+     data-showing-latest="{{ 'true' if is_showing_latest else 'false' }}"
      {% if thread_id != None %}data-thread-id="{{ thread_id }}"{% else %}
      data-return-id="{{ return_id }}"{% endif %}>
     {% for c in msgs %}

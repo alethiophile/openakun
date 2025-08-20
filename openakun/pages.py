@@ -575,6 +575,7 @@ async def view_chat(channel_id: int) -> ResponseType:
     thread_id = int(tis) if tis else None
     return_id_int = int(return_id) if return_id else None
     
+    is_showing_latest = True
     if thread_id is not None:
         # Thread view - no pagination
         db_msgs = await realtime.get_thread_messages(channel_id, thread_id)
@@ -591,6 +592,7 @@ async def view_chat(channel_id: int) -> ResponseType:
                 db_msgs = await realtime.get_messages_after_date(channel_id, after_date)
                 # Find current page number
                 current_page = next((n for (n, _, d) in page_list if d == after_date), -1)
+                is_showing_latest = False
             except ValueError:
                 # Invalid date format, fall back to recent
                 db_msgs = await realtime.get_recent_backlog(channel_id)
@@ -601,6 +603,7 @@ async def view_chat(channel_id: int) -> ResponseType:
             if current_page < len(page_list):
                 page_date = page_list[current_page][2]
                 db_msgs = await realtime.get_messages_after_date(channel_id, page_date)
+                is_showing_latest = False
             else:
                 db_msgs = await realtime.get_recent_backlog(channel_id)
                 current_page = len(page_list) - 1 if page_list else -1
@@ -615,5 +618,6 @@ async def view_chat(channel_id: int) -> ResponseType:
         "chat_backlog.html", msgs=msgs, thread_id=thread_id,
         chat_mainview=(thread_id is None), channel_id=channel_id,
         htmx_oob=True, return_id=return_id,
-        page_list=make_page_list_data(page_list, current_page))
+        page_list=make_page_list_data(page_list, current_page),
+        is_showing_latest=is_showing_latest)
     return rs
