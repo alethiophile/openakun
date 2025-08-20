@@ -213,6 +213,10 @@ async def get_topics(story_id: int) -> list[models.Topic]:
     return list(topics)
 
 def make_page_list_data(page_list: list[tuple[int, int, datetime]], current_page: int = -1) -> dict:
+    # Don't show pagination if only 1 page or empty
+    if len(page_list) <= 1:
+        return {"pages": [], "current_page": current_page}
+    
     d = [{ "page_num": n, "msg_id": i, "date": int(d.timestamp() * 1000), 
            "date_iso": d.isoformat() }
          for (n, i, d) in page_list]
