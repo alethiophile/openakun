@@ -19,13 +19,26 @@
         {% set is_last = page_idx == (total_pages - 1) %}
         {% set show_in_truncated = in_range or (is_first and current > 5) or (is_last and current < total_pages - 6) %}
         
-        {% if is_current %}
-            <span class="px-2 py-1 bg-blue-500 text-white rounded{% if not show_in_truncated %} page-hidden hidden{% endif %}">{{ page.page_num + 1 }}</span>
+        {% if is_last %}
+            <!-- Final page shows as "Latest" -->
+            {% if is_current %}
+                <span class="px-2 py-1 bg-blue-500 text-white rounded{% if not show_in_truncated %} page-hidden hidden{% endif %}">Latest</span>
+            {% else %}
+                <a href="#" 
+                   hx-get="{{ url_for('questing.view_chat', channel_id=channel_id) }}"
+                   hx-target="#chat-messages" hx-swap="outerHTML"
+                   class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer{% if not show_in_truncated %} page-hidden hidden{% endif %}">Latest</a>
+            {% endif %}
         {% else %}
-            <a href="#" 
-               hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page.date_iso) }}"
-               hx-target="#chat-messages" hx-swap="outerHTML"
-               class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer{% if not show_in_truncated %} page-hidden hidden{% endif %}">{{ page.page_num + 1 }}</a>
+            <!-- Regular pages show page numbers -->
+            {% if is_current %}
+                <span class="px-2 py-1 bg-blue-500 text-white rounded{% if not show_in_truncated %} page-hidden hidden{% endif %}">{{ page.page_num + 1 }}</span>
+            {% else %}
+                <a href="#" 
+                   hx-get="{{ url_for('questing.view_chat', channel_id=channel_id, after_date=page.date_iso) }}"
+                   hx-target="#chat-messages" hx-swap="outerHTML"
+                   class="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded cursor-pointer{% if not show_in_truncated %} page-hidden hidden{% endif %}">{{ page.page_num + 1 }}</a>
+            {% endif %}
         {% endif %}
         
         <!-- Add ellipsis after first page if needed -->
